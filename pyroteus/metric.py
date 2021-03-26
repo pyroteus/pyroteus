@@ -3,12 +3,12 @@ Driver functions for metric-based mesh adaptation.
 """
 from __future__ import absolute_import
 from .utility import *
-from .kernels import eigen_kernel, postproc_metric
+import .kernels as kernels
 
 
 __all__ = ["metric_complexity", "isotropic_metric",
            "space_normalise", "space_time_normalise",
-           "metric_relaxation", "metric_average"]
+           "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics"]
 
 
 # --- General
@@ -91,7 +91,7 @@ def space_normalise(metric, options, target, p, h_min, h_max, a_max=1000):
     metric.interpolate(integral*determinant*metric)
 
     # Enforce maximum/minimum element sizes and anisotropy
-    kernel = eigen_kernel(postproc_metric, dim, h_min, h_max, a_max)
+    kernel = kernels.eigen_kernel(kernels.postproc_metric, dim, h_min, h_max, a_max)
     op2.par_loop(kernel, fs.node_set, metric.dat(op2.RW))
     return metric
 
@@ -141,7 +141,7 @@ def space_time_normalise(metrics, options, target, p, h_min, h_max, a_max=1000, 
             metric.interpolate(global_norm*metric*pow(tau**2*det(metric), -1/(2*p + dim)))
 
         # Enforce maximum/minimum element sizes and anisotropy
-        kernel = eigen_kernel(postproc_metric, dim, h_min, h_max, a_max)
+        kernel = kernels.eigen_kernel(kernels.postproc_metric, dim, h_min, h_max, a_max)
         op2.par_loop(kernel, metric.function_space().node_set, metric.dat(op2.RW))
     return metrics
 
@@ -173,8 +173,55 @@ def metric_relaxation(*metrics, weights=None, function_space=None):
 def metric_average(*metrics, function_space=None):
     """
     Combine a list of metrics by averaging.
+
     :args metrics: the metrics to be combined
     :kwarg function_space: the :class:`FunctionSpace`
-        the relaxed metric should live in
+        the averaged metric should live in
     """
     return metric_relaxation(*metrics, function_space=function_space)
+
+
+def metric_intersection(*metrics, function_space=None, boundary_tag=None):
+    """
+    Combine a list of metrics by intersection.
+
+    :args metrics: the metrics to be combined
+    :kwarg function_space: the :class:`FunctionSpace`
+        the intersected metric should live in
+    :kwarg boundary_tag: boundary segment physical
+        ID for boundary intersection
+    """
+    n = len(metrics)
+    assert n > 0
+    fs = function_space or metrics[0].function_space()
+    for metric in metrics:
+        if not isinstance(metric, Function) or metric.function_space() != fs:
+            metric = interpolate(metric, function_space)
+    intersected_metric = Function(metrics[0])
+    node_set = fs.node_set if tag is None else DirichletBC(fs, 0, boundary_tag).node_set
+    dim = fs.mesh().topological_dimension()
+    assert dim in (2, 3), "Spatial dimension {:d} not supported.".format(dim)
+
+    def intersect_pair(M1, M2):
+        M12 = Function(M1)
+        kernel = kernels.eigen_kernel(kernels.intersect, dim)
+        op2.par_loop(kernel, node_set, M12.dat(op2.RW), M1.dat(op2.READ), M2.dat(op2.READ))
+        return M12
+
+    for metric in metrics[1:]:
+        intersected_metric = intersect_pair(intersected_metric, metric)
+    return intersected_metric
+
+
+def combine_metrics(*metrics, average=True, **kwargs):
+    """
+    Combine a list of metrics.
+
+    :kwarg average: combination by averaging or intersection?
+    """
+    if average:
+        kwargs.pop('boundary_tag')
+        return metric_relaxation(*metrics, **kwargs)
+    else:
+        kwargs.pop('weights')
+        return metric_intersection(*metrics, **kwargs)
