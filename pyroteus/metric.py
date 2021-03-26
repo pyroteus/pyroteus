@@ -1,10 +1,17 @@
+"""
+Driver functions for metric-based mesh adaptation.
+"""
 from __future__ import absolute_import
 from .utility import *
 from .kernels import eigen_kernel, postproc_metric
 
 
-__all__ = ["metric_complexity", "isotropic_metric", "space_normalise", "space_time_normalise"]
+__all__ = ["metric_complexity", "isotropic_metric",
+           "space_normalise", "space_time_normalise",
+           "metric_relaxation", "metric_average"]
 
+
+# --- General
 
 def metric_complexity(metric, boundary=False):
     """
@@ -53,6 +60,8 @@ def isotropic_metric(scalar_field, tensor_fs=None, f_min=1.0e-12):
     # Assemble full metric
     return interpolate(M_diag*Identity(dim), tensor_fs)
 
+
+# --- Normalisation
 
 def space_normalise(metric, options, target, p, h_min, h_max, a_max=1000):
     """
@@ -135,3 +144,37 @@ def space_time_normalise(metrics, options, target, p, h_min, h_max, a_max=1000, 
         kernel = eigen_kernel(postproc_metric, dim, h_min, h_max, a_max)
         op2.par_loop(kernel, metric.function_space().node_set, metric.dat(op2.RW))
     return metrics
+
+
+# --- Combination
+
+def metric_relaxation(*metrics, weights=None, function_space=None):
+    """
+    Combine a list of metrics with a weighted average.
+
+    :args metrics: the metrics to be combined
+    :kwarg weights: a list of weights
+    :kwarg function_space: the :class:`FunctionSpace`
+        the relaxed metric should live in
+    """
+    n = len(metrics)
+    assert n > 0
+    weights = weights or np.ones(n)/n
+    assert len(weights) == n
+    fs = function_space or metrics[0].function_space()
+    relaxed_metric = Function(fs)
+    for weight, metric in zip(weights, metrics):
+        if not isinstance(metric, Function) or metric.function_space() != fs:
+            metric = interpolate(metric, function_space)
+        relaxed_metric += weight*metric
+    return relaxed_metric
+
+
+def metric_average(*metrics, function_space=None):
+    """
+    Combine a list of metrics by averaging.
+    :args metrics: the metrics to be combined
+    :kwarg function_space: the :class:`FunctionSpace`
+        the relaxed metric should live in
+    """
+    return metric_relaxation(*metrics, function_space=function_space)
