@@ -3,6 +3,8 @@ outputs/
 plots/
 __pycache__/
 
+pyroteus.egg-info
+
 *.jpg
 *.msh
 *.pdf
