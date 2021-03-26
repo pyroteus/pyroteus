@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-from firedrake import *
+from .utility import *
 from .kernels import eigen_kernel, postproc_metric
 
 
