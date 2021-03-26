@@ -1,0 +1,12 @@
+data/
+outputs/
+plots/
+__pycache__/
+
+*.jpg
+*.msh
+*.pdf
+*.png
+*.pvd
+*.swp
+*.vtu
