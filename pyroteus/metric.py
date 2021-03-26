@@ -3,7 +3,7 @@ Driver functions for metric-based mesh adaptation.
 """
 from __future__ import absolute_import
 from .utility import *
-import .kernels as kernels
+from . import kernels
 
 
 __all__ = ["metric_complexity", "isotropic_metric",
