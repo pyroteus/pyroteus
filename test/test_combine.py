@@ -1,3 +1,6 @@
+"""
+Test metric combination drivers.
+"""
 from pyroteus import *
 import pytest
 

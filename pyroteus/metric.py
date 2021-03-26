@@ -8,7 +8,8 @@ from . import kernel as kernels
 
 __all__ = ["metric_complexity", "isotropic_metric",
            "space_normalise", "space_time_normalise",
-           "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics"]
+           "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
+           "check_spd"]
 
 
 # --- General
@@ -225,3 +226,57 @@ def combine_metrics(*metrics, average=True, **kwargs):
     else:
         kwargs.pop('weights')
         return metric_intersection(*metrics, **kwargs)
+
+
+# --- Metric properties
+
+
+def is_symmetric(M, rtol=1.0e-08):
+    """
+    Determine whether a tensor field is symmetric.
+
+    :arg M: the tensor field
+    :kwarg rtol: relative tolerance for the test
+    """
+    err = assemble(abs(det(M - transpose(M)))*dx)
+    return err/assemble(abs(det(M))*dx) < rtol
+
+
+def is_pos_def(M):
+    """
+    Determine whether a tensor field is positive-definite.
+
+    :arg M: the tensor field
+    """
+    fs = M.function_space()
+    fs_vec = VectorFunctionSpace(fs.mesh(), fs.ufl_element().family(), fs.ufl_element().degree())
+    evectors = Function(fs)
+    evalues = Function(fs_vec)
+    kernel = kernels.eigen_kernel(kernels.get_eigendecomposition, fs.mesh().topological_dimension())
+    op2.par_loop(kernel, fs.node_set, evectors.dat(op2.RW), evalues.dat(op2.RW), M.dat(op2.READ))
+    return evalues.vector().gather().min() > 0.0
+
+
+def is_spd(M):
+    """
+    Determine whether a tensor field is symmetric positive-definite.
+
+    :arg M: the tensor field
+    """
+    return is_symmetric(M) and is_pos_def(M)
+
+
+def check_spd(M):
+    """
+    Verify that a tensor field is symmetric positive-definite.
+
+    :arg M: the tensor field
+    """
+    try:
+        assert is_symmetric(M)
+    except AssertionError:
+        raise ValueError("FAIL: Matrix is not symmetric")
+    try:
+        assert is_pos_def(M)
+    except AssertionError:
+        raise ValueError("FAIL: Matrix is not positive-definite")

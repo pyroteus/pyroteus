@@ -93,3 +93,29 @@ void intersect(double M_[%d], const double * A_, const double * B_) {
   M = Sq.transpose() * Q * D * Q.transpose() * Sq;
 }
 """ % (d*d, d, d, d, d, d, d, d, d, d, d, d, d, d, d, d, d, d, d)
+
+
+def get_eigendecomposition(d):
+    """
+    Extract eigenvectors/eigenvalues from a metric field.
+
+    :arg d: spatial dimension
+    """
+    return """
+#include <Eigen/Dense>
+
+using namespace Eigen;
+
+void get_eigendecomposition(double EVecs_[%d], double EVals_[%d], const double * M_) {
+
+  // Map inputs and outputs onto Eigen objects
+  Map<Matrix<double, %d, %d, RowMajor> > EVecs((double *)EVecs_);
+  Map<Vector%dd> EVals((double *)EVals_);
+  Map<Matrix<double, %d, %d, RowMajor> > M((double *)M_);
+
+  // Solve eigenvalue problem
+  SelfAdjointEigenSolver<Matrix<double, %d, %d, RowMajor>> eigensolver(M);
+  EVecs = eigensolver.eigenvectors();
+  EVals = eigensolver.eigenvalues();
+}
+""" % (d*d, d, d, d, d, d, d, d, d)
