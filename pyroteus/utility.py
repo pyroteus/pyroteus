@@ -6,9 +6,6 @@ import firedrake
 from firedrake import *
 
 
-__all__ = ["Mesh"]
-
-
 def Mesh(*args, **kwargs):
     """
     Overload mesh constructor to endow the output

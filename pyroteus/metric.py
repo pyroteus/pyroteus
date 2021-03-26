@@ -3,7 +3,7 @@ Driver functions for metric-based mesh adaptation.
 """
 from __future__ import absolute_import
 from .utility import *
-from . import kernels
+from . import kernel as kernels
 
 
 __all__ = ["metric_complexity", "isotropic_metric",
@@ -198,7 +198,7 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
         if not isinstance(metric, Function) or metric.function_space() != fs:
             metric = interpolate(metric, function_space)
     intersected_metric = Function(metrics[0])
-    node_set = fs.node_set if tag is None else DirichletBC(fs, 0, boundary_tag).node_set
+    node_set = fs.node_set if boundary_tag is None else DirichletBC(fs, 0, boundary_tag).node_set
     dim = fs.mesh().topological_dimension()
     assert dim in (2, 3), "Spatial dimension {:d} not supported.".format(dim)
 
