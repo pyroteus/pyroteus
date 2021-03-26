@@ -3,12 +3,27 @@ from .utility import *
 from .kernels import eigen_kernel, postproc_metric
 
 
-__all__ = ["isotropic_metric", "space_normalise", "space_time_normalise"]
+__all__ = ["metric_complexity", "isotropic_metric", "space_normalise", "space_time_normalise"]
+
+
+def metric_complexity(metric, boundary=False):
+    """
+    Compute the complexity of a metric.
+
+    This is the continuous analogue of the
+    (discrete) mesh vertex count.
+
+    :kwarg boundary: compute metric on domain
+        interior or boundary?
+    """
+    differential = ds if boundary else dx
+    return assemble(sqrt(metric)*differential)
 
 
 def isotropic_metric(scalar_field, tensor_fs=None, f_min=1.0e-12):
     """
     Compute an isotropic metric from some scalar field.
+
     The result is a diagonal matrix whose diagonal
     entries are the absolute value of the scalar field
     at each mesh vertex.
