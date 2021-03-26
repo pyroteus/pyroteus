@@ -9,7 +9,7 @@ from . import kernel as kernels
 __all__ = ["metric_complexity", "isotropic_metric", "hessian_metric", "enforce_element_constraints",
            "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
-           "check_spd"]
+           "density_and_quotients", "check_spd"]
 
 
 # --- General
@@ -239,7 +239,72 @@ def combine_metrics(*metrics, average=True, **kwargs):
         return metric_intersection(*metrics, **kwargs)
 
 
-# --- Metric properties
+# --- Metric decompositions and properties
+
+
+def density_and_quotients(metric):
+    r"""
+    Extract the density and anisotropy quotients from a metric.
+
+    By symmetry, Riemannian metrics admit an orthogonal
+    eigendecomposition,
+
+  ..math::
+        \underline{\mathbf M}(\mathbf x)
+        = \underline{\mathbf V}(\mathbf x)\:
+        \underline{\boldsymbol\Lambda}(\mathbf x)\:
+        \underline{\mathbf V}(\mathbf x)^T,
+
+    at each point :math:`\mathbf x\in\Omega`, where
+    :math:`\underline{\mathbf V}` and
+    :math:`\underline{\boldsymbol\Sigma}` are matrices holding
+    the eigenvectors and eigenvalues, respectively. By
+    positive-definiteness, entries of
+    :math:`\underline{\boldsymbol\Lambda}` are all positive.
+
+    An alternative decomposition,
+
+  ..math::
+        \underline{\mathbf M}(\mathbf x)
+        = d(\mathbf x)^\frac2n
+        \underline{\mathbf V}(\mathbf x)\:
+        \underline{\mathbf R}(\mathbf x)^{-\frac2n}
+        \underline{\mathbf V}(\mathbf x)^T
+
+    can also be deduced, in terms of the <em>metric density</em>
+    and <em>anisotropy quotients</em>,
+
+  ..math::
+        d = \sum_{i=1}^n h_i,\quad
+        r_i = h_i^n/d,\quad \forall i=1:n,
+
+    where :math:`h_i := \frac1{\sqrt{\lambda_i}}`.
+
+    :arg metric: the metric to extract density and quotients from
+    """
+    fs_ten = metric.function_space()
+    mesh = fs_ten.mesh()
+    fe = (fs_ten.ufl_element().family(), fs_ten.ufl_element().degree())
+    fs_vec = VectorFunctionSpace(mesh, *fe)
+    fs = FunctionSpace(mesh, *fe)
+    dim = mesh.topological_dimension()
+
+    # Setup fields
+    evectors = Function(fs_ten)
+    evalues = Function(fs_vec)
+    density = Function(fs, name="Metric density")
+    quotients = Function(fs_vec, name="Anisotropic quotients")
+
+    # Compute eigendecomposition
+    kernel = kernels.eigen_kernel(kernels.get_eigendecomposition, dim)
+    op2.par_loop(kernel, fs_ten.node_set,
+                 evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ))
+
+    # Extract density and quotients
+    h = [1/sqrt(evalues[i]) for i in range(dim)]
+    density.interpolate(1/prod(h))
+    quotients.interpolate(as_vector([density*h[i]**dim for i in range(dim)]))
+    return density, quotients
 
 
 def is_symmetric(M, rtol=1.0e-08):
