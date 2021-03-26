@@ -12,7 +12,7 @@ def recover_hessian(f, method='L2', **kwargs):
     :arg f: the scalar field whose Hessian we seek to recover
     :kwarg method: recovery method
     """
-    if mode.upper() == 'L2':
+    if method.upper() == 'L2':
         return double_l2_projection(f, **kwargs)[1]
     else:
         raise NotImplementedError
@@ -56,7 +56,7 @@ def double_l2_projection(f, mesh=None, target_spaces=None):
         "pc_type": "fieldsplit",
         "pc_fieldsplit_type": "schur",
         "pc_fieldsplit_0_fields": "1",
-        "pc_fieldsplit_0_fields": "1",
+        "pc_fieldsplit_1_fields": "0",
         "pc_fieldsplit_schur_precondition": "selfp",
         "fieldsplit_0_ksp_type": "preonly",
         "fieldsplit_0_pc_type": "ilu",
