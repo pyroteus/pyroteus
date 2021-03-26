@@ -6,7 +6,7 @@ from .utility import *
 from . import kernel as kernels
 
 
-__all__ = ["metric_complexity", "isotropic_metric",
+__all__ = ["metric_complexity", "isotropic_metric", "hessian_metric", "enforce_element_constraints",
            "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
            "check_spd"]
@@ -28,7 +28,7 @@ def metric_complexity(metric, boundary=False):
     return assemble(sqrt(metric)*differential)
 
 
-def isotropic_metric(scalar_field, tensor_fs=None, f_min=1.0e-12):
+def isotropic_metric(scalar_field, target_space=None, f_min=1.0e-12):
     """
     Compute an isotropic metric from some scalar field.
 
@@ -37,7 +37,7 @@ def isotropic_metric(scalar_field, tensor_fs=None, f_min=1.0e-12):
     at each mesh vertex.
 
     :arg scalar_field: field to compute metric from.
-    :kwarg tensor_fs: :class:`TensorFunctionSpace` in
+    :kwarg target_space: :class:`TensorFunctionSpace` in
         which the metric will exist.
     :kwarg f_min: minimum tolerated function value.
     """
@@ -62,68 +62,83 @@ def isotropic_metric(scalar_field, tensor_fs=None, f_min=1.0e-12):
     return interpolate(M_diag*Identity(dim), tensor_fs)
 
 
+def hessian_metric(hessian):
+    """
+    Modify the eigenvalues of a Hessian matrix so
+    that it is positive-definite.
+
+    :arg hessian: the Hessian matrix
+    """
+    fs = hessian.function_space()
+    metric = Function(fs)
+    mesh = fs.mesh()
+    dim = mesh.topological_dimension()
+    kernel = kernels.eigen_kernel(kernels.metric_from_hessian, dim)
+    op2.par_loop(kernel, fs.node_set, metric.dat(op2.RW), hessian.dat(op2.READ))
+    return metric
+
+
+def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
+    """
+    Post-process a list of metrics to enforce minimum and maximum
+    element sizes, as well as maximum anisotropy.
+
+    :arg metrics: the metrics
+    :arg h_min: minimum tolerated element size.
+    :arg h_max: maximum tolerated element size.
+    :kwarg a_max: maximum tolerated element anisotropy (default 1000).
+    """
+    msg = "Min/max tolerated element sizes {:}/{:} not valid"
+    assert 0 < h_min < h_max, msg.format(h_min, h_max)
+    assert a_max > 0, "Max tolerated anisotropy {:} not valid".format(a_max)
+    for metric in metrics:
+        fs = metric.function_space()
+        dim = fs.mesh().topological_dimension()
+        kernel = kernels.eigen_kernel(kernels.postproc_metric, dim, h_min, h_max, a_max)
+        op2.par_loop(kernel, fs.node_set, metric.dat(op2.RW))
+    return metric
+
+
 # --- Normalisation
 
-def space_normalise(metric, options, target, p, h_min, h_max, a_max=1000):
+
+def space_normalise(metric, target, p):
     """
     Apply L-p normalisation in space alone.
 
     :arg metric: class:`Function`s corresponding to the
         metric to be normalised.
-    :arg options: :class:`ModelOptions2d` object containing
-        information on timestepping.
     :arg target: target metric complexity *in space alone*.
     :arg p: normalisation order.
-    :arg h_min: minimum tolerated element size.
-    :arg h_max: maximum tolerated element size.
-    :kwarg a_max: maximum tolerated element anisotropy (default 1000).
     """
     assert p == 'inf' or p >= 1.0, "Norm order {:} not valid".format(p)
-    assert 0 < h_min < h_max, "Min/max tolerated element sizes {:}/{:} not valid".format(h_min, h_max)
-    assert a_max > 0, "Max tolerated anisotropy {:} not valid".format(a_max)
     fs = metric.function_space()
     mesh = fs.mesh()
     dim = mesh.topological_dimension()
-
-    # Apply L-p normalisation
     form = pow(det(metric), 0.5) if p == 'inf' else pow(det(metric), p/(2*p + dim))
     integral = pow(target/assemble(form*dx), 2/dim)
     determinant = 1 if p == 'inf' else pow(det(metric), -1/(2*p + dim))
     metric.interpolate(integral*determinant*metric)
-
-    # Enforce maximum/minimum element sizes and anisotropy
-    kernel = kernels.eigen_kernel(kernels.postproc_metric, dim, h_min, h_max, a_max)
-    op2.par_loop(kernel, fs.node_set, metric.dat(op2.RW))
     return metric
 
 
-def space_time_normalise(metrics, options, target, p, h_min, h_max, a_max=1000, timesteps=None):
+def space_time_normalise(metrics, end_time, timesteps, target, p):
     """
     Apply L-p normalisation is both space and time.
 
     :arg metrics: list of :class:`Function`s corresponding
-        to the metric associated with each mesh iteration.
-    :arg options: :class:`ModelOptions2d` object containing
-        information on timestepping.
-    :arg target: target metric complexity *in space alone*.
-    :arg p: normalisation order.
-    :arg h_min: minimum tolerated element size.
-    :arg h_max: maximum tolerated element size.
-    :kwarg a_max: maximum tolerated element anisotropy (default 1000).
-    :kwarg timesteps: list of timesteps specified in each subinterval.
+        to the metric associated with each mesh iteration
+    :arg end_time: end time of simulation
+    :arg timesteps: list of timesteps specified in each subinterval
+    :arg target: target *space-time* metric complexity
+    :arg p: normalisation order
     """
+    # NOTE: Assumes uniform subinterval lengths
     assert p == 'inf' or p >= 1.0, "Norm order {:} not valid".format(p)
-    assert 0 < h_min < h_max, "Min/max tolerated element sizes {:}/{:} not valid".format(h_min, h_max)
-    assert a_max > 0, "Max tolerated anisotropy {:} not valid".format(a_max)
     num_meshes = len(metrics)
-    num_timesteps = int(np.ceil(options.simulation_end_time/options.timestep))
-    if timesteps is None:
-        dt_per_mesh = num_timesteps/num_meshes*np.ones(num_meshes)
-    else:
-        assert len(timesteps) == num_meshes
-        dt_per_mesh = [options.simulation_end_time/num_meshes/dt for dt in timesteps]
+    assert len(timesteps) == num_meshes
+    dt_per_mesh = [end_time/num_meshes/dt for dt in timesteps]
     dim = metrics[0].function_space().mesh().topological_dimension()
-    N_st = target*num_timesteps
 
     # Compute global normalisation factor
     integral = 0.0
@@ -140,10 +155,6 @@ def space_time_normalise(metrics, options, target, p, h_min, h_max, a_max=1000, 
             metric *= global_norm
         else:
             metric.interpolate(global_norm*metric*pow(tau**2*det(metric), -1/(2*p + dim)))
-
-        # Enforce maximum/minimum element sizes and anisotropy
-        kernel = kernels.eigen_kernel(kernels.postproc_metric, dim, h_min, h_max, a_max)
-        op2.par_loop(kernel, metric.function_space().node_set, metric.dat(op2.RW))
     return metrics
 
 

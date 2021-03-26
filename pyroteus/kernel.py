@@ -119,3 +119,71 @@ void get_eigendecomposition(double EVecs_[%d], double EVals_[%d], const double *
   EVals = eigensolver.eigenvalues();
 }
 """ % (d*d, d, d, d, d, d, d, d, d)
+
+
+def metric_from_hessian(d):
+    """
+    Modify the eigenvalues of a Hessian matrix so
+    that it is positive-definite.
+
+    :arg d: spatial dimension
+    """
+    return """
+#include <Eigen/Dense>
+
+using namespace Eigen;
+
+void metric_from_hessian(double A_[%d], const double * B_) {
+
+  // Map inputs and outputs onto Eigen objects
+  Map<Matrix<double, %d, %d, RowMajor> > A((double *)A_);
+  Map<Matrix<double, %d, %d, RowMajor> > B((double *)B_);
+
+  // Compute mean diagonal and set values appropriately
+  double mean_diag;
+  int i,j;
+  for (i=0; i<%d-1; i++) {
+    for (j=i+1; i<%d; i++) {
+      mean_diag = 0.5*(B(i,j) + B(j,i));
+      B(i,j) = mean_diag;
+      B(j,i) = mean_diag;
+    }
+  }
+
+  // Solve eigenvalue problem
+  SelfAdjointEigenSolver<Matrix<double, %d, %d, RowMajor>> eigensolver(B);
+  Matrix<double, %d, %d, RowMajor> Q = eigensolver.eigenvectors();
+  Vector%dd D = eigensolver.eigenvalues();
+
+  // Take modulus of eigenvalues
+  for (i=0; i<%d; i++) D(i) = fmax(1e-10, abs(D(i)));
+
+  // Build metric from eigendecomposition
+  A += Q * D.asDiagonal() * Q.transpose();
+}
+""" % (d*d, d, d, d, d, d, d, d, d, d, d, d, d)
+
+
+def set_eigendecomposition(d):
+    """
+    Construct a metric from eigenvectors and eigenvalues as an
+    orthogonal eigendecomposition.
+
+    :arg d: spatial dimension
+    """
+    return """
+#include <Eigen/Dense>
+
+using namespace Eigen;
+
+void set_eigendecomposition(double M_[%d], const double * EVecs_, const double * EVals_) {
+
+  // Map inputs and outputs onto Eigen objects
+  Map<Matrix<double, %d, %d, RowMajor> > M((double *)M_);
+  Map<Matrix<double, %d, %d, RowMajor> > EVecs((double *)EVecs_);
+  Map<Vector%dd> EVals((double *)EVals_);
+
+  // Compute metric from eigendecomposition
+  M = EVecs * EVals.asDiagonal() * EVecs.transpose();
+}
+""" % (d*d, d, d, d, d, d)
