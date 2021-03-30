@@ -47,9 +47,9 @@ def isotropic_metric(scalar_field, target_space=None, f_min=1.0e-12):
     mesh = fs.mesh()
     dim = mesh.topological_dimension()
     assert dim in (2, 3)
-    tensor_fs = tensor_fs or TensorFunctionSpace(mesh, "CG", 1)
-    assert tensor_fs.ufl_element().family() == 'Lagrange'
-    assert tensor_fs.ufl_element().degree() == 1
+    target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
+    assert target_space.ufl_element().family() == 'Lagrange'
+    assert target_space.ufl_element().degree() == 1
 
     # Compute metric diagonal
     if family == 'Lagrange' and degree == 1:
@@ -59,7 +59,7 @@ def isotropic_metric(scalar_field, target_space=None, f_min=1.0e-12):
         M_diag.interpolate(max_value(abs(M_diag), f_min))
 
     # Assemble full metric
-    return interpolate(M_diag*Identity(dim), tensor_fs)
+    return interpolate(M_diag*Identity(dim), target_space)
 
 
 def hessian_metric(hessian):
@@ -147,7 +147,7 @@ def space_time_normalise(metrics, end_time, timesteps, target, p):
             integral += assemble(tau*sqrt(det(metric))*dx)
         else:
             integral += assemble(pow(tau**2*det(metric), p/(2*p + dim))*dx)
-    global_norm = pow(N_st/integral, 2/dim)
+    global_norm = pow(target/integral, 2/dim)
 
     # Normalise on each subinterval
     for metric, tau in zip(metrics, dt_per_mesh):
