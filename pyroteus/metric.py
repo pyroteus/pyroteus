@@ -91,12 +91,12 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
     msg = "Min/max tolerated element sizes {:}/{:} not valid"
     assert 0 < h_min < h_max, msg.format(h_min, h_max)
     assert a_max > 0, "Max tolerated anisotropy {:} not valid".format(a_max)
-    for metric in metrics:
+    for metric in [metrics] if isinstance(metrics, Function) else metrics:
         fs = metric.function_space()
         dim = fs.mesh().topological_dimension()
         kernel = kernels.eigen_kernel(kernels.postproc_metric, dim, h_min, h_max, a_max)
         op2.par_loop(kernel, fs.node_set, metric.dat(op2.RW))
-    return metric
+    return metrics
 
 
 # --- Normalisation
