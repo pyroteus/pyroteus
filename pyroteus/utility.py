@@ -79,3 +79,50 @@ def prod(arr):
     """
     n = len(arr)
     return None if n == 0 else arr[0] if n == 1 else arr[0]*prod(arr[1:])
+
+
+def norm(v, norm_type='L2', mesh=None):
+    r"""
+    Overload Firedrake's `norm` function to allow for :math:`\ell^p` norms.
+
+    Note that this version is case sensitive, i.e. l2 and L2 will give different
+    results in general.
+    """
+    norm_codes = {'l1': 0, 'l2': 2, 'linf': 3}
+    if norm_type in norm_codes:
+        with v.dat.vec_ro as vv:
+            return vv.norm(norm_codes[norm_type])
+    elif norm_type[0] == 'l':
+        raise NotImplementedError("lp norm of order {:s} not supported.".format(norm_type[1:]))
+    else:
+        return firedrake.norm(v, norm_type=norm_type, mesh=mesh)
+
+
+def errornorm(u, uh, norm_type='L2', **kwargs):
+    r"""
+    Overload Firedrake's `errornorm` function to allow for :math:`\ell^p` norms.
+
+    Note that this version is case sensitive, i.e. l2 and L2 will give different
+    results in general.
+    """
+    if len(u.ufl_shape) != len(uh.ufl_shape):
+        raise RuntimeError("Mismatching rank between u and uh")
+
+    if not isinstance(uh, function.Function):
+        raise ValueError("uh should be a Function, is a %r", type(uh))
+    if norm_type[0] == 'l':
+        if not isinstance(u, function.Function):
+            raise ValueError("u should be a Function, is a %r", type(uh))
+
+    if isinstance(u, firedrake.Function):
+        degree_u = u.function_space().ufl_element().degree()
+        degree_uh = uh.function_space().ufl_element().degree()
+        if degree_uh > degree_u:
+            firedrake.logging.warning("Degree of exact solution less than approximation degree")
+
+    if norm_type[0] == 'l':  # Point-wise norms
+        v = u
+        v -= uh
+    else:  # Norms in UFL
+        v = u - uh
+    return norm(v, norm_type=norm_type, **kwargs)
