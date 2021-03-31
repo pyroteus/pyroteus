@@ -112,13 +112,16 @@ def space_normalise(metric, target, p):
     :arg p: normalisation order.
     """
     assert p == 'inf' or p >= 1.0, "Norm order {:} not valid".format(p)
-    fs = metric.function_space()
-    mesh = fs.mesh()
-    dim = mesh.topological_dimension()
-    form = pow(det(metric), 0.5) if p == 'inf' else pow(det(metric), p/(2*p + dim))
-    integral = pow(target/assemble(form*dx), 2/dim)
-    determinant = 1 if p == 'inf' else pow(det(metric), -1/(2*p + dim))
-    metric.interpolate(integral*determinant*metric)
+    d = metric.function_space().mesh().topological_dimension()
+
+    # Compute global normalisation factor
+    detM = det(metric)
+    integral = assemble(sqrt(detM)*dx if p == 'inf' else pow(detM, p/(2*p + d))*dx)
+    global_norm = Constant(pow(target/integral, 2/d))
+
+    # Normalise
+    determinant = 1 if p == 'inf' else pow(det(metric), -1/(2*p + d))
+    metric.interpolate(global_norm*determinant*metric)
     return metric
 
 
@@ -127,7 +130,7 @@ def space_time_normalise(metrics, end_time, timesteps, target, p):
     Apply L-p normalisation is both space and time.
 
     :arg metrics: list of :class:`Function`s corresponding
-        to the metric associated with each mesh iteration
+        to the metric associated with each subinterval
     :arg end_time: end time of simulation
     :arg timesteps: list of timesteps specified in each subinterval
     :arg target: target *space-time* metric complexity
@@ -135,26 +138,22 @@ def space_time_normalise(metrics, end_time, timesteps, target, p):
     """
     # NOTE: Assumes uniform subinterval lengths
     assert p == 'inf' or p >= 1.0, "Norm order {:} not valid".format(p)
-    num_meshes = len(metrics)
-    assert len(timesteps) == num_meshes
-    dt_per_mesh = [end_time/num_meshes/dt for dt in timesteps]
-    dim = metrics[0].function_space().mesh().topological_dimension()
+    num_subintervals = len(metrics)
+    assert len(timesteps) == num_subintervals
+    dt_per_mesh = [end_time/num_subintervals/dt for dt in timesteps]
+    d = metrics[0].function_space().mesh().topological_dimension()
 
     # Compute global normalisation factor
-    integral = 0.0
+    integral = 0
     for metric, tau in zip(metrics, dt_per_mesh):
-        if p == 'inf':
-            integral += assemble(tau*sqrt(det(metric))*dx)
-        else:
-            integral += assemble(pow(tau**2*det(metric), p/(2*p + dim))*dx)
-    global_norm = pow(target/integral, 2/dim)
+        detM = det(metric)
+        integral += assemble(tau*sqrt(detM)*dx if p == 'inf' else pow(tau**2*detM, p/(2*p + d))*dx)
+    global_norm = Constant(pow(target/integral, 2/d))
 
     # Normalise on each subinterval
     for metric, tau in zip(metrics, dt_per_mesh):
-        if p == 'inf':
-            metric *= global_norm
-        else:
-            metric.interpolate(global_norm*metric*pow(tau**2*det(metric), -1/(2*p + dim)))
+        determinant = 1 if p == 'inf' else pow(tau**2*det(metric), -1/(2*p + d))
+        metric.interpolate(global_norm*determinant*metric)
     return metrics
 
 
