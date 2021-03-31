@@ -1,6 +1,5 @@
 from pyroteus import *
 from sensors import *
-from utility import uniform_mesh
 import pytest
 
 
@@ -11,18 +10,14 @@ def unit_mesh(name, mesh):
     if name == 'bowl':
         return mesh
     else:
-        raise NotImplementedError("""
-            In order to progress to the other
-            sensor functions, we first need
-            mesh adaptation capability.
-            """)
+        pytest.xfail("Need mesh adaptation capability")
 
 
 # ---------------------------
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=[bowl])
+@pytest.fixture(params=[bowl, hyperbolic, multiscale, interweaved])
 def sensor(request):
     return request.param
 
@@ -41,10 +36,7 @@ def test_space_normalise(sensor, degree, target=1000.0):
     if the underlying mesh is unit w.r.t. the metric.
     """
     dim = 2
-    mesh = uniform_mesh(dim, 100, 2)
-    coords = Function(mesh.coordinates)
-    coords -= 1.0
-    mesh = Mesh(coords)
+    mesh = mesh_for_sensors(dim, 100)
 
     # Get a unit mesh for the sensor
     f = sensor(*mesh.coordinates)
@@ -60,5 +52,24 @@ def test_space_normalise(sensor, degree, target=1000.0):
     assert np.isclose(metric_complexity(M), target)
 
 
-# def test_space_time_normalise(sensor):
-#     pytest.xfail("TO DO")  # TODO
+def test_consistency(sensor, degree, target=1000.0):
+    """
+    Check that spatial normalisation and space-time
+    normalisation on a single unit time interval with
+    one timestep return the same metric.
+    """
+    dim = 2
+    mesh = mesh_for_sensors(dim, 100)
+
+    # Construct a Hessian metric
+    f = sensor(*mesh.coordinates)
+    H = recover_hessian(f, mesh=mesh)
+    M = hessian_metric(H)
+    M_st = M.copy(deepcopy=True)
+
+    # Apply both normalisation strategies
+    space_normalise(M, target, degree)
+    space_time_normalise([M_st], 1.0, [1.0], target, degree)
+
+    # Check that the metrics coincide
+    assert np.isclose(errornorm(M, M_st), 0.0)

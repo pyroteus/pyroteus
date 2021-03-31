@@ -1,6 +1,5 @@
 from pyroteus import *
-from sensors import bowl
-from utility import uniform_mesh
+from sensors import bowl, mesh_for_sensors
 import pytest
 
 
@@ -27,10 +26,7 @@ def test_recover_bowl(dim, method, norm_type, rtol=1.0e-05):
     """
     Check that the Hessian of a quadratic function is accurately recovered.
     """
-    mesh = uniform_mesh(dim, 20, 2)
-    coords = Function(mesh.coordinates)
-    coords -= 1.0
-    mesh = Mesh(coords)
+    mesh = mesh_for_sensors(dim, 20)
 
     # Recover Hessian
     f = bowl(*mesh.coordinates)
