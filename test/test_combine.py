@@ -2,11 +2,8 @@
 Test metric combination drivers.
 """
 from pyroteus import *
+from utility import uniform_mesh
 import pytest
-
-
-def uniform_mesh(dim, n):
-    return UnitSquareMesh(n, n) if dim == 2 else UnitCubeMesh(n, n, n)
 
 
 # ---------------------------

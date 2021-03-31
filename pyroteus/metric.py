@@ -25,7 +25,7 @@ def metric_complexity(metric, boundary=False):
         interior or boundary?
     """
     differential = ds if boundary else dx
-    return assemble(sqrt(metric)*differential)
+    return assemble(sqrt(det(metric))*differential)
 
 
 def isotropic_metric(scalar_field, target_space=None, f_min=1.0e-12):

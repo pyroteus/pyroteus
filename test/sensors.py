@@ -8,6 +8,9 @@ moving geometries. Diss. 2011.
 from ufl import *
 
 
+__all__ = ["bowl", "hyperbolic", "multiscale", "interweaved"]
+
+
 def bowl(*coords):
     return 0.5*sum([xi**2 for xi in coords])
 
