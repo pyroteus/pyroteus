@@ -3,11 +3,8 @@ Test matrix decomposition par_loops.
 """
 from pyroteus import *
 import pyroteus.kernel as kernels
+from utility import uniform_mesh
 import pytest
-
-
-def uniform_mesh(dim, n, l):
-    return SquareMesh(n, n, l) if dim == 2 else CubeMesh(n, n, n, l)
 
 
 # ---------------------------
@@ -20,7 +17,15 @@ def dim(request):
 
 
 def test_eigendecomposition(dim):
-    mesh = uniform_mesh(dim, 20, 2)
+    """
+    Check decomposition of a metric into its eigenvectors
+    and eigenvalues.
+
+      * The eigenvectors should be orthonormal.
+      * Applying `get_eigendecomposition` followed by
+        `set_eigendecomposition` should get back the metric.
+    """
+    mesh = uniform_mesh(dim, 20)
     P1_vec = VectorFunctionSpace(mesh, "CG", 1)
     P1_ten = TensorFunctionSpace(mesh, "CG", 1)
 
@@ -34,7 +39,7 @@ def test_eigendecomposition(dim):
     op2.par_loop(kernel, P1_ten.node_set,
                  evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ))
 
-    # Check eigenvectors are orthogonal
+    # Check eigenvectors are orthonormal
     VVT = interpolate(dot(evectors, transpose(evectors)), P1_ten)
     I = interpolate(Identity(dim), P1_ten)
     assert np.allclose(VVT.dat.data, I.dat.data)
@@ -49,7 +54,13 @@ def test_eigendecomposition(dim):
 
 
 def test_density_quotients_decomposition(dim):
-    mesh = uniform_mesh(dim, 20, 2)
+    """
+    Check decomposition of a metric into its density
+    and anisotropy quotients.
+
+    Reassembling should get back the metric.
+    """
+    mesh = uniform_mesh(dim, 20)
     P1_vec = VectorFunctionSpace(mesh, "CG", 1)
     P1_ten = TensorFunctionSpace(mesh, "CG", 1)
 
