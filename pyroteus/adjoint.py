@@ -1,14 +1,14 @@
 import firedrake
 from firedrake.adjoint.blocks import GenericSolveBlock
-import numpy as np
 import pyadjoint
+from pyroteus.ts import get_subintervals, get_exports_per_subinterval
 from functools import wraps
 
 
-__all__ = ["solve_adjoint"]
+__all__ = ["solve_adjoint", "get_subintervals", "get_exports_per_subinterval"]
 
 
-def _get_initial_condition_control(solver):
+def get_initial_condition_control(solver):
     """
     Wrapper for a solver which returns a :class:`Control` associated
     with its initial condition.
@@ -30,29 +30,14 @@ def _get_initial_condition_control(solver):
     return wrapper
 
 
-def _get_exports_per_subinterval(subintervals, timesteps, dt_per_export):
-    """
-    :arg subintervals: list of tuples corresponding to subintervals
-    :arg timesteps: list of floats or single float corresponding to timesteps
-    :arg dt_per_export: list of ints or single in corresponding to timesteps per export
-    """
-    if isinstance(timesteps, float):
-        timesteps = [timesteps for subinterval in subintervals]
-    assert len(timesteps) == len(subintervals)
-    _dt_per_mesh = [(t[1] - t[0])/dt for t, dt in zip(subintervals, timesteps)]
-    dt_per_mesh = [int(dtpm) for dtpm in _dt_per_mesh]
-    assert np.allclose(dt_per_mesh, _dt_per_mesh)
-    if isinstance(dt_per_export, int):
-        dt_per_export = [dt_per_export for subinterval in subintervals]
-    for dtpe, dtpm in zip(dt_per_export, dt_per_mesh):
-        assert dtpm % dtpe == 0
-    exports_per_subinterval = [dtpm//dtpe + 1 for dtpe, dtpm in zip(dt_per_export, dt_per_mesh)]
-    return timesteps, dt_per_export, exports_per_subinterval
-
+# TODO: Account for QoIs involving solution during simulation
 
 def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, timesteps, **kwargs):
     """
     Solve an adjoint problem on a sequence of subintervals.
+
+    The current implementation assumes that the quantity of interest is a function of the
+    terminal solution alone.
 
     :arg solver: a function which takes an initial condition :class:`Function`, a start time and
         an end time as arguments and returns the solution value at the final time
@@ -68,13 +53,11 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     :return: a list of lists containing the adjoint solution at all exported timesteps, indexed
         by subinterval and then export
     """
-    # TODO: Account for QoIs involving solution during simulation
     num_subintervals = len(function_spaces)
-    subinterval_time = end_time/num_subintervals  # NOTE: Assumes uniform
-    subintervals = [(i*subinterval_time, (i+1)*subinterval_time) for i in range(num_subintervals)]
+    subintervals = get_subintervals(end_time, num_subintervals)
     dt_per_export = kwargs.get('timesteps_per_export', 1)
     timesteps, dt_per_export, export_per_mesh = \
-        _get_exports_per_subinterval(subintervals, timesteps, dt_per_export)
+        get_exports_per_subinterval(subintervals, timesteps, dt_per_export)
 
     # Clear tape
     tape = pyadjoint.get_working_tape()
@@ -102,7 +85,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     seed = None
     for i, irev in enumerate(reversed(range(num_subintervals))):
         subinterval = subintervals[irev]
-        wrapped_solver = _get_initial_condition_control(solver)
+        wrapped_solver = get_initial_condition_control(solver)
 
         # Annotate tape on current subinterval
         sol, control = wrapped_solver(
@@ -119,8 +102,10 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             tc = firedrake.assemble(firedrake.derivative(qoi(sol), sol))
         else:
             out = sol
-            seed = firedrake.project(seed, function_spaces[irev], annotate=False)   # TODO: Adjoint
-            tc = firedrake.project(adj_sol, function_spaces[irev], annotate=False)  # TODO: Adjoint
+            seed = firedrake.project(seed, function_spaces[irev], annotate=False)
+            # TODO: account for mixed spaces; use adjoint project
+            tc = firedrake.project(adj_sol, function_spaces[irev], annotate=False)
+            # TODO: account for mixed spaces; use adjoint project
         adj_sols[i][0].assign(tc)
 
         # Solve adjoint problem
