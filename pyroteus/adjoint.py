@@ -1,6 +1,7 @@
 import firedrake
 from firedrake.adjoint.blocks import GenericSolveBlock
 import pyadjoint
+from pyroteus.interpolation import mesh2mesh_project_adjoint
 from pyroteus.ts import get_subintervals, get_exports_per_subinterval
 from functools import wraps
 
@@ -102,10 +103,8 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             tc = firedrake.assemble(firedrake.derivative(qoi(sol), sol))
         else:
             out = sol
-            seed = firedrake.project(seed, function_spaces[irev], annotate=False)
-            # TODO: account for mixed spaces; use adjoint project
-            tc = firedrake.project(adj_sol, function_spaces[irev], annotate=False)
-            # TODO: account for mixed spaces; use adjoint project
+            seed = mesh2mesh_project_adjoint(seed, function_spaces[irev], annotate=False)
+            tc = mesh2mesh_project_adjoint(adj_sol, function_spaces[irev], annotate=False)
         adj_sols[i][0].assign(tc)
 
         # Solve adjoint problem
