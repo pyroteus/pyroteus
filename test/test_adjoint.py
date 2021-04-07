@@ -1,6 +1,33 @@
 from pyroteus import *
-from firedrake_adjoint import *
+from pyadjoint.tape import get_working_tape, pause_annotation, annotate_tape
+import pytest
 
+
+@pytest.fixture(autouse=True)
+def handle_taping():
+    """
+    **Disclaimer: copied from firedrake/tests/regression/test_adjoint_interpolate.py
+    """
+    yield
+    tape = get_working_tape()
+    tape.clear_tape()
+
+
+@pytest.fixture(autouse=True, scope="module")
+def handle_exit_annotation():
+    """
+    Since importing firedrake_adjoint modifies a global variable, we need to
+    pause annotations at the end of the module.
+
+    **Disclaimer: copied from firedrake/tests/regression/test_adjoint_interpolate.py
+    """
+    yield
+    annotate = annotate_tape()
+    if annotate:
+        pause_annotation()
+
+
+# TODO: test solve_adjoint for mixed spaces
 
 def solve_burgers(ic, t_start, t_end, dt, **kwargs):
     """
@@ -71,6 +98,7 @@ def test_adjoint_burgers_same_mesh(plot=False):
     :kwarg plot: toggle plotting of the adjoint
         solution field
     """
+    import firedrake_adjoint  # noqa
     n = 32
     mesh = UnitSquareMesh(n, n, diagonal='left')
     end_time = 0.5
@@ -99,11 +127,11 @@ def test_adjoint_burgers_same_mesh(plot=False):
         # Plot adjoint solutions, if requested
         if plot:
             import matplotlib.pyplot as plt
-            from pyroteus.adjoint import _get_exports_per_subinterval
+            from pyroteus.ts import get_exports_per_subinterval
 
             levels = np.linspace(0, 0.8, 9)
             _, dt_per_export, exports_per_mesh = \
-                _get_exports_per_subinterval(subintervals, dt, dt_per_export)
+                get_exports_per_subinterval(subintervals, dt, dt_per_export)
             fig, axes = plt.subplots(exports_per_mesh[0], N, sharex='col', figsize=(6*N, 24//N))
             for i, adj_sols_step in enumerate(adj_sols):
                 ax = axes[0] if N == 1 else axes[0, i]
