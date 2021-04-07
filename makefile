@@ -11,3 +11,11 @@ test:
 	@echo "Running test suite..."
 	@pytest -v test
 	@echo "PASS"
+
+tree:
+	@tree .
+
+clean:
+	@echo "Removing compiled code..."
+	@rm -rf __pycache__
+	@rm -rf test/__pycache__
