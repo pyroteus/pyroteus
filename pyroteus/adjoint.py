@@ -9,12 +9,12 @@ from functools import wraps
 __all__ = ["solve_adjoint", "get_subintervals", "get_exports_per_subinterval"]
 
 
-def get_initial_condition_control(solver):
+def wrap_solver(solver):
     """
     Wrapper for a solver which returns a :class:`Control` associated
     with its initial condition.
 
-    The solver should take three arguments: an initial condition
+    The solver should take four arguments: an initial condition
     :class:`Function`, a start time, an end time and a timestep.
     It should return the final solution :class:`Function`.
     """
@@ -23,7 +23,7 @@ def get_initial_condition_control(solver):
     def wrapper(ic, t_start, t_end, dt, **kwargs):
         init = ic.copy(deepcopy=True)
         control = pyadjoint.Control(init)
-        out = solver(init, t_start, t_end, dt, **kwargs)
+        out, J = solver(init, t_start, t_end, dt, **kwargs)
         msg = "Solver should return the Function corresponding to the final solution"
         assert isinstance(out, firedrake.Function), msg
         return out, control
@@ -31,7 +31,26 @@ def get_initial_condition_control(solver):
     return wrapper
 
 
-# TODO: Account for QoIs involving solution during simulation
+def wrap_qoi(qoi):
+    """
+    Wrapper for contributions to a quantity of interest which sets
+    the corresponding adj_value to unity.
+
+    The QoI can have either one or two arguments. In the former case,
+    it depends only on the solution (at the final time)
+    """
+    import inspect
+    nargs = len(inspect.getfullargspec(qoi).args)
+    assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
+
+    @wraps(qoi)
+    def wrapper(*args):
+        j = firedrake.assemble(qoi(*args))
+        j.adj_value = 1.0
+        return j
+
+    return wrapper, nargs
+
 
 def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, timesteps, **kwargs):
     """
@@ -43,7 +62,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     :arg solver: a function which takes an initial condition :class:`Function`, a start time and
         an end time as arguments and returns the solution value at the final time
     :arg initial_condition: a function which maps a function space to a :class:`Function`
-    :arg qoi: a function which maps a terminal value :class:`Function` to a UFL 1-form
+    :arg qoi: a function which maps a :class:`Function` (and possibly a time level) to a UFL 1-form
     :arg end_time: the simulation end time
     :arg timesteps: a list of floats or single float corresponding to the timestep on each
         subinterval
@@ -51,8 +70,10 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
         timesteps per export on each subinterval
     :kwarg solver_kwargs: a list of dictionaries or single dictionary providing parameters to
         the solver
-    :return: a list of lists containing the adjoint solution at all exported timesteps, indexed
-        by subinterval and then export
+
+    :return J: quantity of interest value
+    :return adj_sols: a list of lists containing the adjoint solution at all exported timesteps,
+        indexed by subinterval and then export
     """
     num_subintervals = len(function_spaces)
     subintervals = get_subintervals(end_time, num_subintervals)
@@ -68,11 +89,13 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     solver_kwargs = kwargs.get('solver_kwargs', {})
     if isinstance(solver_kwargs, dict):
         solver_kwargs = [solver_kwargs for subinterval in subintervals]
+    J = 0
     with pyadjoint.stop_annotating():
         checkpoints = [initial_condition(function_spaces[0])]
-        for i, subinterval in enumerate(subintervals[:-1]):
-            sol = solver(checkpoints[i], *subinterval, timesteps[i], **solver_kwargs[i])
-            checkpoints.append(firedrake.project(sol, function_spaces[i+1]))
+        for i, subinterval in enumerate(subintervals):
+            sol, J = solver(checkpoints[i], *subinterval, timesteps[i], J=J, **solver_kwargs[i])
+            if i < num_subintervals-1:
+                checkpoints.append(firedrake.project(sol, function_spaces[i+1]))
 
     # Create an array to hold exported adjoint solutions
     adj_sols = [[
@@ -86,29 +109,34 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     seed = None
     for i, irev in enumerate(reversed(range(num_subintervals))):
         subinterval = subintervals[irev]
-        wrapped_solver = get_initial_condition_control(solver)
+        wrapped_solver = wrap_solver(solver)
+        wrapped_qoi, nargs = wrap_qoi(qoi)
 
         # Annotate tape on current subinterval
+        if nargs == 2:
+            solver_kwargs[irev]['qoi'] = wrapped_qoi  # TODO: TESTME
         sol, control = wrapped_solver(
             checkpoints[irev],
             *subinterval,
             timesteps[irev],
-            **solver_kwargs[i],
+            **solver_kwargs[irev],
         )
 
         # Store terminal condition and get seed vector for reverse mode propagation
         if i == 0:
-            out = firedrake.assemble(qoi(sol))
-            seed = 1.0
-            tc = firedrake.assemble(firedrake.derivative(qoi(sol), sol))
+            if nargs == 1:
+                wrapped_qoi(sol)
+            tc = firedrake.Function(sol.function_space())  # Zero terminal condition
         else:
-            out = sol
-            seed = mesh2mesh_project_adjoint(seed, function_spaces[irev], annotate=False)
+            sol.adj_value = mesh2mesh_project_adjoint(seed, function_spaces[irev], annotate=False)
             tc = mesh2mesh_project_adjoint(adj_sol, function_spaces[irev], annotate=False)
         adj_sols[i][0].assign(tc)
 
         # Solve adjoint problem
-        pyadjoint.compute_gradient(out, control, adj_value=seed, tape=tape)
+        m = pyadjoint.enlisting.Enlist(control)
+        with pyadjoint.stop_annotating():
+            with tape.marked_nodes(m):
+                tape.evaluate_adj(markings=True)
 
         # Store adjoint solutions
         solve_blocks = [
@@ -125,4 +153,4 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
         seed = firedrake.Function(function_spaces[i], val=control.block_variable.adj_value)
         tape.clear_tape()
 
-    return adj_sols
+    return J, adj_sols
