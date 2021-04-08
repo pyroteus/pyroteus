@@ -1,5 +1,5 @@
 """
-Test recovery routines.
+Test derivative recovery techniques.
 """
 from pyroteus import *
 from sensors import bowl, mesh_for_sensors

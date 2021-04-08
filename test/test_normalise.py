@@ -1,3 +1,6 @@
+"""
+Test metric normalisation functionality.
+"""
 from pyroteus import *
 from sensors import *
 import pytest
