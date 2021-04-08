@@ -1,3 +1,6 @@
+"""
+Test adjoint drivers.
+"""
 from pyroteus import *
 from firedrake.adjoint.blocks import GenericSolveBlock
 import pyadjoint
@@ -28,143 +31,69 @@ def handle_exit_annotation():
         pyadjoint.pause_annotation()
 
 
-# TODO: test solve_adjoint for mixed spaces
-
-def solve_burgers(ic, t_start, t_end, dt, J=0, qoi=None, **kwargs):
-    """
-    Solve Burgers' equation on an interval
-    (t_start, t_end), given viscosity `nu` and some
-    initial condition `ic`.
-    """
-    fs = ic.function_space()
-    dtc = Constant(dt)
-
-    # Check viscosity parameter gets passed through
-    nu = kwargs.get('viscosity')
-    if nu is None:
-        raise ValueError
-
-    # Set initial condition
-    u_ = Function(fs)
-    u_.assign(ic)
-
-    # Setup variational problem
-    v = TestFunction(fs)
-    u = Function(fs)
-    F = inner((u - u_)/dtc, v)*dx \
-        + inner(dot(u, nabla_grad(u)), v)*dx \
-        + nu*inner(grad(u), grad(v))*dx
-
-    # Time integrate from t_start to t_end
-    t = t_start
-    while t < t_end - 1.0e-05:
-        solve(F == 0, u)
-        if qoi is not None:
-            J += qoi(u, t)
-        u_.assign(u)
-        t += dt
-    return u_, J
-
-
-def initial_condition_burgers(fs):
-    """
-    Initial condition for Burgers' equation
-    which is sinusoidal in the x-direction.
-
-    :arg fs: :class:`FunctionSpace` which
-        the initial condition will live in
-    """
-    x, y = SpatialCoordinate(fs.mesh())
-    return interpolate(as_vector([sin(pi*x), 0]), fs)
-
-
-def end_time_qoi_burgers(sol):
-    """
-    Quantity of interest for Burgers' equation
-    which computes the square L2 norm over the
-    right hand boundary segment at the final
-    time.
-
-    :arg sol: the solution :class:`Function`
-    """
-    return inner(sol, sol)*ds(2)
-
-
-def time_integrated_qoi_burgers(sol, t):
-    """
-    Quantity of interest for Burgers' equation
-    which computes the integrand for a time
-    integral given by the square L2 norm over the
-    right hand boundary segment.
-
-    :arg sol: the solution :class:`Function`
-    :arg t: time level
-    """
-    return inner(sol, sol)*ds(2)
-
-
 # ---------------------------
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=[
-    end_time_qoi_burgers,
-    time_integrated_qoi_burgers,
-])
-def qoi(request):
+@pytest.fixture(params=["burgers"])
+def pde(request):
     return request.param
 
 
-def test_adjoint_burgers_same_mesh(qoi, plot=False):
+@pytest.fixture(params=["end_time", "time_integrated"])
+def qoi_type(request):
+    return request.param
+
+
+def test_adjoint_same_mesh(pde, qoi_type, plot=False):
     """
     Check that `solve_adjoint` gives the same
     result when applied on one or two subintervals.
 
+    :arg pde: string denoting the PDE of choice
+    :arg qoi_type: is the QoI evaluated at the end time
+        or as a time integral?
     :kwarg plot: toggle plotting of the adjoint
         solution field
     """
-    import firedrake_adjoint  # noqa
+    from firedrake_adjoint import Control
 
-    n = 32
-    mesh = UnitSquareMesh(n, n, diagonal='left')
-    end_time = 0.5
-    dt = 1/n
-    qoi_type = qoi.__name__.split('_qoi')[0]
+    # Setup
+    if pde == "burgers":
+        import burgers as PDE
+    else:
+        raise NotImplementedError  # TODO: test solve_adjoint for mixed spaces
+    fs, end_time, dt = PDE.setup()
+    qoi = PDE.end_time_qoi if qoi_type == 'end_time' else PDE.time_integrated_qoi
 
     # Solve forward and adjoint without the subinterval framework
-    nu = Constant(0.0001)
-    solver_kwargs = dict(viscosity=nu)
+    solver_kwargs = {}
     if qoi_type == 'time_integrated':
         solver_kwargs['qoi'] = lambda *args: assemble(qoi(*args))
-    sol, J = solve_burgers(
-        initial_condition_burgers(VectorFunctionSpace(mesh, "CG", 2)),
-        0.0, end_time, dt, **solver_kwargs,
-    )
+    ic = PDE.initial_condition(fs)
+    sol, J = PDE.solver(ic, 0.0, end_time, dt, **solver_kwargs)
     if qoi_type == 'end_time':
         J = assemble(qoi(sol))
-    pyadjoint.compute_gradient(J, nu)
+    pyadjoint.compute_gradient(J, Control(ic))
     tape = pyadjoint.get_working_tape()
     solve_blocks = [
         block for block in tape.get_blocks()
         if issubclass(block.__class__, GenericSolveBlock)
         and block.adj_sol is not None
     ]
-    if qoi_type == 'time_integrated':
-        solver_kwargs.pop('qoi')
     final_adj_sols = [solve_blocks[0].adj_sol]
     qois = [J]
 
     # Loop over having one or two subintervals
-    for meshes in ([mesh], [mesh, mesh]):
+    for spaces in ([fs], [fs, fs]):
         dt_per_export = 2
-        N = len(meshes)
+        N = len(spaces)
         subintervals = get_subintervals(end_time, N)
 
         # Solve forward and adjoint on each subinterval
-        spaces = [VectorFunctionSpace(mesh, "CG", 2) for mesh in meshes]
         J, adj_sols = solve_adjoint(
-            solve_burgers, initial_condition_burgers, qoi, spaces, end_time, dt,
-            timesteps_per_export=dt_per_export, solver_kwargs=solver_kwargs,
+            PDE.solver, PDE.initial_condition, qoi, spaces, end_time, dt,
+            timesteps_per_export=dt_per_export
         )
         final_adj_sols.append(adj_sols[-1][-1])
         qois.append(J)
@@ -205,5 +134,5 @@ def test_adjoint_burgers_same_mesh(qoi, plot=False):
 # ---------------------------
 
 if __name__ == "__main__":
-    # test_adjoint_burgers_same_mesh(end_time_qoi_burgers, plot=True)
-    test_adjoint_burgers_same_mesh(time_integrated_qoi_burgers, plot=True)
+    test_adjoint_same_mesh("burgers", "end_time", plot=True)
+    test_adjoint_same_mesh("burgers", "time_integrated", plot=True)
