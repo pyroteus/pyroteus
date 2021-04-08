@@ -77,15 +77,27 @@ def initial_condition_burgers(fs):
     return interpolate(as_vector([sin(pi*x), 0]), fs)
 
 
-# TODO: test solve_adjoint for time-integrated QoIs
-
 def end_time_qoi_burgers(sol):
     """
     Quantity of interest for Burgers' equation
     which computes the square L2 norm over the
+    right hand boundary segment at the final
+    time.
+
+    :arg sol: the solution :class:`Function`
+    """
+    return inner(sol, sol)*ds(2)
+
+
+def time_integrated_qoi_burgers(sol, t):
+    """
+    Quantity of interest for Burgers' equation
+    which computes the integrand for a time
+    integral given by the square L2 norm over the
     right hand boundary segment.
 
     :arg sol: the solution :class:`Function`
+    :arg t: time level
     """
     return inner(sol, sol)*ds(2)
 
@@ -94,7 +106,10 @@ def end_time_qoi_burgers(sol):
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=[end_time_qoi_burgers])
+@pytest.fixture(params=[
+    end_time_qoi_burgers,
+    time_integrated_qoi_burgers,
+])
 def qoi(request):
     return request.param
 
@@ -136,7 +151,9 @@ def test_adjoint_burgers_same_mesh(qoi, plot=False):
             import matplotlib.pyplot as plt
             from pyroteus.ts import get_exports_per_subinterval
 
-            levels = np.linspace(0, 0.8, 9)
+            qoi_type = qoi.__name__.split('_qoi')[0]
+            levels = np.linspace(0, 0.8, 9) if qoi_type == 'end_time' else 9
+
             _, dt_per_export, exports_per_mesh = \
                 get_exports_per_subinterval(subintervals, dt, dt_per_export)
             fig, axes = plt.subplots(exports_per_mesh[0], N, sharex='col', figsize=(6*N, 24//N))
@@ -151,7 +168,7 @@ def test_adjoint_burgers_same_mesh(qoi, plot=False):
                         (0.05, 0.05),
                         color='white',
                     )
-            plt.savefig(f"plots/burgers_test_{N}.jpg")
+            plt.savefig(f"plots/burgers_test_{N}_{qoi_type}.jpg")
 
     # Check adjoint solutions at initial time match
     assert np.isclose(errornorm(*final_adj_sols)/norm(final_adj_sols[0]), 0.0)
@@ -165,4 +182,5 @@ def test_adjoint_burgers_same_mesh(qoi, plot=False):
 # ---------------------------
 
 if __name__ == "__main__":
-    test_adjoint_burgers(plot=True)
+    # test_adjoint_burgers_same_mesh(end_time_qoi_burgers, plot=True)
+    test_adjoint_burgers_same_mesh(time_integrated_qoi_burgers, plot=True)
