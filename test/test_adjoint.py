@@ -29,7 +29,7 @@ def handle_exit_annotation():
 
 # TODO: test solve_adjoint for mixed spaces
 
-def solve_burgers(ic, t_start, t_end, dt, **kwargs):
+def solve_burgers(ic, t_start, t_end, dt, J=0, qoi=None, **kwargs):
     """
     Solve Burgers' equation on an interval
     (t_start, t_end), given viscosity `nu` and some
@@ -58,9 +58,11 @@ def solve_burgers(ic, t_start, t_end, dt, **kwargs):
     t = t_start
     while t < t_end - 1.0e-05:
         solve(F == 0, u)
+        if qoi is not None:
+            J += qoi(u, t)
         u_.assign(u)
         t += dt
-    return u_
+    return u_, J
 
 
 def initial_condition_burgers(fs):
@@ -75,7 +77,9 @@ def initial_condition_burgers(fs):
     return interpolate(as_vector([sin(pi*x), 0]), fs)
 
 
-def quantity_of_interest_burgers(sol):
+# TODO: test solve_adjoint for time-integrated QoIs
+
+def end_time_qoi_burgers(sol):
     """
     Quantity of interest for Burgers' equation
     which computes the square L2 norm over the
@@ -90,7 +94,12 @@ def quantity_of_interest_burgers(sol):
 # standard tests for pytest
 # ---------------------------
 
-def test_adjoint_burgers_same_mesh(plot=False):
+@pytest.fixture(params=[end_time_qoi_burgers])
+def qoi(request):
+    return request.param
+
+
+def test_adjoint_burgers_same_mesh(qoi, plot=False):
     """
     Check that `solve_adjoint` gives the same
     result when applied on one or two subintervals.
@@ -106,23 +115,21 @@ def test_adjoint_burgers_same_mesh(plot=False):
 
     # Loop over having one or two subintervals
     final_adj_sols = []
+    qois = []
     for meshes in ([mesh], [mesh, mesh]):
         dt_per_export = 2
         N = len(meshes)
         subintervals = get_subintervals(end_time, N)
 
         # Solve forward and adjoint on each subinterval
-        adj_sols = solve_adjoint(
-            solve_burgers,
-            initial_condition_burgers,
-            quantity_of_interest_burgers,
-            [VectorFunctionSpace(mesh, "CG", 2) for mesh in meshes],
-            end_time,
-            dt,
-            timesteps_per_export=dt_per_export,
-            solver_kwargs=dict(viscosity=Constant(0.0001)),
+        spaces = [VectorFunctionSpace(mesh, "CG", 2) for mesh in meshes]
+        J, adj_sols = solve_adjoint(
+            solve_burgers, initial_condition_burgers, qoi, spaces, end_time, dt,
+            timesteps_per_export=dt_per_export, solver_kwargs=dict(viscosity=Constant(0.0001)),
         )
         final_adj_sols.append(adj_sols[-1][-1])
+        qois.append(J)
+        assert norm(adj_sols[-1][-1]) > 1.0e-08
 
         # Plot adjoint solutions, if requested
         if plot:
@@ -146,8 +153,11 @@ def test_adjoint_burgers_same_mesh(plot=False):
                     )
             plt.savefig(f"plots/burgers_test_{N}.jpg")
 
-    # Check adjoint solutions match
-    np.isclose(errornorm(*final_adj_sols)/norm(final_adj_sols[0]), 0.0)
+    # Check adjoint solutions at initial time match
+    assert np.isclose(errornorm(*final_adj_sols)/norm(final_adj_sols[0]), 0.0)
+
+    # Check quantities of interest match
+    assert np.isclose(*qois)
 
 
 # ---------------------------
