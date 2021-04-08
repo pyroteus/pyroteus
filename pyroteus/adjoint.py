@@ -39,9 +39,6 @@ def wrap_qoi(qoi):
     The QoI can have either one or two arguments. In the former case,
     it depends only on the solution (at the final time)
     """
-    import inspect
-    nargs = len(inspect.getfullargspec(qoi).args)
-    assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
 
     @wraps(qoi)
     def wrapper(*args):
@@ -49,7 +46,7 @@ def wrap_qoi(qoi):
         j.adj_value = 1.0
         return j
 
-    return wrapper, nargs
+    return wrapper
 
 
 def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, timesteps, **kwargs):
@@ -68,13 +65,17 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
         subinterval
     :kwarg timesteps_per_export: a list of ints or single int correspondioing to the number of
         timesteps per export on each subinterval
-    :kwarg solver_kwargs: a list of dictionaries or single dictionary providing parameters to
-        the solver
+    :kwarg solver_kwargs: a dictionary providing parameters to the solver
 
     :return J: quantity of interest value
     :return adj_sols: a list of lists containing the adjoint solution at all exported timesteps,
         indexed by subinterval and then export
     """
+    import inspect
+    nargs = len(inspect.getfullargspec(qoi).args)
+    assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
+
+    # Handle timestepping
     num_subintervals = len(function_spaces)
     subintervals = get_subintervals(end_time, num_subintervals)
     dt_per_export = kwargs.get('timesteps_per_export', 1)
@@ -85,17 +86,19 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     tape = pyadjoint.get_working_tape()
     tape.clear_tape()
 
-    # Solve forward to get checkpoints
+    # Solve forward to get checkpoints and evaluate QoI
     solver_kwargs = kwargs.get('solver_kwargs', {})
-    if isinstance(solver_kwargs, dict):
-        solver_kwargs = [solver_kwargs for subinterval in subintervals]
+    if nargs == 2:
+        solver_kwargs['qoi'] = lambda *args: firedrake.assemble(qoi(*args))
     J = 0
     with pyadjoint.stop_annotating():
         checkpoints = [initial_condition(function_spaces[0])]
         for i, subinterval in enumerate(subintervals):
-            sol, J = solver(checkpoints[i], *subinterval, timesteps[i], J=J, **solver_kwargs[i])
+            sol, J = solver(checkpoints[i], *subinterval, timesteps[i], J=J, **solver_kwargs)
             if i < num_subintervals-1:
                 checkpoints.append(firedrake.project(sol, function_spaces[i+1]))
+    if nargs == 2:
+        solver_kwargs.pop('qoi')
 
     # Create an array to hold exported adjoint solutions
     adj_sols = [[
@@ -104,28 +107,30 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
         for i, fs in enumerate(function_spaces)
     ]
 
+    # Wrap solver and QoI
+    wrapped_solver = wrap_solver(solver)
+    wrapped_qoi = wrap_qoi(qoi)
+    if nargs == 2:
+        solver_kwargs['qoi'] = wrapped_qoi
+
     # Loop over subintervals in reverse
     adj_sol = None
     seed = None
     for i, irev in enumerate(reversed(range(num_subintervals))):
         subinterval = subintervals[irev]
-        wrapped_solver = wrap_solver(solver)
-        wrapped_qoi, nargs = wrap_qoi(qoi)
 
         # Annotate tape on current subinterval
-        if nargs == 2:
-            solver_kwargs[irev]['qoi'] = wrapped_qoi  # TODO: TESTME
         sol, control = wrapped_solver(
             checkpoints[irev],
             *subinterval,
             timesteps[irev],
-            **solver_kwargs[irev],
+            **solver_kwargs,
         )
 
         # Store terminal condition and get seed vector for reverse mode propagation
         if i == 0:
             if nargs == 1:
-                wrapped_qoi(sol)
+                J = wrapped_qoi(sol)
             tc = firedrake.Function(sol.function_space())  # Zero terminal condition
         else:
             sol.adj_value = mesh2mesh_project_adjoint(seed, function_spaces[irev], annotate=False)

@@ -1,5 +1,6 @@
 from pyroteus import *
-from pyadjoint.tape import get_working_tape, pause_annotation, annotate_tape
+from firedrake.adjoint.blocks import GenericSolveBlock
+import pyadjoint
 import pytest
 
 
@@ -9,7 +10,7 @@ def handle_taping():
     **Disclaimer: copied from firedrake/tests/regression/test_adjoint_interpolate.py
     """
     yield
-    tape = get_working_tape()
+    tape = pyadjoint.get_working_tape()
     tape.clear_tape()
 
 
@@ -22,9 +23,9 @@ def handle_exit_annotation():
     **Disclaimer: copied from firedrake/tests/regression/test_adjoint_interpolate.py
     """
     yield
-    annotate = annotate_tape()
+    annotate = pyadjoint.annotate_tape()
     if annotate:
-        pause_annotation()
+        pyadjoint.pause_annotation()
 
 
 # TODO: test solve_adjoint for mixed spaces
@@ -123,14 +124,37 @@ def test_adjoint_burgers_same_mesh(qoi, plot=False):
         solution field
     """
     import firedrake_adjoint  # noqa
+
     n = 32
     mesh = UnitSquareMesh(n, n, diagonal='left')
     end_time = 0.5
     dt = 1/n
+    qoi_type = qoi.__name__.split('_qoi')[0]
+
+    # Solve forward and adjoint without the subinterval framework
+    nu = Constant(0.0001)
+    solver_kwargs = dict(viscosity=nu)
+    if qoi_type == 'time_integrated':
+        solver_kwargs['qoi'] = lambda *args: assemble(qoi(*args))
+    sol, J = solve_burgers(
+        initial_condition_burgers(VectorFunctionSpace(mesh, "CG", 2)),
+        0.0, end_time, dt, **solver_kwargs,
+    )
+    if qoi_type == 'end_time':
+        J = assemble(qoi(sol))
+    pyadjoint.compute_gradient(J, nu)
+    tape = pyadjoint.get_working_tape()
+    solve_blocks = [
+        block for block in tape.get_blocks()
+        if issubclass(block.__class__, GenericSolveBlock)
+        and block.adj_sol is not None
+    ]
+    if qoi_type == 'time_integrated':
+        solver_kwargs.pop('qoi')
+    final_adj_sols = [solve_blocks[0].adj_sol]
+    qois = [J]
 
     # Loop over having one or two subintervals
-    final_adj_sols = []
-    qois = []
     for meshes in ([mesh], [mesh, mesh]):
         dt_per_export = 2
         N = len(meshes)
@@ -140,7 +164,7 @@ def test_adjoint_burgers_same_mesh(qoi, plot=False):
         spaces = [VectorFunctionSpace(mesh, "CG", 2) for mesh in meshes]
         J, adj_sols = solve_adjoint(
             solve_burgers, initial_condition_burgers, qoi, spaces, end_time, dt,
-            timesteps_per_export=dt_per_export, solver_kwargs=dict(viscosity=Constant(0.0001)),
+            timesteps_per_export=dt_per_export, solver_kwargs=solver_kwargs,
         )
         final_adj_sols.append(adj_sols[-1][-1])
         qois.append(J)
@@ -151,7 +175,6 @@ def test_adjoint_burgers_same_mesh(qoi, plot=False):
             import matplotlib.pyplot as plt
             from pyroteus.ts import get_exports_per_subinterval
 
-            qoi_type = qoi.__name__.split('_qoi')[0]
             levels = np.linspace(0, 0.8, 9) if qoi_type == 'end_time' else 9
 
             _, dt_per_export, exports_per_mesh = \
@@ -170,11 +193,11 @@ def test_adjoint_burgers_same_mesh(qoi, plot=False):
                     )
             plt.savefig(f"plots/burgers_test_{N}_{qoi_type}.jpg")
 
-    # Check adjoint solutions at initial time match
-    assert np.isclose(errornorm(*final_adj_sols)/norm(final_adj_sols[0]), 0.0)
+        # Check adjoint solutions at initial time match
+        assert np.isclose(errornorm(*final_adj_sols[::N])/norm(final_adj_sols[0]), 0.0)
 
-    # Check quantities of interest match
-    assert np.isclose(*qois)
+        # Check quantities of interest match
+        assert np.isclose(*qois[::N])
 
 
 # ---------------------------
