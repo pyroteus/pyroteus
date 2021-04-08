@@ -79,6 +79,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     num_subintervals = len(function_spaces)
     subintervals = get_subintervals(end_time, num_subintervals)
     dt_per_export = kwargs.get('timesteps_per_export', 1)
+    solves_per_dt = kwargs.get('solves_per_timestep', 1)
     timesteps, dt_per_export, export_per_mesh = \
         get_exports_per_subinterval(subintervals, timesteps, dt_per_export)
 
@@ -149,7 +150,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             for block in tape.get_blocks()
             if issubclass(block.__class__, GenericSolveBlock)
             and block.adj_sol is not None
-        ]
+        ][solves_per_dt-1::solves_per_dt]
         for j, jj in enumerate(reversed(range(0, len(solve_blocks), dt_per_export[i]))):
             adj_sol = solve_blocks[jj].adj_sol
             adj_sols[i][j+1].assign(adj_sol)

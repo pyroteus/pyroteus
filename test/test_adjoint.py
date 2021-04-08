@@ -35,8 +35,8 @@ def handle_exit_annotation():
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=["burgers"])
-def pde(request):
+@pytest.fixture(params=["burgers", "solid_body_rotation"])
+def problem(request):
     return request.param
 
 
@@ -45,12 +45,12 @@ def qoi_type(request):
     return request.param
 
 
-def test_adjoint_same_mesh(pde, qoi_type, plot=False):
+def test_adjoint_same_mesh(problem, qoi_type, plot=False):
     """
     Check that `solve_adjoint` gives the same
     result when applied on one or two subintervals.
 
-    :arg pde: string denoting the PDE of choice
+    :arg problem: string denoting the test case of choice
     :arg qoi_type: is the QoI evaluated at the end time
         or as a time integral?
     :kwarg plot: toggle plotting of the adjoint
@@ -59,19 +59,26 @@ def test_adjoint_same_mesh(pde, qoi_type, plot=False):
     from firedrake_adjoint import Control
 
     # Setup
-    if pde == "burgers":
-        import burgers as PDE
+    if problem == "burgers":
+        import burgers as test_case
+    elif problem == "solid_body_rotation":
+        import solid_body_rotation as test_case
     else:
         raise NotImplementedError  # TODO: test solve_adjoint for mixed spaces
-    fs, end_time, dt = PDE.setup()
-    qoi = PDE.end_time_qoi if qoi_type == 'end_time' else PDE.time_integrated_qoi
+    options = test_case.Options()
+    fs = options.function_space
+    end_time = options.end_time
+    dt = options.dt
+    dt_per_export = options.dt_per_export
+    solves_per_dt = options.solves_per_dt
+    qoi = test_case.end_time_qoi if qoi_type == 'end_time' else test_case.time_integrated_qoi
 
     # Solve forward and adjoint without the subinterval framework
     solver_kwargs = {}
     if qoi_type == 'time_integrated':
         solver_kwargs['qoi'] = lambda *args: assemble(qoi(*args))
-    ic = PDE.initial_condition(fs)
-    sol, J = PDE.solver(ic, 0.0, end_time, dt, **solver_kwargs)
+    ic = test_case.initial_condition(fs)
+    sol, J = test_case.solver(ic, 0.0, end_time, dt, **solver_kwargs)
     if qoi_type == 'end_time':
         J = assemble(qoi(sol))
     pyadjoint.compute_gradient(J, Control(ic))
@@ -80,24 +87,22 @@ def test_adjoint_same_mesh(pde, qoi_type, plot=False):
         block for block in tape.get_blocks()
         if issubclass(block.__class__, GenericSolveBlock)
         and block.adj_sol is not None
-    ]
+    ][solves_per_dt-1::solves_per_dt]
     final_adj_sols = [solve_blocks[0].adj_sol]
     qois = [J]
 
     # Loop over having one or two subintervals
     for spaces in ([fs], [fs, fs]):
-        dt_per_export = 2
         N = len(spaces)
         subintervals = get_subintervals(end_time, N)
 
         # Solve forward and adjoint on each subinterval
         J, adj_sols = solve_adjoint(
-            PDE.solver, PDE.initial_condition, qoi, spaces, end_time, dt,
-            timesteps_per_export=dt_per_export
+            test_case.solver, test_case.initial_condition, qoi, spaces, end_time, dt,
+            timesteps_per_export=dt_per_export, solves_per_timestep=solves_per_dt,
         )
         final_adj_sols.append(adj_sols[-1][-1])
         qois.append(J)
-        assert norm(adj_sols[-1][-1]) > 1.0e-08
 
         # Plot adjoint solutions, if requested
         if plot:
@@ -134,5 +139,6 @@ def test_adjoint_same_mesh(pde, qoi_type, plot=False):
 # ---------------------------
 
 if __name__ == "__main__":
-    test_adjoint_same_mesh("burgers", "end_time", plot=True)
-    test_adjoint_same_mesh("burgers", "time_integrated", plot=True)
+    # test_adjoint_same_mesh("burgers", "end_time", plot=True)
+    # test_adjoint_same_mesh("burgers", "time_integrated", plot=True)
+    test_adjoint_same_mesh("solid_body_rotation", "end_time", plot=False)

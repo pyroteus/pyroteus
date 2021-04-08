@@ -5,6 +5,8 @@ all: lint test
 dir:
 	@echo "Creating directories..."
 	@mkdir -p test/plots
+	@mkdir -p test/outputs/burgers
+	@mkdir -p test/outputs/solid_body_rotation
 
 lint:
 	@echo "Checking lint..."
