@@ -7,27 +7,26 @@ Code here is based on that found at
 from firedrake import *
 
 
-__all__ = ["setup", "solver", "initial_condition", "end_time_qoi", "time_integrated_qoi"]
-
-
-def setup():
+class Options(object):
     """
-    Get default :class:`FunctionSpace`, simulation
-    end time and timestep.
+    Get default :class:`FunctionSpace` and various
+    parameters related to time integration.
     """
-    n = 32
-    mesh = UnitSquareMesh(n, n, diagonal='left')
-    fs = VectorFunctionSpace(mesh, "CG", 2)
-    end_time = 0.5
-    dt = 1/n
-    return fs, end_time, dt
+    def __init__(self):
+        n = 32
+        self.mesh = UnitSquareMesh(n, n, diagonal='left')
+        self.function_space = VectorFunctionSpace(self.mesh, "CG", 2)
+        self.end_time = 0.5
+        self.dt = 1/n
+        self.dt_per_export = 2
+        self.solves_per_dt = 1
 
 
 def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     """
-    Solve Burgers' equation on an interval
-    (t_start, t_end), given viscosity `nu` and some
-    initial condition `ic`.
+    Solve Burgers' equation in CG2 space on an
+    interval (t_start, t_end), given some initial
+    condition `ic` and timestep `dt`.
     """
     fs = ic.function_space()
     dtc = Constant(dt)
@@ -90,3 +89,16 @@ def time_integrated_qoi(sol, t):
     :arg t: time level
     """
     return inner(sol, sol)*ds(2)
+
+
+if __name__ == "__main__":
+    outfile = File('outputs/burgers/solution.pvd')
+
+    def qoi(sol, t):
+        outfile.write(sol)
+        return assemble(time_integrated_qoi(sol, t))
+
+    fs, end_time, dt, dt_per_export = setup()
+    ic = initial_condition(fs)
+    sol, J = solver(ic, 0, end_time, dt, qoi=qoi)
+    print(f"Quantity of interest: {J:.4e}")
