@@ -6,6 +6,7 @@ dir:
 	@echo "Creating directories..."
 	@mkdir -p test/plots
 	@mkdir -p test/outputs/burgers
+	@mkdir -p test/outputs/rossby_wave
 	@mkdir -p test/outputs/solid_body_rotation
 
 lint:
