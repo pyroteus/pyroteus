@@ -120,11 +120,23 @@ def errornorm(u, uh, norm_type='L2', **kwargs):
         if degree_uh > degree_u:
             firedrake.logging.warning("Degree of exact solution less than approximation degree")
 
-    if norm_type[0] == 'l':  # Point-wise norms
+    # Case 1: point-wise norms
+    if norm_type[0] == 'l':
         v = u
         v -= uh
-    else:  # Norms in UFL
+
+    # Case 2: UFL norms for mixed function spaces
+    elif hasattr(uh.function_space(), 'num_sub_spaces'):
+        if norm_type[1:] == '2':
+            vv = [uu - uuh for uu, uuh in zip(u.split(), uh.split())]
+            return sqrt(assemble(sum([inner(v, v) for v in vv])*dx))
+        else:
+            raise NotImplementedError
+
+    # Case 3: UFL norms for non-mixed spaces
+    else:
         v = u - uh
+
     return norm(v, norm_type=norm_type, **kwargs)
 
 
