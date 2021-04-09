@@ -126,3 +126,27 @@ def errornorm(u, uh, norm_type='L2', **kwargs):
     else:  # Norms in UFL
         v = u - uh
     return norm(v, norm_type=norm_type, **kwargs)
+
+
+def rotation_matrix_2d(angle):
+    """
+    Rotation matrix associated with some
+    `angle`, as a UFL matrix.
+    """
+    return as_matrix([[cos(angle), -sin(angle)],
+                     [sin(angle), cos(angle)]])
+
+
+def rotate(v, angle, origin=None):
+    """
+    Rotate a UFL :class:`as_vector` `v`
+    by `angle` about an `origin`.
+    """
+    dim = len(v)
+    origin = origin or as_vector(np.zeros(dim))
+    assert len(origin) == dim, "Origin does not match dimension"
+    if dim == 2:
+        R = rotation_matrix_2d(angle)
+    else:
+        raise NotImplementedError
+    return dot(R, v - origin) + origin
