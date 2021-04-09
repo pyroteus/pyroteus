@@ -134,9 +134,10 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
                 J = wrapped_qoi(sol)
             tc = firedrake.Function(sol.function_space())  # Zero terminal condition
         else:
-            sol.adj_value = mesh2mesh_project_adjoint(seed, function_spaces[irev], annotate=False)
-            tc = mesh2mesh_project_adjoint(adj_sol, function_spaces[irev], annotate=False)
-        adj_sols[i][0].assign(tc)
+            with pyadjoint.stop_annotating():
+                sol.adj_value = mesh2mesh_project_adjoint(seed, function_spaces[irev])
+                tc = mesh2mesh_project_adjoint(adj_sol, function_spaces[irev])
+        adj_sols[i][0].assign(tc, annotate=False)
 
         # Solve adjoint problem
         m = pyadjoint.enlisting.Enlist(control)
