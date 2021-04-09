@@ -71,6 +71,7 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
     dt_per_export = test_case.dt_per_export
     solves_per_dt = test_case.solves_per_dt
     qoi = test_case.end_time_qoi if qoi_type == 'end_time' else test_case.time_integrated_qoi
+    num_timesteps = int(end_time/dt)
 
     # Solve forward and adjoint without the subinterval framework
     solver_kwargs = {}
@@ -86,7 +87,7 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
         block for block in tape.get_blocks()
         if issubclass(block.__class__, GenericSolveBlock)
         and block.adj_sol is not None
-    ][solves_per_dt-1::solves_per_dt]
+    ][-num_timesteps*solves_per_dt::solves_per_dt]
     final_adj_sols = [solve_blocks[0].adj_sol]
     qois = [J]
 
