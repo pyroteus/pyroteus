@@ -1,7 +1,20 @@
+"""
+Problem specification for a simple DG advection demo.
+
+Code here is based on that found at
+    https://firedrakeproject.org/demos/DG-advection.py.html
+
+It it concerned with solid body rotation of a collection
+of shapes, as first considered in [LeVeque 1996].
+
+[LeVeque 1996] R. LeVeque, "High-resolution conservative
+    algorithms for advection in incompressible flow" (1996).
+"""
 from firedrake import *
 from pyroteus.utility import rotate
 
 
+# Problem setup
 mesh = UnitSquareMesh(40, 40, quadrilateral=True)
 coords = mesh.coordinates.copy(deepcopy=True)
 coords -= 0.5
