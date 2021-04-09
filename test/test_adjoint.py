@@ -36,6 +36,7 @@ def handle_exit_annotation():
 # ---------------------------
 
 @pytest.fixture(params=["burgers", "solid_body_rotation"])
+# @pytest.fixture(params=["rossby_wave"])
 def problem(request):
     return request.param
 
@@ -143,4 +144,6 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
 if __name__ == "__main__":
     # test_adjoint_same_mesh("burgers", "end_time", plot=True)
     # test_adjoint_same_mesh("burgers", "time_integrated", plot=True)
-    test_adjoint_same_mesh("solid_body_rotation", "end_time", plot=False)
+    # test_adjoint_same_mesh("solid_body_rotation", "end_time", plot=False)
+    test_adjoint_same_mesh("rossby_wave", "end_time", plot=False)
+    test_adjoint_same_mesh("rossby_wave", "time_integrated", plot=False)
