@@ -1,22 +1,16 @@
 from firedrake import *
+from pyroteus.utility import rotate
 
 
-class Options(object):
-    """
-    Get default :class:`FunctionSpace` and various
-    parameters related to time integration.
-    """
-    def __init__(self):
-        n = 40
-        mesh = UnitSquareMesh(n, n, quadrilateral=True)
-        coords = mesh.coordinates.copy(deepcopy=True)
-        coords -= 0.5
-        self.mesh = Mesh(coords)
-        self.function_space = FunctionSpace(self.mesh, "DQ", 1)
-        self.end_time = 2*pi
-        self.dt = pi/300
-        self.dt_per_export = 150
-        self.solves_per_dt = 3
+mesh = UnitSquareMesh(40, 40, quadrilateral=True)
+coords = mesh.coordinates.copy(deepcopy=True)
+coords -= 0.5
+mesh = Mesh(coords)
+function_space = FunctionSpace(mesh, "DQ", 1)
+end_time = 2*pi
+dt = pi/300
+dt_per_export = 75
+solves_per_dt = 3
 
 
 def solver(ic, t_start, t_end, dt, J=0, qoi=None):
@@ -29,7 +23,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     mesh = V.mesh()
     x, y = SpatialCoordinate(mesh)
     W = VectorFunctionSpace(mesh, "CG", 1)
-    u = interpolate(as_vector([0.5 - y, x - 0.5]), W)
+    u = interpolate(as_vector([-y, x]), W)
     dtc = Constant(dt)
     n = FacetNormal(mesh)
     un = 0.5*(dot(u, n) + abs(dot(u, n)))
@@ -81,13 +75,17 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     return q, J
 
 
-def initial_condition(fs):
+def initial_condition(fs, coordinates=None):
     """
     Initial condition for tracer
     transport problem consisting of a
     bell, cone and slotted cylinder.
     """
-    x, y = SpatialCoordinate(fs.mesh())
+    if coordinates is not None:
+        assert fs.mesh() == coordinates.function_space().mesh()
+        x, y = coordinates
+    else:
+        x, y = SpatialCoordinate(fs.mesh())
 
     bell_r0, bell_x0, bell_y0 = 0.15, -0.25, 0.0
     cone_r0, cone_x0, cone_y0 = 0.15, 0.0, -0.25
@@ -112,33 +110,72 @@ def end_time_qoi(q):
     """
     V = q.function_space()
     q_exact = initial_condition(V)
+
     x, y = SpatialCoordinate(V.mesh())
-    receiver_x, receiver_y, receiver_r = 0.0, 0.25, 0.15
-    ball = conditional((x-receiver_x)**2 + (y-receiver_y)**2 < receiver_r**2, 1.0, 0.0)
+    cyl_x, cyl_y, cyl_r = 0.0, 0.25, 0.15
+    ball = conditional((x - cyl_x)**2 + (y - cyl_y)**2 < cyl_r**2, 1.0, 0.0)
+
     return ball*(q-q_exact)**2*dx
 
 
 def time_integrated_qoi(q, t):
-    import pytest
-    pytest.xfail("TO DO")  # TODO: Use moving analytical solution
+    """
+    Quantity of interest for the
+    tracer transport problem which
+    computes the time-integrated
+    square L2 error of the
+    advected slotted cylinder.
+    """
+    V = q.function_space()
+    mesh = V.mesh()
+    x = SpatialCoordinate(mesh)
+    W = VectorFunctionSpace(mesh, "CG", 1)
+    theta = -2*pi*t/end_time
+    X = interpolate(rotate(x, theta), W)
+    q_exact = initial_condition(V, X)
 
+    cyl_x, cyl_y, cyl_r = 0.0, 0.25, 0.15
+    cyl_x, cyl_y = interpolate(rotate(as_vector([cyl_x, cyl_y]), theta), W)
+    ball = conditional((x[0] - cyl_x)**2 + (x[1] - cyl_y)**2 < cyl_r**2, 1.0, 0.0)
+
+    return ball*(q-q_exact)**2*dx
+
+
+# ---------------------------
+# plotting and debugging
+# ---------------------------
 
 if __name__ == "__main__":
-    outfile = File("outputs/tracer/solution.pvd")
+
+    # Plot analytical solution
+    outfile = File("outputs/solid_body_rotation/analytical.pvd")
     outfile.step = 0
-    options = Options()
-    end_time = options.end_time
-    dt = options.dt
-    dt_per_export = options.dt_per_export
+    x = SpatialCoordinate(mesh)
+    W = VectorFunctionSpace(mesh, "CG", 1)
+    V = function_space
+    solution = Function(V, name="Analytical solution")
+    t = 0.0
+    while t < end_time + 0.5*dt:
+        if outfile.step % dt_per_export == 0:
+            theta = -2*pi*t/end_time
+            X = interpolate(rotate(x, theta), W)
+            solution.interpolate(initial_condition(V, X))
+            outfile.write(solution)
+        outfile.step += 1
+        t += dt
+
+    # Plot finite element solution
+    outfile = File("outputs/solid_body_rotation/solution.pvd")
+    outfile.step = 0
 
     def qoi(sol, t):
-        if outfile.step % dt_per_export == 0:
+        if outfile.step % dt_per_export != 0:
+            sol.rename("Finite element solution")
             outfile.write(sol)
-        outfile.step += 1
-        return 0
+            outfile.step += 1
+        return assemble(time_integrated_qoi(sol, t))
 
-    ic = initial_condition(options.function_space)
+    ic = initial_condition(V)
     sol, J = solver(ic, 0, end_time, dt, qoi=qoi)
     outfile.write(sol)
-    J = assemble(end_time_qoi(sol))
     print(f"Quantity of interest: {J:.4e}")
