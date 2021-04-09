@@ -57,15 +57,11 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
     :kwarg plot: toggle plotting of the adjoint
         solution field
     """
+    import importlib
     from firedrake_adjoint import Control
 
     # Setup
-    if problem == "burgers":
-        import burgers as test_case
-    elif problem == "solid_body_rotation":
-        import solid_body_rotation as test_case
-    else:
-        raise NotImplementedError  # TODO: test solve_adjoint for mixed spaces
+    test_case = importlib.import_module(problem)
     fs = test_case.function_space
     end_time = test_case.end_time
     if problem == "solid_body_rotation" and qoi_type == "time_integrated":
