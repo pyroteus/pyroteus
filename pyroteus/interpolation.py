@@ -12,13 +12,11 @@ def mesh2mesh_project(source, target_space, **kwargs):
     This function extends to the case of mixed spaces.
     """
     source_space = source.function_space()
-    target_element = target_space.ufl_element()
     if source_space == target_space:
         return source
-    elif hasattr(target_element, 'num_sub_spaces'):
-        source_element = source_space.ufl_element()
-        assert hasattr(source_element, 'num_sub_spaces')
-        assert target_element.num_sub_spaces() == source_element.num_sub_spaces()
+    elif hasattr(target_space, 'num_sub_spaces'):
+        assert hasattr(source_space, 'num_sub_spaces')
+        assert target_space.num_sub_spaces() == source_space.num_sub_spaces()
         target = Function(target_space)
         for s, t in zip(source.split(), target.split()):
             t.project(s, **kwargs)
@@ -38,13 +36,11 @@ def mesh2mesh_project_adjoint(target_b, source_space, **kwargs):
     source_b = Function(source_space)
 
     # Get subspaces
-    source_element = source_space.ufl_element()
     if source_space == target_space:
         return target_b
-    elif hasattr(source_element, 'num_sub_spaces'):
-        target_element = target_space.ufl_element()
-        assert hasattr(target_element, 'num_sub_spaces')
-        assert target_element.num_sub_spaces() == source_element.num_sub_spaces()
+    elif hasattr(source_space, 'num_sub_spaces'):
+        assert hasattr(target_space, 'num_sub_spaces')
+        assert target_space.num_sub_spaces() == source_space.num_sub_spaces()
         target_b_split = target_b.split()
         source_b_split = source_b.split()
     else:
