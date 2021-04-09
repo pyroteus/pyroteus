@@ -35,8 +35,7 @@ def handle_exit_annotation():
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=["burgers", "solid_body_rotation"])
-# @pytest.fixture(params=["rossby_wave"])
+@pytest.fixture(params=["burgers", "solid_body_rotation", "rossby_wave"])
 def problem(request):
     return request.param
 
@@ -61,12 +60,15 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
     from firedrake_adjoint import Control
 
     # Setup
+    print(f"\n--- Setting up {problem} test case with {qoi_type} QoI\n")
     test_case = importlib.import_module(problem)
     fs = test_case.function_space
     end_time = test_case.end_time
     if problem == "solid_body_rotation" and qoi_type == "time_integrated":
         end_time /= 4  # Reduce testing time
-        pytest.xfail("FIXME")  # FIXME
+        pytest.xfail("FIXME")  # FIXME: invalid type conversion error
+    elif problem == "rossby_wave" and qoi_type == "time_integrated":
+        pytest.xfail("FIXME")  # FIXME: adjoint solutions don't match
     dt = test_case.dt
     dt_per_export = test_case.dt_per_export
     solves_per_dt = test_case.solves_per_dt
@@ -74,6 +76,7 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
     num_timesteps = int(end_time/dt)
 
     # Solve forward and adjoint without the subinterval framework
+    print(f"\n--- Solving the adjoint problem on 1 subinterval using pyadjoint\n")
     solver_kwargs = {}
     if qoi_type == 'time_integrated':
         solver_kwargs['qoi'] = lambda *args: assemble(qoi(*args))
@@ -94,6 +97,8 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
     # Loop over having one or two subintervals
     for spaces in ([fs], [fs, fs]):
         N = len(spaces)
+        plural = '' if N == 1 else 's'
+        print(f"\n--- Solving the adjoint problem on {N} subinterval{plural} using pyroteus\n")
         subintervals = get_subintervals(end_time, N)
 
         # Solve forward and adjoint on each subinterval
@@ -125,13 +130,14 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
                         (0.05, 0.05),
                         color='white',
                     )
-            plt.savefig(f"plots/burgers_test_{N}_{qoi_type}.jpg")
-
-        # Check adjoint solutions at initial time match
-        assert np.isclose(errornorm(*final_adj_sols[::N])/norm(final_adj_sols[0]), 0.0)
+            plt.savefig(f"plots/{problem}_test_{N}_{qoi_type}.jpg")
 
         # Check quantities of interest match
-        assert np.isclose(*qois[::N])
+        assert np.isclose(*qois[::N]), f"QoIs do not match ({qois[0]} vs. {qois[-1]})"
+
+        # Check adjoint solutions at initial time match
+        err = errornorm(*final_adj_sols[::N])/norm(final_adj_sols[0])
+        assert np.isclose(err, 0.0), f"Non-zero adjoint error ({err})"
 
 
 # ---------------------------
@@ -142,5 +148,6 @@ if __name__ == "__main__":
     # test_adjoint_same_mesh("burgers", "end_time", plot=True)
     # test_adjoint_same_mesh("burgers", "time_integrated", plot=True)
     # test_adjoint_same_mesh("solid_body_rotation", "end_time", plot=False)
-    test_adjoint_same_mesh("rossby_wave", "end_time", plot=False)
+    # test_adjoint_same_mesh("solid_body_rotation", "time_integrated", plot=False)
+    # test_adjoint_same_mesh("rossby_wave", "end_time", plot=False)
     test_adjoint_same_mesh("rossby_wave", "time_integrated", plot=False)
