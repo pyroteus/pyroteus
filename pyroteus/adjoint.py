@@ -1,5 +1,5 @@
 import firedrake
-from firedrake.adjoint.blocks import GenericSolveBlock
+from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
 import pyadjoint
 from pyroteus.interpolation import mesh2mesh_project_adjoint
 from pyroteus.ts import get_subintervals, get_exports_per_subinterval
@@ -82,11 +82,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     solves_per_dt = kwargs.get('solves_per_timestep', 1)
     timesteps, dt_per_export, export_per_mesh = \
         get_exports_per_subinterval(subintervals, timesteps, dt_per_export)
-    num_timesteps = sum([int((s[1]-s[0])/dt) for s, dt in zip(subintervals, timesteps)])
-
-    # Clear tape
-    tape = pyadjoint.get_working_tape()
-    tape.clear_tape()
+    dt_per_mesh = [dtpe*(epm-1) for dtpe, epm in zip(dt_per_export, export_per_mesh)]
 
     # Solve forward to get checkpoints and evaluate QoI
     solver_kwargs = kwargs.get('solver_kwargs', {})
@@ -115,6 +111,10 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     if nargs == 2:
         solver_kwargs['qoi'] = wrapped_qoi
 
+    # Clear tape
+    tape = pyadjoint.get_working_tape()
+    tape.clear_tape()
+
     # Loop over subintervals in reverse
     adj_sol = None
     seed = None
@@ -138,7 +138,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             with pyadjoint.stop_annotating():
                 sol.adj_value = mesh2mesh_project_adjoint(seed, function_spaces[irev])
                 tc = mesh2mesh_project_adjoint(adj_sol, function_spaces[irev])
-        assert function_spaces[i] == tc.function_space(), "FunctionSpaces do not match"
+        assert function_spaces[irev] == tc.function_space(), "FunctionSpaces do not match"
         adj_sols[i][0].assign(tc, annotate=False)
 
         # Solve adjoint problem
@@ -152,8 +152,9 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             block
             for block in tape.get_blocks()
             if issubclass(block.__class__, GenericSolveBlock)
+            and not issubclass(block.__class__, ProjectBlock)
             and block.adj_sol is not None
-        ][-num_timesteps*solves_per_dt::solves_per_dt]
+        ][-dt_per_mesh[i]*solves_per_dt::solves_per_dt]
         for j, jj in enumerate(reversed(range(0, len(solve_blocks), dt_per_export[i]))):
             adj_sol = solve_blocks[jj].adj_sol
             adj_sols[i][j+1].assign(adj_sol)
