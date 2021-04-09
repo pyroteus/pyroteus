@@ -25,10 +25,10 @@ def get_exports_per_subinterval(subintervals, timesteps, dt_per_export):
     """
     if isinstance(timesteps, float):
         timesteps = [timesteps for subinterval in subintervals]
-    assert len(timesteps) == len(subintervals)
+    assert len(timesteps) == len(subintervals), f"{len(timesteps)} vs. {len(subintervals)}"
     _dt_per_mesh = [(t[1] - t[0])/dt for t, dt in zip(subintervals, timesteps)]
     dt_per_mesh = [int(dtpm) for dtpm in _dt_per_mesh]
-    assert np.allclose(dt_per_mesh, _dt_per_mesh)
+    assert np.allclose(dt_per_mesh, _dt_per_mesh), f"{dt_per_mesh} vs. {_dt_per_mesh}"
     if isinstance(dt_per_export, int):
         dt_per_export = [dt_per_export for subinterval in subintervals]
     for dtpe, dtpm in zip(dt_per_export, dt_per_mesh):
