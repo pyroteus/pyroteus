@@ -7,19 +7,13 @@ Code here is based on that found at
 from firedrake import *
 
 
-class Options(object):
-    """
-    Get default :class:`FunctionSpace` and various
-    parameters related to time integration.
-    """
-    def __init__(self):
-        n = 32
-        self.mesh = UnitSquareMesh(n, n, diagonal='left')
-        self.function_space = VectorFunctionSpace(self.mesh, "CG", 2)
-        self.end_time = 0.5
-        self.dt = 1/n
-        self.dt_per_export = 2
-        self.solves_per_dt = 1
+n = 32
+mesh = UnitSquareMesh(n, n, diagonal='left')
+function_space = VectorFunctionSpace(mesh, "CG", 2)
+end_time = 0.5
+dt = 1/n
+dt_per_export = 2
+solves_per_dt = 1
 
 
 def solver(ic, t_start, t_end, dt, J=0, qoi=None):
@@ -98,7 +92,6 @@ if __name__ == "__main__":
         outfile.write(sol)
         return assemble(time_integrated_qoi(sol, t))
 
-    fs, end_time, dt, dt_per_export = setup()
-    ic = initial_condition(fs)
+    ic = initial_condition(function_space)
     sol, J = solver(ic, 0, end_time, dt, qoi=qoi)
     print(f"Quantity of interest: {J:.4e}")
