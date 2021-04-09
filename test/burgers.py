@@ -5,6 +5,7 @@ Code here is based on that found at
     https://firedrakeproject.org/demos/burgers.py.html
 """
 from firedrake import *
+import pyadjoint
 
 
 # Problem setup
@@ -49,6 +50,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     return u_, J
 
 
+@pyadjoint.no_annotations
 def initial_condition(fs):
     """
     Initial condition for Burgers' equation

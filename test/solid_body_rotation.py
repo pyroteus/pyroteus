@@ -12,6 +12,7 @@ of shapes, as first considered in [LeVeque 1996].
 """
 from firedrake import *
 from pyroteus.utility import rotate
+import pyadjoint
 
 
 # Problem setup
@@ -88,6 +89,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     return q, J
 
 
+@pyadjoint.no_annotations
 def initial_condition(fs, coordinates=None):
     """
     Initial condition for tracer
