@@ -16,6 +16,7 @@ try:
 except ImportError:
     import pytest
     pytest.xfail("Thetis is not installed")
+import pyadjoint
 
 
 # Problem setup
@@ -29,7 +30,7 @@ U_2d = VectorFunctionSpace(mesh, "DG", 1, name="U_2d")
 H_2d = get_functionspace(mesh, "DG", 1, name="H_2d")
 function_space = MixedFunctionSpace([U_2d, H_2d])
 dt = 9.6/n
-end_time = 30.0
+end_time = 20.0
 dt_per_export = int(10.0/dt)
 solves_per_dt = 1
 order = 1
@@ -60,7 +61,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
     options.timestepper_type = 'CrankNicolson'
     options.timestep = 9.6/n
     options.simulation_export_time = 10.0
-    options.simulation_end_time = end_time
+    options.simulation_end_time = t_end
     options.use_grad_div_viscosity_term = False
     options.use_grad_depth_viscosity_term = False
     options.horizontal_viscosity = None
@@ -84,6 +85,11 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
         if qoi is not None:
             options.J += qoi(sol, t)
 
+    # Correct counters and iterate
+    solver_obj.simulation_time = t_start
+    solver_obj.i_export = int(t_start/dt/dt_per_export)
+    solver_obj.next_export_t = t_start
+    solver_obj.iteration = int(t_start/dt)
     solver_obj.iterate(update_forcings=update_forcings)
 
     # Revert gravitational acceleration
@@ -100,6 +106,7 @@ def initial_condition(fs):
     return asymptotic_expansion(fs, time=0.0)
 
 
+@pyadjoint.no_annotations
 def asymptotic_expansion(fs, time=0.0):
     """
     The test case admits an asymptotic
