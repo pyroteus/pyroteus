@@ -7,6 +7,7 @@ Code here is based on that found at
 from firedrake import *
 
 
+# Problem setup
 n = 32
 mesh = UnitSquareMesh(n, n, diagonal='left')
 function_space = VectorFunctionSpace(mesh, "CG", 2)
