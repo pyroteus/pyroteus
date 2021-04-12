@@ -66,9 +66,6 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
     end_time = test_case.end_time
     if problem == "solid_body_rotation" and qoi_type == "time_integrated":
         end_time /= 4  # Reduce testing time
-        pytest.xfail("FIXME")  # FIXME: invalid type conversion error
-    elif problem == "rossby_wave" and qoi_type == "time_integrated":
-        pytest.xfail("FIXME")  # FIXME: adjoint solutions don't match
     dt = test_case.dt
     dt_per_export = test_case.dt_per_export
     solves_per_dt = test_case.solves_per_dt
@@ -76,7 +73,7 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
     num_timesteps = int(end_time/dt)
 
     # Solve forward and adjoint without the subinterval framework
-    print(f"\n--- Solving the adjoint problem on 1 subinterval using pyadjoint\n")
+    print("\n--- Solving the adjoint problem on 1 subinterval using pyadjoint\n")
     solver_kwargs = {}
     if qoi_type == 'time_integrated':
         solver_kwargs['qoi'] = lambda *args: assemble(qoi(*args))
