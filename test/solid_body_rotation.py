@@ -18,7 +18,7 @@ import pyadjoint
 # Problem setup
 mesh = UnitSquareMesh(40, 40, quadrilateral=True)
 coords = mesh.coordinates.copy(deepcopy=True)
-coords -= 0.5
+coords.interpolate(coords - as_vector([0.5, 0.5]))
 mesh = Mesh(coords)
 function_space = FunctionSpace(mesh, "DQ", 1)
 end_time = 2*pi

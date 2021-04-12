@@ -62,6 +62,8 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
     options.timestep = 9.6/n
     options.simulation_export_time = 10.0
     options.simulation_end_time = t_end
+    if qoi is not None and np.isclose(t_end, end_time):
+        options.simulation_end_time += 0.5*dt
     options.use_grad_div_viscosity_term = False
     options.use_grad_depth_viscosity_term = False
     options.horizontal_viscosity = None
