@@ -1,7 +1,7 @@
 import firedrake
 from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
 import pyadjoint
-from pyroteus.interpolation import mesh2mesh_project_adjoint
+from pyroteus.interpolation import mesh2mesh_project
 from pyroteus.ts import get_subintervals, get_exports_per_subinterval
 from functools import wraps
 
@@ -66,6 +66,8 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     :kwarg timesteps_per_export: a list of ints or single int correspondioing to the number of
         timesteps per export on each subinterval
     :kwarg solver_kwargs: a dictionary providing parameters to the solver
+    :kwarg adjoint_projection: if `False`, conservative projection is applied when transferring
+        data between meshes in the adjoint solve, rather than the corresponding adjoint operator
 
     :return J: quantity of interest value
     :return adj_sols: a list of lists containing the adjoint solution at all exported timesteps,
@@ -118,6 +120,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     # Loop over subintervals in reverse
     adj_sol = None
     seed = None
+    adj_proj = kwargs.get('adjoint_projection', True)
     for i, irev in enumerate(reversed(range(num_subintervals))):
         subinterval = subintervals[irev]
 
@@ -136,8 +139,8 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             tc = firedrake.Function(sol.function_space())  # Zero terminal condition
         else:
             with pyadjoint.stop_annotating():
-                sol.adj_value = mesh2mesh_project_adjoint(seed, function_spaces[irev])
-                tc = mesh2mesh_project_adjoint(adj_sol, function_spaces[irev])
+                sol.adj_value = mesh2mesh_project(seed, function_spaces[irev], adjoint=adj_proj)
+                tc = mesh2mesh_project(adj_sol, function_spaces[irev], adjoint=adj_proj)
         assert function_spaces[irev] == tc.function_space(), "FunctionSpaces do not match"
         adj_sols[i][0].assign(tc, annotate=False)
 

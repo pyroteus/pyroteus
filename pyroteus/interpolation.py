@@ -4,13 +4,19 @@ from firedrake import *
 __all__ = ["mesh2mesh_project", "mesh2mesh_project_adjoint"]
 
 
-def mesh2mesh_project(source, target_space, **kwargs):
+def mesh2mesh_project(source, target_space, adjoint=False, **kwargs):
     """
     Apply a mesh-to-mesh conservative projection to some
     `source`, mapping into a `target_space`.
 
     This function extends to the case of mixed spaces.
+
+    :arg source: the :class:`Function` to be projected
+    :arg target_space: the :class:`FunctionSpace` which we
+        seek to project into
     """
+    if adjoint:
+        return mesh2mesh_project_adjoint(source, target_space)
     source_space = source.function_space()
     if source_space == target_space:
         return source
@@ -29,6 +35,16 @@ def mesh2mesh_project_adjoint(target_b, source_space, **kwargs):
     Apply the adjoint of a mesh-to-mesh conservative
     projection to some seed `target_b`, mapping into a
     `source_space`.
+
+    The notation used here is in terms of the adjoint of
+    `mesh2mesh_project`. However, this function may also
+    be interpreted as a projector in its own right,
+    mapping `target_b` into `source_space`.
+
+    :arg target_b: seed :class:`Function` from the target
+        space
+    :arg source_space: the :class:`FunctionSpace` which
+        the forward projection maps from
     """
     from firedrake.supermeshing import assemble_mixed_mass_matrix
 
