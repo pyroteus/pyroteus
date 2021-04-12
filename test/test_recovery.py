@@ -38,3 +38,8 @@ def test_recover_bowl(dim, method, norm_type, rtol=1.0e-05):
     err = errornorm(H, I, norm_type=norm_type)/norm(I, norm_type=norm_type)
     msg = "FAILED: non-zero {:s} error for method '{:s}' ({:.4e})"
     assert err < rtol, msg.format(norm_type, method, err)
+
+
+@pytest.mark.parallel
+def test_recover_bowl_parallel(dim, method, norm_type, rtol=1.0e-05):
+    test_recover_bowl(dim, method, norm_type, rtol=rtol)
