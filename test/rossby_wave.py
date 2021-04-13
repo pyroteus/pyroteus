@@ -83,15 +83,19 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
     solver_obj.assign_initial_conditions(uv=uv_a, elev=elev_a)
 
     def update_forcings(t):
-        sol = solver_obj.fields.solution_2d
         if qoi is not None:
-            options.J += qoi(sol, t)
+            options.J += qoi(solver_obj.fields.solution_2d, t)
 
     # Correct counters and iterate
+    i_export = int(t_start/dt/dt_per_export)
     solver_obj.simulation_time = t_start
-    solver_obj.i_export = int(t_start/dt/dt_per_export)
+    solver_obj.i_export = i_export
     solver_obj.next_export_t = t_start
     solver_obj.iteration = int(t_start/dt)
+    solver_obj.export_initial_state = np.isclose(t_start, 0.0)
+    if not options.no_exports and len(options.fields_to_export) > 0:
+        for e in solver_obj.exporters['vtk'].exporters:
+            solver_obj.exporters['vtk'].exporters[e].set_next_export_ix(i_export)
     solver_obj.iterate(update_forcings=update_forcings)
 
     # Revert gravitational acceleration
