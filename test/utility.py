@@ -1,3 +1,6 @@
+"""
+Functions used frequently for testing.
+"""
 import firedrake
 
 

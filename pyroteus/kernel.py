@@ -25,7 +25,7 @@ def postproc_metric(d, h_min, h_max, a_max):
     :arg h_max: maximum element size
     :arg a_max: maximum element anisotropy
     """
-    kernel_str = """
+    return """
 #include <Eigen/Dense>
 
 using namespace Eigen;
@@ -53,8 +53,7 @@ void postproc_metric(double A_[%d])
   // Build metric from eigendecomposition
   A = Q * D.asDiagonal() * Q.transpose();
 }
-"""
-    return kernel_str % (d*d, d, d, d, d, d, d, d, d, h_min, h_max, d, a_max)
+""" % (d*d, d, d, d, d, d, d, d, d, h_min, h_max, d, a_max)
 
 
 def intersect(d):

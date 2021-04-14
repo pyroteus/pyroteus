@@ -1,3 +1,6 @@
+"""
+Test recovery routines.
+"""
 from pyroteus import *
 from sensors import bowl, mesh_for_sensors
 import pytest

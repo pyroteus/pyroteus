@@ -29,12 +29,12 @@ def metric_complexity(metric, boundary=False):
 
 
 def isotropic_metric(error_indicator, target_space=None, f_min=1.0e-12):
-    """
+    r"""
     Compute an isotropic metric from some error indicator.
 
-    The result is a diagonal matrix whose diagonal
-    entries are the absolute value of the error indicator
-    at each mesh vertex.
+    The result is a :math:`\mathbb P1` diagonal tensor
+    field whose entries are projections of the error
+    indicator in modulus.
 
     :arg error_indicator: the error indicator
     :kwarg target_space: :class:`TensorFunctionSpace` in
@@ -70,9 +70,14 @@ def hessian_metric(hessian):
     :arg hessian: the Hessian matrix
     """
     fs = hessian.function_space()
-    metric = Function(fs)
     mesh = fs.mesh()
     dim = mesh.topological_dimension()
+    if fs.ufl_element().value_shape() != (dim, dim):
+        raise ValueError(
+            f"Expected {(dim,dim)} tensor field, "
+            + f"got {fs.ufl_element().value_shape()}."
+        )
+    metric = Function(fs)
     kernel = kernels.eigen_kernel(kernels.metric_from_hessian, dim)
     op2.par_loop(kernel, fs.node_set, metric.dat(op2.RW), hessian.dat(op2.READ))
     return metric
@@ -88,9 +93,12 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
     :arg h_max: maximum tolerated element size.
     :kwarg a_max: maximum tolerated element anisotropy (default 1000).
     """
-    msg = "Min/max tolerated element sizes {:}/{:} not valid"
-    assert 0 < h_min < h_max, msg.format(h_min, h_max)
-    assert a_max > 0, "Max tolerated anisotropy {:} not valid".format(a_max)
+    if not (0 < h_min < h_max):
+        raise ValueError(
+            f"Min/max tolerated element sizes {h_min}/{h_max} not valid"
+        )
+    if a_max <= 0:
+        raise ValueError(f"Max tolerated anisotropy {a_max} not valid")
     for metric in [metrics] if isinstance(metrics, Function) else metrics:
         fs = metric.function_space()
         dim = fs.mesh().topological_dimension()
@@ -111,7 +119,7 @@ def space_normalise(metric, target, p):
     :arg target: target metric complexity *in space alone*.
     :arg p: normalisation order.
     """
-    assert p == 'inf' or p >= 1.0, "Norm order {:} not valid".format(p)
+    assert p == 'inf' or p >= 1.0, f"Norm order {p} not valid"
     d = metric.function_space().mesh().topological_dimension()
 
     # Compute global normalisation factor
@@ -137,7 +145,7 @@ def space_time_normalise(metrics, end_time, timesteps, target, p):
     :arg p: normalisation order
     """
     # NOTE: Assumes uniform subinterval lengths
-    assert p == 'inf' or p >= 1.0, "Norm order {:} not valid".format(p)
+    assert p == 'inf' or p >= 1.0, f"Norm order {p} not valid"
     num_subintervals = len(metrics)
     assert len(timesteps) == num_subintervals
     dt_per_mesh = [end_time/num_subintervals/dt for dt in timesteps]
@@ -169,9 +177,12 @@ def metric_relaxation(*metrics, weights=None, function_space=None):
         the relaxed metric should live in
     """
     n = len(metrics)
-    assert n > 0
+    assert n > 0, "Nothing to combine"
     weights = weights or np.ones(n)/n
-    assert len(weights) == n
+    if len(weights) != n:
+        raise ValueError(
+            "Number of weights do not match number of metrics"
+            + f"({len(weights)} vs. {n})")
     fs = function_space or metrics[0].function_space()
     relaxed_metric = Function(fs)
     for weight, metric in zip(weights, metrics):
@@ -203,7 +214,7 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
         ID for boundary intersection
     """
     n = len(metrics)
-    assert n > 0
+    assert n > 0, "Nothing to combine"
     fs = function_space or metrics[0].function_space()
     for metric in metrics:
         if not isinstance(metric, Function) or metric.function_space() != fs:
@@ -211,7 +222,7 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     intersected_metric = Function(metrics[0])
     node_set = fs.node_set if boundary_tag is None else DirichletBC(fs, 0, boundary_tag).node_set
     dim = fs.mesh().topological_dimension()
-    assert dim in (2, 3), "Spatial dimension {:d} not supported.".format(dim)
+    assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
 
     def intersect_pair(M1, M2):
         M12 = Function(M1)
