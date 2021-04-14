@@ -16,7 +16,15 @@ def dim(request):
     return request.param
 
 
-def test_eigendecomposition(dim):
+@pytest.fixture(params=[
+    kernels.get_eigendecomposition,
+    kernels.get_reordered_eigendecomposition,
+])
+def eigendecomposition_kernel(request):
+    return request.param
+
+
+def test_eigendecomposition(dim, eigendecomposition_kernel):
     """
     Check decomposition of a metric into its eigenvectors
     and eigenvalues.
@@ -35,25 +43,42 @@ def test_eigendecomposition(dim):
 
     # Extract the eigendecomposition
     evectors, evalues = Function(P1_ten), Function(P1_vec)
-    kernel = kernels.eigen_kernel(kernels.get_eigendecomposition, dim)
-    op2.par_loop(kernel, P1_ten.node_set,
-                 evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ))
+    kernel = kernels.eigen_kernel(eigendecomposition_kernel, dim)
+    op2.par_loop(
+        kernel, P1_ten.node_set,
+        evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ)
+    )
 
     # Check eigenvectors are orthonormal
     VVT = interpolate(dot(evectors, transpose(evectors)), P1_ten)
     I = interpolate(Identity(dim), P1_ten)
-    assert np.allclose(VVT.dat.data, I.dat.data)
+    if not np.isclose(norm(Function(I).assign(VVT - I)), 0.0):
+        raise ValueError("Eigenvectors are not orthonormal")
+
+    # Check eigenvalues are in descending order
+    if 'reorder' in eigendecomposition_kernel.__name__:
+        P1 = FunctionSpace(mesh, "CG", 1)
+        for i in range(dim-1):
+            f = interpolate(evalues[i], P1)
+            f -= interpolate(evalues[i+1], P1)
+            if f.vector().gather().min() < 0.0:
+                raise ValueError(
+                    "Eigenvalues are not in descending order"
+                )
 
     # Reassemble it and check the two match
     reassembled = Function(P1_ten)
     kernel = kernels.eigen_kernel(kernels.set_eigendecomposition, dim)
-    op2.par_loop(kernel, P1_ten.node_set,
-                 reassembled.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ))
+    op2.par_loop(
+        kernel, P1_ten.node_set,
+        reassembled.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ)
+    )
     metric -= reassembled
-    assert np.isclose(norm(metric), 0.0)
+    if not np.isclose(norm(metric), 0.0):
+        raise ValueError("Reassembled metric does not match")
 
 
-def test_density_quotients_decomposition(dim):
+def test_density_quotients_decomposition(dim, eigendecomposition_kernel):
     """
     Check decomposition of a metric into its density
     and anisotropy quotients.
@@ -70,18 +95,24 @@ def test_density_quotients_decomposition(dim):
 
     # Extract the eigendecomposition
     evectors, evalues = Function(P1_ten), Function(P1_vec)
-    kernel = kernels.eigen_kernel(kernels.get_eigendecomposition, dim)
-    op2.par_loop(kernel, P1_ten.node_set,
-                 evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ))
+    kernel = kernels.eigen_kernel(eigendecomposition_kernel, dim)
+    op2.par_loop(
+        kernel, P1_ten.node_set,
+        evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ)
+    )
 
     # Extract the density and anisotropy quotients
-    d, Q = density_and_quotients(metric)
+    reorder = 'reorder' in eigendecomposition_kernel.__name__
+    d, Q = density_and_quotients(metric, reorder=reorder)
     evalues.interpolate(as_vector([pow(d/Q[i], 2/dim) for i in range(dim)]))
 
     # Reassemble the matrix and check the two match
     reassembled = Function(P1_ten)
     kernel = kernels.eigen_kernel(kernels.set_eigendecomposition, dim)
-    op2.par_loop(kernel, P1_ten.node_set,
-                 reassembled.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ))
+    op2.par_loop(
+        kernel, P1_ten.node_set,
+        reassembled.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ)
+    )
     metric -= reassembled
-    assert np.isclose(norm(metric), 0.0)
+    if not np.isclose(norm(metric), 0.0):
+        raise ValueError("Reassembled metric does not match")
