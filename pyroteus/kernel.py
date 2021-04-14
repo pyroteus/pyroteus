@@ -120,6 +120,108 @@ void get_eigendecomposition(double EVecs_[%d], double EVals_[%d], const double *
 """ % (d*d, d, d, d, d, d, d, d, d)
 
 
+def get_reordered_eigendecomposition(d):
+    """
+    Extract eigenvectors/eigenvalues from a metric field, with eigenvalues
+    **decreasing** in magnitude.
+    """
+    assert d in (2, 3), f"Spatial dimension {d:d} not supported."
+    if d == 2:
+        return """
+#include <Eigen/Dense>
+
+using namespace Eigen;
+
+void get_reordered_eigendecomposition(double EVecs_[4], double EVals_[2], const double * M_) {
+
+  // Map inputs and outputs onto Eigen objects
+  Map<Matrix<double, 2, 2, RowMajor> > EVecs((double *)EVecs_);
+  Map<Vector2d> EVals((double *)EVals_);
+  Map<Matrix<double, 2, 2, RowMajor> > M((double *)M_);
+
+  // Solve eigenvalue problem
+  SelfAdjointEigenSolver<Matrix<double, 2, 2, RowMajor>> eigensolver(M);
+  Matrix<double, 2, 2, RowMajor> Q = eigensolver.eigenvectors();
+  Vector2d D = eigensolver.eigenvalues();
+
+  // Reorder eigenpairs by magnitude of eigenvalue
+  if (fabs(D(0)) > fabs(D(1))) {
+    EVecs = Q;
+    EVals = D;
+  } else {
+    EVecs(0,0) = Q(0,1);EVecs(0,1) = Q(0,0);
+    EVecs(1,0) = Q(1,1);EVecs(1,1) = Q(1,0);
+    EVals(0) = D(1);
+    EVals(1) = D(0);
+  }
+}
+"""
+    else:
+        return """
+#include <Eigen/Dense>
+
+using namespace Eigen;
+
+void get_reordered_eigendecomposition(double EVecs_[9], double EVals_[3], const double * M_) {
+
+  // Map inputs and outputs onto Eigen objects
+  Map<Matrix<double, 3, 3, RowMajor> > EVecs((double *)EVecs_);
+  Map<Vector3d> EVals((double *)EVals_);
+  Map<Matrix<double, 3, 3, RowMajor> > M((double *)M_);
+
+  // Solve eigenvalue problem
+  SelfAdjointEigenSolver<Matrix<double, 3, 3, RowMajor>> eigensolver(M);
+  Matrix<double, 3, 3, RowMajor> Q = eigensolver.eigenvectors().transpose();
+  Vector3d D = eigensolver.eigenvalues();
+
+  // Reorder eigenpairs by magnitude of eigenvalue
+  if (fabs(D(0)) > fabs(D(1))) {
+    if (fabs(D(1)) > fabs(D(2))) {
+      EVecs = Q;
+      EVals = D;
+    } else if (fabs(D(0)) > fabs(D(2))) {
+      EVecs(0,0) = Q(0,0);EVecs(0,1) = Q(0,2);EVecs(0,2) = Q(0,1);
+      EVecs(1,0) = Q(1,0);EVecs(1,1) = Q(1,2);EVecs(1,2) = Q(1,1);
+      EVecs(2,0) = Q(2,0);EVecs(2,1) = Q(2,2);EVecs(2,2) = Q(2,1);
+      EVals(0) = D(0);
+      EVals(1) = D(2);
+      EVals(2) = D(1);
+    } else {
+      EVecs(0,0) = Q(0,2);EVecs(0,1) = Q(0,0);EVecs(0,2) = Q(0,1);
+      EVecs(1,0) = Q(1,2);EVecs(1,1) = Q(2,0);EVecs(1,2) = Q(1,1);
+      EVecs(2,0) = Q(2,2);EVecs(2,1) = Q(2,0);EVecs(2,2) = Q(2,1);
+      EVals(0) = D(2);
+      EVals(1) = D(0);
+      EVals(2) = D(1);
+    }
+  } else {
+    if (fabs(D(0)) > fabs(D(2))) {
+      EVecs(0,0) = Q(0,1);EVecs(0,1) = Q(0,0);EVecs(0,2) = Q(0,2);
+      EVecs(1,0) = Q(1,1);EVecs(1,1) = Q(1,0);EVecs(1,2) = Q(1,2);
+      EVecs(2,0) = Q(2,1);EVecs(2,1) = Q(2,0);EVecs(2,2) = Q(2,2);
+      EVals(0) = D(1);
+      EVals(1) = D(0);
+      EVals(2) = D(2);
+    } else if (fabs(D(1)) > fabs(D(2))) {
+      EVecs(0,0) = Q(0,1);EVecs(0,1) = Q(0,2);EVecs(0,2) = Q(0,0);
+      EVecs(1,0) = Q(1,1);EVecs(1,1) = Q(1,2);EVecs(1,2) = Q(1,0);
+      EVecs(2,0) = Q(2,1);EVecs(2,1) = Q(2,2);EVecs(2,2) = Q(2,0);
+      EVals(0) = D(1);
+      EVals(1) = D(2);
+      EVals(2) = D(0);
+    } else {
+      EVecs(0,0) = Q(0,2);EVecs(0,1) = Q(0,0);EVecs(0,2) = Q(0,1);
+      EVecs(1,0) = Q(1,2);EVecs(1,1) = Q(1,0);EVecs(1,2) = Q(1,1);
+      EVecs(2,0) = Q(2,2);EVecs(2,1) = Q(2,0);EVecs(2,2) = Q(2,1);
+      EVals(0) = D(2);
+      EVals(1) = D(0);
+      EVals(2) = D(1);
+    }
+  }
+}
+"""
+
+
 def metric_from_hessian(d):
     """
     Modify the eigenvalues of a Hessian matrix so
