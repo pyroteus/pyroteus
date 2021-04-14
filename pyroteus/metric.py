@@ -28,20 +28,20 @@ def metric_complexity(metric, boundary=False):
     return assemble(sqrt(det(metric))*differential)
 
 
-def isotropic_metric(scalar_field, target_space=None, f_min=1.0e-12):
+def isotropic_metric(error_indicator, target_space=None, f_min=1.0e-12):
     """
-    Compute an isotropic metric from some scalar field.
+    Compute an isotropic metric from some error indicator.
 
     The result is a diagonal matrix whose diagonal
-    entries are the absolute value of the scalar field
+    entries are the absolute value of the error indicator
     at each mesh vertex.
 
-    :arg scalar_field: field to compute metric from.
+    :arg error_indicator: the error indicator
     :kwarg target_space: :class:`TensorFunctionSpace` in
-        which the metric will exist.
-    :kwarg f_min: minimum tolerated function value.
+        which the metric will exist
+    :kwarg f_min: minimum tolerated function value
     """
-    fs = scalar_field.function_space()
+    fs = error_indicator.function_space()
     family = fs.ufl_element().family()
     degree = fs.ufl_element().degree()
     mesh = fs.mesh()
@@ -53,9 +53,9 @@ def isotropic_metric(scalar_field, target_space=None, f_min=1.0e-12):
 
     # Compute metric diagonal
     if family == 'Lagrange' and degree == 1:
-        M_diag = interpolate(max_value(abs(scalar_field), f_min), fs)
+        M_diag = interpolate(max_value(abs(error_indicator), f_min), fs)
     else:
-        M_diag = project(scalar_field, FunctionSpace(mesh, "CG", 1))
+        M_diag = project(error_indicator, FunctionSpace(mesh, "CG", 1))
         M_diag.interpolate(max_value(abs(M_diag), f_min))
 
     # Assemble full metric
