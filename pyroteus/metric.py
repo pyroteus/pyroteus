@@ -46,7 +46,7 @@ def isotropic_metric(error_indicator, target_space=None, f_min=1.0e-12):
     degree = fs.ufl_element().degree()
     mesh = fs.mesh()
     dim = mesh.topological_dimension()
-    assert dim in (2, 3)
+    assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
     target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
     assert target_space.ufl_element().family() == 'Lagrange'
     assert target_space.ufl_element().degree() == 1
@@ -81,6 +81,88 @@ def hessian_metric(hessian):
     kernel = kernels.eigen_kernel(kernels.metric_from_hessian, dim)
     op2.par_loop(kernel, fs.node_set, metric.dat(op2.RW), hessian.dat(op2.READ))
     return metric
+
+
+def anisotropic_metric(error_indicator, hessian, target_space=None, **kwargs):
+    r"""
+    Compute an anisotropic metric from some error
+    indicator, given a Hessian field.
+
+    The formulation used is based on that presented
+    in [Carpio et al. 2013].
+
+    Whilst an element-based formulation is used to
+    derive the metric, the result is projected into
+    :math:`\mathbb P1` space, by default.
+
+    Note that normalisation is implicit in the metric
+    construction and involves the `convergence_rate`
+    parameter, named :math:`alpha` in [Carpio et al. 2013].
+
+    :arg error_indicator: the error indicator
+    :arg hessian: the Hessian
+    :kwarg target_space: :class:`TensorFunctionSpace` in
+        which the metric will exist
+    :kwarg target_complexity: target metric complexity
+    :kwarg convergence rate: normalisation parameter
+
+    [Carpio et al. 2013] J Carpio, JL Prieto, R Bermejo,
+        'Anisotropic goal-oriented mesh adaptivity for
+        elliptic problems', SIAM Journal on Scientific
+        Computing, 2013.
+    """
+    target_complexity = kwargs.get('target_complexity', None)
+    assert target_complexity > 0.0, "Target complexity must be positive"
+    convergence_rate = kwargs.get('convergence_rate', 1.0)
+    assert convergence_rate >= 1.0, "Convergence rate must be at least one"
+    mesh = hessian.function_space().mesh()
+    dim = mesh.topological_dimension()
+    assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
+
+    # Get current element volume
+    P0 = FunctionSpace(mesh, "DG", 0)
+    K_hat = 1/2 if dim == 2 else 1/3
+    K = interpolate(K_hat*abs(JacobianDeterminant(mesh)), P0)
+
+    # Get optimal element volume
+    K_opt = interpolate(pow(error_indicator, 1/(convergence_rate+1)), P0)
+    K_opt.interpolate(K.opt.vector().gather().sum()/target_complexity*K/K_opt)
+
+    # Compute eigendecomposition
+    P0_ten = TensorFunctionSpace(mesh, "DG", 0)
+    P0_vec = VectorFunctionSpace(mesh, "DG", 0)
+    P0_metric = hessian_metric(project(hessian, P0_ten))
+    evectors, evalues = Function(P0_ten), Function(P0_vec)
+    kernel = kernels.eigen_kernel(kernels.get_reordered_eigendecomposition, dim)
+    op2.par_loop(
+        kernel, P0_ten.node_set,
+        evectors.dat(op2.RW), evalues.dat(op2.RW), P0_metric.dat(op2.READ)
+    )
+
+    # Compute stretching factors, in descending order
+    if dim == 2:
+        S = as_vector([
+            sqrt(abs(evalues[0]/evalues[1])),
+            sqrt(abs(evalues[1]/evalues[0])),
+        ])
+    else:
+        S = as_vector([
+            pow(abs((evalues[0]*evalues[0])/(evalues[1]*evalues[2])), 1/3),
+            pow(abs((evalues[1]*evalues[1])/(evalues[2]*evalues[0])), 1/3),
+            pow(abs((evalues[2]*evalues[2])/(evalues[0]*evalues[1])), 1/3),
+        ])
+
+    # Assemble metric
+    evalues.interpolate(abs(K_hat/K_opt)*S)
+    kernel = kernels.eigen_kernel(kernels.set_eigendecomposition, dim)
+    op2.par_loop(
+        kernel, P0_ten.node_set, P0_metric.dat(op2.RW),
+        evectors.dat(op2.READ), evalues.dat(op2.READ)
+    )
+
+    # Project metric into target space and ensure SPD
+    target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
+    return hessian_metric(project(P0_metric, target_space))
 
 
 def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
