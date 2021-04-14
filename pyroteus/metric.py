@@ -334,7 +334,7 @@ def combine_metrics(*metrics, average=True, **kwargs):
 # --- Metric decompositions and properties
 
 
-def density_and_quotients(metric):
+def density_and_quotients(metric, reorder=False):
     r"""
     Extract the density and anisotropy quotients from a metric.
 
@@ -373,6 +373,7 @@ def density_and_quotients(metric):
     where :math:`h_i := \frac1{\sqrt{\lambda_i}}`.
 
     :arg metric: the metric to extract density and quotients from
+    :kwarg reorder: should the eigendecomposition be reordered?
     """
     fs_ten = metric.function_space()
     mesh = fs_ten.mesh()
@@ -388,7 +389,10 @@ def density_and_quotients(metric):
     quotients = Function(fs_vec, name="Anisotropic quotients")
 
     # Compute eigendecomposition
-    kernel = kernels.eigen_kernel(kernels.get_eigendecomposition, dim)
+    if reorder:
+        kernel = kernels.eigen_kernel(kernels.get_reordered_eigendecomposition, dim)
+    else:
+        kernel = kernels.eigen_kernel(kernels.get_eigendecomposition, dim)
     op2.par_loop(kernel, fs_ten.node_set,
                  evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ))
 
