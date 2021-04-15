@@ -81,7 +81,7 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
     sol, J = test_case.solver(ic, 0.0, end_time, dt, **solver_kwargs)
     if qoi_type == 'end_time':
         J = assemble(qoi(sol))
-    pyadjoint.compute_gradient(J, Control(ic))
+    pyadjoint.compute_gradient(J, Control(ic))  # FIXME: gradient w.r.t. mixed function not correct
     tape = pyadjoint.get_working_tape()
     solve_blocks = [
         block for block in tape.get_blocks()
@@ -96,7 +96,6 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
         N = len(spaces)
         plural = '' if N == 1 else 's'
         print(f"\n--- Solving the adjoint problem on {N} subinterval{plural} using pyroteus\n")
-        subintervals = get_subintervals(end_time, N)
 
         # Solve forward and adjoint on each subinterval
         J, adj_sols = solve_adjoint(
@@ -107,12 +106,13 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
         qois.append(J)
 
         # Plot adjoint solutions, if requested
-        if plot:
+        if plot:  # TODO: Make plotting more generic
             import matplotlib.pyplot as plt
             from pyroteus.ts import get_exports_per_subinterval
 
             levels = np.linspace(0, 0.8, 9) if qoi_type == 'end_time' else 9
 
+            subintervals = get_subintervals(end_time, N)
             _, dt_per_export, exports_per_mesh = \
                 get_exports_per_subinterval(subintervals, dt, dt_per_export)
             fig, axes = plt.subplots(exports_per_mesh[0], N, sharex='col', figsize=(6*N, 24//N))
