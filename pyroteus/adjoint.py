@@ -113,7 +113,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     solutions = {
         label: [[
             firedrake.Function(fs)
-            for j in range(export_per_mesh[i])]
+            for j in range(export_per_mesh[i]-1)]
             for i, fs in enumerate(function_spaces)
         ]
         for label in ('forward', 'forward_old', 'adjoint', 'adjoint_next')
@@ -144,17 +144,13 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             **solver_kwargs,
         )
 
-        # Store terminal condition and get seed vector for reverse mode propagation
+        # Get seed vector for reverse mode propagation
         if i == num_subintervals-1:
             if nargs == 1:
                 J = wrapped_qoi(sol)
-            tc = firedrake.Function(sol.function_space())  # Zero terminal condition
         else:
             with pyadjoint.stop_annotating():
                 sol.adj_value = mesh2mesh_project(seed, function_spaces[i], adjoint=adj_proj)
-                tc = mesh2mesh_project(adj_sols[i+1][0], function_spaces[i], adjoint=adj_proj)
-        assert function_spaces[i] == tc.function_space(), "FunctionSpaces do not match"
-        adj_sols[i][-1].assign(tc, annotate=False)  # TODO: What about forward, forward_old, adjoint_next?
 
         # Solve adjoint problem
         m = pyadjoint.enlisting.Enlist(control)
@@ -170,7 +166,6 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             and not issubclass(block.__class__, ProjectBlock)
             and block.adj_sol is not None
         ][-dt_per_mesh[i]*solves_per_dt::solves_per_dt]
-        N = len(solve_blocks)
 
         # Get old solution dependency index
         for dep_index, dep in enumerate(solve_blocks[0].get_dependencies()):
@@ -184,7 +179,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             solutions['forward_old'][i][j].assign(block.get_dependencies()[dep_index].saved_output)
             solutions['forward'][i][j].assign(block.get_outputs()[0].saved_output)
             solutions['adjoint'][i][j].assign(block.adj_sol)
-            solutions['adjoint_next'][i][j].assign(tc if j >= N else solve_blocks[j+1].adj_sol)
+            solutions['adjoint_next'][i][j].assign(solve_blocks[j+1].adj_sol)
         assert norm(adj_sols[i][0]) > 0.0, f"Adjoint solution on subinterval {i} is zero"
 
         # Get adjoint action
