@@ -1,8 +1,10 @@
 import firedrake
+from firedrake_adjoint import Control
 from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
 import pyadjoint
 from pyroteus.interpolation import mesh2mesh_project
 from pyroteus.ts import get_subintervals, get_exports_per_subinterval
+from pyroteus.utility import norm
 from functools import wraps
 
 
@@ -22,7 +24,7 @@ def wrap_solver(solver):
     @wraps(solver)
     def wrapper(ic, t_start, t_end, dt, **kwargs):
         init = ic.copy(deepcopy=True)
-        control = pyadjoint.Control(init)
+        control = Control(init)
         out, J = solver(init, t_start, t_end, dt, **kwargs)
         msg = "Solver should return the Function corresponding to the final solution"
         assert isinstance(out, firedrake.Function), msg
@@ -121,28 +123,29 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     adj_sol = None
     seed = None
     adj_proj = kwargs.get('adjoint_projection', True)
-    for i, irev in enumerate(reversed(range(num_subintervals))):
-        subinterval = subintervals[irev]
+    for i in reversed(range(num_subintervals)):
+        subinterval = subintervals[i]
 
         # Annotate tape on current subinterval
         sol, control = wrapped_solver(
-            checkpoints[irev],
+            checkpoints[i],
             *subinterval,
-            timesteps[irev],
+            timesteps[i],
             **solver_kwargs,
         )
 
         # Store terminal condition and get seed vector for reverse mode propagation
-        if i == 0:
+        if i == num_subintervals-1:
             if nargs == 1:
                 J = wrapped_qoi(sol)
             tc = firedrake.Function(sol.function_space())  # Zero terminal condition
         else:
             with pyadjoint.stop_annotating():
-                sol.adj_value = mesh2mesh_project(seed, function_spaces[irev], adjoint=adj_proj)
-                tc = mesh2mesh_project(adj_sol, function_spaces[irev], adjoint=adj_proj)
-        assert function_spaces[irev] == tc.function_space(), "FunctionSpaces do not match"
-        adj_sols[i][0].assign(tc, annotate=False)
+                sol.adj_value = mesh2mesh_project(seed, function_spaces[i], adjoint=adj_proj)
+                tc = mesh2mesh_project(adj_sol, function_spaces[i], adjoint=adj_proj)
+        assert function_spaces[i] == tc.function_space(), "FunctionSpaces do not match"
+        j = -1
+        adj_sols[i][j].assign(tc, annotate=False)
 
         # Solve adjoint problem
         m = pyadjoint.enlisting.Enlist(control)
@@ -158,12 +161,15 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             and not issubclass(block.__class__, ProjectBlock)
             and block.adj_sol is not None
         ][-dt_per_mesh[i]*solves_per_dt::solves_per_dt]
-        for j, jj in enumerate(reversed(range(0, len(solve_blocks), dt_per_export[i]))):
+        for jj in reversed(range(0, len(solve_blocks), dt_per_export[i])):
+            j -= 1
             adj_sol = solve_blocks[jj].adj_sol
-            adj_sols[i][j+1].assign(adj_sol)
+            adj_sols[i][j].assign(adj_sol)
+        assert norm(adj_sol) > 0.0, f"Adjoint solution on subinterval {i} is zero"
 
         # Get adjoint action
         seed = firedrake.Function(function_spaces[i], val=control.block_variable.adj_value)
+        assert norm(seed) > 0.0, f"Adjoint action on subinterval {i} is zero"
         tape.clear_tape()
 
     return J, adj_sols
