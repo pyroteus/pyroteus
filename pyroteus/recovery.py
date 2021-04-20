@@ -59,9 +59,19 @@ def double_l2_projection(f, mesh=None, target_spaces=None):
         "pc_fieldsplit_1_fields": "0",
         "pc_fieldsplit_schur_precondition": "selfp",
         "fieldsplit_0_ksp_type": "preonly",
-        "fieldsplit_0_pc_type": "ilu",
         "fieldsplit_1_ksp_type": "preonly",
         "fieldsplit_1_pc_type": "gamg",
+        "fieldsplit_1_mg_levels_ksp_max_it": 5,
     }
+    if COMM_WORLD.size == 1:
+        sp["fieldsplit_0_pc_type"] = "ilu"
+        sp["fieldsplit_1_mg_levels_pc_type"] = "ilu"
+    else:
+        sp["fieldsplit_0_pc_type"] = "bjacobi"
+        sp["fieldsplit_0_sub_ksp_type"] = "preonly"
+        sp["fieldsplit_0_sub_pc_type"] = "ilu"
+        sp["fieldsplit_1_mg_levels_pc_type"] = "bjacobi"
+        sp["fieldsplit_1_mg_levels_sub_ksp_type"] = "preonly"
+        sp["fieldsplit_1_mg_levels_sub_pc_type"] = "ilu"
     solve(a == L, l2_projection, solver_parameters=sp)
     return l2_projection.split()
