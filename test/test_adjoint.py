@@ -119,8 +119,8 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from pyroteus.ts import get_exports_per_subinterval
 
-    qoi_type = 'end_time'
-    # qoi_type = 'time_integrated'
+    _qoi_type = 'end_time'
+    # _qoi_type = 'time_integrated'
 
     # Setup Burgers test case
     fs = burgers.function_space
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     dt = burgers.dt
     dt_per_export = burgers.dt_per_export
     solves_per_dt = burgers.solves_per_dt
-    qoi = burgers.end_time_qoi if qoi_type == 'end_time' else burgers.time_integrated_qoi
+    qoi = burgers.end_time_qoi if _qoi_type == 'end_time' else burgers.time_integrated_qoi
     num_timesteps = int(end_time/dt)
 
     # Loop over having one or two subintervals
@@ -147,8 +147,8 @@ if __name__ == "__main__":
         subintervals = get_subintervals(end_time, N)
         timesteps, timesteps_per_export, exports_per_mesh = \
             get_exports_per_subinterval(subintervals, dt, dt_per_export)
-        fig, axes = plt.subplots(exports_per_mesh[0], N, sharex='col', figsize=(6*N, 24//N))
-        levels = np.linspace(0, 0.8, 9) if qoi_type == 'end_time' else 9
+        fig, axes = plt.subplots(exports_per_mesh[0]-1, N, sharex='col', figsize=(6*N, 24//N))
+        levels = np.linspace(0, 0.8, 9) if _qoi_type == 'end_time' else 9
         for i, adj_sols_step in enumerate(solutions['adjoint']):
             ax = axes[0] if N == 1 else axes[0, i]
             ax.set_title("Mesh {:d}".format(i+1))

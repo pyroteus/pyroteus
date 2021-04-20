@@ -25,6 +25,7 @@ def get_exports_per_subinterval(subintervals, timesteps, dt_per_export):
     """
     if isinstance(timesteps, (float, int)):
         timesteps = [timesteps for subinterval in subintervals]
+    timesteps = np.array(timesteps)
     assert len(timesteps) == len(subintervals), f"{len(timesteps)} vs. {len(subintervals)}"
     _dt_per_mesh = [(t[1] - t[0])/dt for t, dt in zip(subintervals, timesteps)]
     dt_per_mesh = [int(np.round(dtpm)) for dtpm in _dt_per_mesh]
@@ -33,8 +34,10 @@ def get_exports_per_subinterval(subintervals, timesteps, dt_per_export):
         dt_per_export = int(dt_per_export)
     if isinstance(dt_per_export, int):
         dt_per_export = [dt_per_export for subinterval in subintervals]
+    dt_per_export = np.array(dt_per_export, dtype=np.int32)
     assert len(dt_per_mesh) == len(dt_per_export), f"{len(dt_per_mesh)} vs. {len(dt_per_export)}"
     for dtpe, dtpm in zip(dt_per_export, dt_per_mesh):
         assert dtpm % dtpe == 0
-    exports_per_subinterval = [dtpm//dtpe + 1 for dtpe, dtpm in zip(dt_per_export, dt_per_mesh)]
-    return timesteps, dt_per_export, exports_per_subinterval
+    export_per_subinterval = [dtpm//dtpe + 1 for dtpe, dtpm in zip(dt_per_export, dt_per_mesh)]
+    export_per_subinterval = np.array(export_per_subinterval, dtype=np.int32)
+    return timesteps, dt_per_export, export_per_subinterval
