@@ -97,7 +97,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
         print(f"\n--- Solving the adjoint problem on {N} subinterval{plural} using pyroteus\n")
 
         # Solve forward and adjoint on each subinterval
-        J, adj_sols = solve_adjoint(
+        J, solutions = solve_adjoint(
             test_case.solver, test_case.initial_condition, qoi, spaces, end_time, dt,
             timesteps_per_export=dt_per_export, solves_per_timestep=solves_per_dt,
         )
@@ -106,7 +106,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
         assert np.isclose(_J, J), f"QoIs do not match ({_J} vs. {J})"
 
         # Check adjoint solutions at initial time match
-        err = errornorm(_adj_sol, adj_sols[0][0])/norm(_adj_sol)
+        err = errornorm(_adj_sol, solutions['adjoint'][0][0])/norm(_adj_sol)
         assert np.isclose(err, 0.0), f"Non-zero adjoint error ({err})"
 
 
@@ -138,7 +138,7 @@ if __name__ == "__main__":
         print(f"\n--- Solving the adjoint problem on {N} subinterval{plural}\n")
 
         # Solve forward and adjoint on each subinterval
-        J, adj_sols = solve_adjoint(
+        J, solutions = solve_adjoint(
             burgers.solver, burgers.initial_condition, qoi, spaces, end_time, dt,
             timesteps_per_export=dt_per_export, solves_per_timestep=solves_per_dt,
         )
@@ -149,7 +149,7 @@ if __name__ == "__main__":
             get_exports_per_subinterval(subintervals, dt, dt_per_export)
         fig, axes = plt.subplots(exports_per_mesh[0], N, sharex='col', figsize=(6*N, 24//N))
         levels = np.linspace(0, 0.8, 9) if qoi_type == 'end_time' else 9
-        for i, adj_sols_step in enumerate(adj_sols):
+        for i, adj_sols_step in enumerate(solutions['adjoint']):
             ax = axes[0] if N == 1 else axes[0, i]
             ax.set_title("Mesh {:d}".format(i+1))
             for j, adj_sol in enumerate(adj_sols_step):
