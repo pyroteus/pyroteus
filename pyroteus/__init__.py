@@ -1,5 +1,4 @@
 from __future__ import absolute_import
-from pyroteus.adjoint import *        # noqa
 from pyroteus.interpolation import *  # noqa
 from pyroteus.metric import *         # noqa
 from pyroteus.recovery import *       # noqa

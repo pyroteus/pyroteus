@@ -1,7 +1,7 @@
 """
 Test adjoint drivers.
 """
-from pyroteus import *
+from pyroteus_adjoint import *
 from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
 import pyadjoint
 import pytest
