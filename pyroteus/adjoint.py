@@ -102,12 +102,27 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     if nargs == 2:
         solver_kwargs.pop('qoi')
 
-    # Create an array to hold exported adjoint solutions
+    # Create arrays to hold exported foward and adjoint solutions
+    # fwd_sols = [[
+    #     firedrake.Function(fs)
+    #     for j in range(export_per_mesh[i])]
+    #     for i, fs in enumerate(function_spaces)
+    # ]
+    # fwd_sols_old = [[
+    #     firedrake.Function(fs)
+    #     for j in range(export_per_mesh[i])]
+    #     for i, fs in enumerate(function_spaces)
+    # ]
     adj_sols = [[
         firedrake.Function(fs)
         for j in range(export_per_mesh[i])]
         for i, fs in enumerate(function_spaces)
     ]
+    # adj_sols_next = [[
+    #     firedrake.Function(fs)
+    #     for j in range(export_per_mesh[i])]
+    #     for i, fs in enumerate(function_spaces)
+    # ]
 
     # Wrap solver and QoI
     wrapped_solver = wrap_solver(solver)
@@ -142,10 +157,9 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
         else:
             with pyadjoint.stop_annotating():
                 sol.adj_value = mesh2mesh_project(seed, function_spaces[i], adjoint=adj_proj)
-                tc = mesh2mesh_project(adj_sol, function_spaces[i], adjoint=adj_proj)
+                tc = mesh2mesh_project(adj_sols[i+1][0], function_spaces[i], adjoint=adj_proj)
         assert function_spaces[i] == tc.function_space(), "FunctionSpaces do not match"
-        j = -1
-        adj_sols[i][j].assign(tc, annotate=False)
+        adj_sols[i][-1].assign(tc, annotate=False)
 
         # Solve adjoint problem
         m = pyadjoint.enlisting.Enlist(control)
@@ -153,7 +167,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             with tape.marked_nodes(m):
                 tape.evaluate_adj(markings=True)
 
-        # Store adjoint solutions
+        # Store forward and adjoint solutions
         solve_blocks = [
             block
             for block in tape.get_blocks()
@@ -161,11 +175,23 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             and not issubclass(block.__class__, ProjectBlock)
             and block.adj_sol is not None
         ][-dt_per_mesh[i]*solves_per_dt::solves_per_dt]
-        for jj in reversed(range(0, len(solve_blocks), dt_per_export[i])):
-            j -= 1
-            adj_sol = solve_blocks[jj].adj_sol
-            adj_sols[i][j].assign(adj_sol)
-        assert norm(adj_sol) > 0.0, f"Adjoint solution on subinterval {i} is zero"
+
+        # # Get old solution dependency index
+        # for dep, dep_index in enumerate(solve_blocks[0].get_dependencies()):
+        #     if hasattr(dep.output, 'function_space'):
+        #         if dep.output.function_space() == solve_blocks[0].function_space:
+        #             break
+        # FIXME: What if other dependencies are in the prognostic space?
+
+        for j, block in enumerate(solve_blocks[::dt_per_export[i]]):
+            # fwd_sols_old[i][j].assign(block.get_dependencies()[dep_index].output)
+            # fwd_sols[i][j].assign(block.get_outputs()[0].output)
+            adj_sols[i][j].assign(block.adj_sol)
+            # if j >= len(solve_blocks):
+            #     adj_sols_next[i][j].assign(tc)
+            # else:
+            #     adj_sols_next[i][j].assign(solve_blocks[j+1].adj_sol)
+        assert norm(adj_sols[i][0]) > 0.0, f"Adjoint solution on subinterval {i} is zero"
 
         # Get adjoint action
         seed = firedrake.Function(function_spaces[i], val=control.block_variable.adj_value)
