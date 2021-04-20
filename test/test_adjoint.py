@@ -2,7 +2,7 @@
 Test adjoint drivers.
 """
 from pyroteus import *
-from firedrake.adjoint.blocks import GenericSolveBlock
+from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
 import pyadjoint
 import pytest
 
@@ -45,7 +45,7 @@ def qoi_type(request):
     return request.param
 
 
-def test_adjoint_same_mesh(problem, qoi_type, plot=False):
+def test_adjoint_same_mesh(problem, qoi_type):
     """
     Check that `solve_adjoint` gives the same
     result when applied on one or two subintervals.
@@ -53,8 +53,6 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
     :arg problem: string denoting the test case of choice
     :arg qoi_type: is the QoI evaluated at the end time
         or as a time integral?
-    :kwarg plot: toggle plotting of the adjoint
-        solution field
     """
     import importlib
     from firedrake_adjoint import Control
@@ -86,10 +84,11 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
     solve_blocks = [
         block for block in tape.get_blocks()
         if issubclass(block.__class__, GenericSolveBlock)
+        and not issubclass(block.__class__, ProjectBlock)
         and block.adj_sol is not None
     ][-num_timesteps*solves_per_dt::solves_per_dt]
-    final_adj_sols = [solve_blocks[0].adj_sol]
-    qois = [J]
+    _adj_sol = solve_blocks[0].adj_sol.copy(deepcopy=True)
+    _J = float(J)
 
     # Loop over having one or two subintervals
     for spaces in ([fs], [fs, fs]):
@@ -102,49 +101,63 @@ def test_adjoint_same_mesh(problem, qoi_type, plot=False):
             test_case.solver, test_case.initial_condition, qoi, spaces, end_time, dt,
             timesteps_per_export=dt_per_export, solves_per_timestep=solves_per_dt,
         )
-        final_adj_sols.append(adj_sols[-1][-1])
-        qois.append(J)
-
-        # Plot adjoint solutions, if requested
-        if plot:  # TODO: Make plotting more generic
-            import matplotlib.pyplot as plt
-            from pyroteus.ts import get_exports_per_subinterval
-
-            levels = np.linspace(0, 0.8, 9) if qoi_type == 'end_time' else 9
-
-            subintervals = get_subintervals(end_time, N)
-            _, dt_per_export, exports_per_mesh = \
-                get_exports_per_subinterval(subintervals, dt, dt_per_export)
-            fig, axes = plt.subplots(exports_per_mesh[0], N, sharex='col', figsize=(6*N, 24//N))
-            for i, adj_sols_step in enumerate(adj_sols):
-                ax = axes[0] if N == 1 else axes[0, i]
-                ax.set_title("Mesh {:d}".format(i+1))
-                for j, adj_sol in enumerate(adj_sols_step):
-                    ax = axes[j] if N == 1 else axes[j, i]
-                    tricontourf(adj_sol, axes=ax, levels=levels)
-                    ax.annotate(
-                        f"t={(N-i)*end_time/N - j*dt_per_export[0]*dt:.2f}",
-                        (0.05, 0.05),
-                        color='white',
-                    )
-            plt.savefig(f"plots/{problem}_test_{N}_{qoi_type}.jpg")
 
         # Check quantities of interest match
-        assert np.isclose(*qois[::N]), f"QoIs do not match ({qois[0]} vs. {qois[-1]})"
+        assert np.isclose(_J, J), f"QoIs do not match ({_J} vs. {J})"
 
         # Check adjoint solutions at initial time match
-        err = errornorm(*final_adj_sols[::N])/norm(final_adj_sols[0])
+        err = errornorm(_adj_sol, adj_sols[0][0])/norm(_adj_sol)
         assert np.isclose(err, 0.0), f"Non-zero adjoint error ({err})"
 
 
 # ---------------------------
-# plotting and debugging
+# plotting
 # ---------------------------
 
 if __name__ == "__main__":
-    # test_adjoint_same_mesh("burgers", "end_time", plot=True)
-    # test_adjoint_same_mesh("burgers", "time_integrated", plot=True)
-    # test_adjoint_same_mesh("solid_body_rotation", "end_time", plot=False)
-    # test_adjoint_same_mesh("solid_body_rotation", "time_integrated", plot=False)
-    # test_adjoint_same_mesh("rossby_wave", "end_time", plot=False)
-    test_adjoint_same_mesh("rossby_wave", "time_integrated", plot=False)
+    import burgers
+    import matplotlib.pyplot as plt
+    from pyroteus.ts import get_exports_per_subinterval
+
+    qoi_type = 'end_time'
+    # qoi_type = 'time_integrated'
+
+    # Setup Burgers test case
+    fs = burgers.function_space
+    end_time = burgers.end_time
+    dt = burgers.dt
+    dt_per_export = burgers.dt_per_export
+    solves_per_dt = burgers.solves_per_dt
+    qoi = burgers.end_time_qoi if qoi_type == 'end_time' else burgers.time_integrated_qoi
+    num_timesteps = int(end_time/dt)
+
+    # Loop over having one or two subintervals
+    for spaces in ([fs], [fs, fs]):
+        N = len(spaces)
+        plural = '' if N == 1 else 's'
+        print(f"\n--- Solving the adjoint problem on {N} subinterval{plural}\n")
+
+        # Solve forward and adjoint on each subinterval
+        J, adj_sols = solve_adjoint(
+            burgers.solver, burgers.initial_condition, qoi, spaces, end_time, dt,
+            timesteps_per_export=dt_per_export, solves_per_timestep=solves_per_dt,
+        )
+
+        # Plot adjoint solutions, if requested
+        subintervals = get_subintervals(end_time, N)
+        timesteps, timesteps_per_export, exports_per_mesh = \
+            get_exports_per_subinterval(subintervals, dt, dt_per_export)
+        fig, axes = plt.subplots(exports_per_mesh[0], N, sharex='col', figsize=(6*N, 24//N))
+        levels = np.linspace(0, 0.8, 9) if qoi_type == 'end_time' else 9
+        for i, adj_sols_step in enumerate(adj_sols):
+            ax = axes[0] if N == 1 else axes[0, i]
+            ax.set_title("Mesh {:d}".format(i+1))
+            for j, adj_sol in enumerate(adj_sols_step):
+                ax = axes[j] if N == 1 else axes[j, i]
+                tricontourf(adj_sol, axes=ax, levels=levels)
+                ax.annotate(
+                    f"t={i*end_time/N + j*timesteps_per_export[i]*timesteps[i]:.2f}",
+                    (0.05, 0.05),
+                    color='white',
+                )
+        plt.savefig(f"plots/burgers_test_{N}_{qoi_type}.jpg")
