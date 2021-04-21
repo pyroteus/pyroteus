@@ -43,8 +43,8 @@ def wrap_qoi(qoi):
     """
 
     @wraps(qoi)
-    def wrapper(*args):
-        j = firedrake.assemble(qoi(*args))
+    def wrapper(*args, **kwargs):
+        j = firedrake.assemble(qoi(*args, **kwargs))
         j.adj_value = 1.0
         return j
 
@@ -84,7 +84,8 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     """
     import inspect
     nargs = len(inspect.getfullargspec(qoi).args)
-    assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
+    # assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
+    assert nargs >= 1, "QoI should have at least one argument"  # FIXME: kwargs are counted as args
 
     # Handle timestepping
     num_subintervals = len(function_spaces)
@@ -123,7 +124,8 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     # Wrap solver and QoI
     wrapped_solver = wrap_solver(solver)
     wrapped_qoi = wrap_qoi(qoi)
-    if nargs == 2:
+    solver_kwargs = kwargs.get('solver_kwargs', {})
+    if nargs > 1:
         solver_kwargs['qoi'] = wrapped_qoi
 
     # Clear tape
@@ -147,7 +149,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
         # Get seed vector for reverse mode propagation
         if i == num_subintervals-1:
             if nargs == 1:
-                J = wrapped_qoi(sol)
+                J = wrapped_qoi(sol)  # TODO: What about kwargs?
         else:
             with pyadjoint.stop_annotating():
                 sol.adj_value = mesh2mesh_project(seed, function_spaces[i], adjoint=adj_proj)
