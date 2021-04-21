@@ -110,6 +110,11 @@ def test_adjoint_same_mesh(problem, qoi_type):
         assert np.isclose(err, 0.0), f"Non-zero adjoint error ({err})"
 
 
+@pytest.mark.parallel
+def test_adjoint_same_mesh_parallel(problem, qoi_type):
+    test_adjoint_same_mesh(problem, qoi_type)
+
+
 # ---------------------------
 # plotting
 # ---------------------------
