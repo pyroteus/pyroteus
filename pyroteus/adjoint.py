@@ -8,7 +8,7 @@ from pyroteus.utility import norm
 from functools import wraps
 
 
-__all__ = ["solve_adjoint", "get_subintervals", "get_exports_per_subinterval"]
+__all__ = ["solve_adjoint", "get_checkpoints", "get_subintervals", "get_exports_per_subinterval"]
 
 
 def wrap_solver(solver):
@@ -70,11 +70,13 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
         an end time as arguments and returns the solution value at the final time
     :arg initial_condition: a function which maps a function space to a :class:`Function`
     :arg qoi: a function which maps a :class:`Function` (and possibly a time level) to a UFL 1-form
+    :arg function_spaces: list of :class:`FunctionSpaces` associated with each subinterval
     :arg end_time: the simulation end time
     :arg timesteps: a list of floats or single float corresponding to the timestep on each
         subinterval
-    :kwarg timesteps_per_export: a list of ints or single int correspondioing to the number of
+    :kwarg timesteps_per_export: a list of ints or single int corresponding to the number of
         timesteps per export on each subinterval
+    :kwarg solves_per_timestep: integer number of linear or nonlinear solves performed per timestep
     :kwarg solver_kwargs: a dictionary providing parameters to the solver
     :kwarg adjoint_projection: if `False`, conservative projection is applied when transferring
         data between meshes in the adjoint solve, rather than the corresponding adjoint operator
@@ -97,18 +99,9 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     dt_per_mesh = [dtpe*(epm-1) for dtpe, epm in zip(dt_per_export, export_per_mesh)]
 
     # Solve forward to get checkpoints and evaluate QoI
-    solver_kwargs = kwargs.get('solver_kwargs', {})
-    if nargs == 2:
-        solver_kwargs['qoi'] = lambda *args: firedrake.assemble(qoi(*args))
-    J = 0
-    with pyadjoint.stop_annotating():
-        checkpoints = [initial_condition(function_spaces[0])]
-        for i, subinterval in enumerate(subintervals):
-            sol, J = solver(checkpoints[i], *subinterval, timesteps[i], J=J, **solver_kwargs)
-            if i < num_subintervals-1:
-                checkpoints.append(firedrake.project(sol, function_spaces[i+1]))
-    if nargs == 2:
-        solver_kwargs.pop('qoi')
+    J, checkpoints = get_checkpoints(
+        solver, initial_condition, qoi, function_spaces, end_time, timesteps, **kwargs
+    )
 
     # Create arrays to hold exported foward and adjoint solutions
     solutions = {
@@ -190,3 +183,50 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
         tape.clear_tape()
 
     return J, solutions
+
+
+@pyadjoint.no_annotations
+def get_checkpoints(solver, initial_condition, qoi, function_spaces, end_time, timesteps, **kwargs):
+    """
+    Just solve forward to get checkpoints and evaluate the QoI.
+
+    :arg solver: a function which takes an initial condition :class:`Function`, a start time and
+        an end time as arguments and returns the solution value at the final time
+    :arg initial_condition: a function which maps a function space to a :class:`Function`
+    :arg qoi: a function which maps a :class:`Function` (and possibly a time level) to a UFL 1-form
+    :arg function_spaces: list of :class:`FunctionSpaces` associated with each subinterval
+    :arg end_time: the simulation end time
+    :arg timesteps: a list of floats or single float corresponding to the timestep on each
+        subinterval
+    :kwarg timesteps_per_export: a list of ints or single int corresponding to the number of
+        timesteps per export on each subinterval
+    :kwarg solver_kwargs: a dictionary providing parameters to the solver
+
+    :return J: quantity of interest value
+    :return checkpoints: forward solution data at the beginning of each subinterval
+    """
+    import inspect
+    nargs = len(inspect.getfullargspec(qoi).args)
+    # assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
+    assert nargs >= 1, "QoI should have at least one argument"  # FIXME: kwargs are counted as args
+
+    # Handle timestepping
+    num_subintervals = len(function_spaces)
+    subintervals = get_subintervals(end_time, num_subintervals)
+    dt_per_export = kwargs.get('timesteps_per_export', 1)
+    timesteps, dt_per_export, export_per_mesh = \
+        get_exports_per_subinterval(subintervals, timesteps, dt_per_export)
+
+    # Solve forward to get checkpoints and evaluate QoI
+    solver_kwargs = kwargs.get('solver_kwargs', {})
+    if nargs > 1:
+        solver_kwargs['qoi'] = lambda *args, **kwargs: firedrake.assemble(qoi(*args, **kwargs))
+    J = 0
+    checkpoints = [initial_condition(function_spaces[0])]
+    for i, subinterval in enumerate(subintervals):
+        sol, J = solver(checkpoints[i], *subinterval, timesteps[i], J=J, **solver_kwargs)
+        if i < num_subintervals-1:
+            checkpoints.append(mesh2mesh_project(sol, function_spaces[i+1]))
+    if nargs == 1:
+        J = firedrake.assemble(qoi(sol))  # TODO: What about kwargs?
+    return J, checkpoints
