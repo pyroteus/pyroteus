@@ -230,7 +230,7 @@ def space_time_normalise(metrics, end_time, timesteps, target, p):
     assert p == 'inf' or p >= 1.0, f"Norm order {p} not valid"
     num_subintervals = len(metrics)
     assert len(timesteps) == num_subintervals
-    dt_per_mesh = [end_time/num_subintervals/dt for dt in timesteps]
+    dt_per_mesh = [Constant(end_time/num_subintervals/dt) for dt in timesteps]
     d = metrics[0].function_space().mesh().topological_dimension()
 
     # Compute global normalisation factor
