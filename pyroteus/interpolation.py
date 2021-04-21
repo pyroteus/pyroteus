@@ -26,6 +26,7 @@ def mesh2mesh_project(source, target_space, adjoint=False, **kwargs):
         target = Function(target_space)
         for s, t in zip(source.split(), target.split()):
             t.project(s, **kwargs)
+        return target
     else:
         return project(source, target_space, **kwargs)
 
