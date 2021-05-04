@@ -1,5 +1,20 @@
 """
 Driver functions for metric-based mesh adaptation.
+
+
+References
+==========
+
+[Power et al. 2006] PW Power, CC Pain, MD Piggott,
+    F Fang, GJ Gorman, AP Umpleby, AJH Goddard,
+    IM Navon, 'Adjoint a posteriori error measures
+    for anisotropic mesh optimisation', Computers
+    and Mathematics with Applications, 2006.
+
+[Carpio et al. 2013] J Carpio, JL Prieto, R Bermejo,
+    'Anisotropic goal-oriented mesh adaptivity for
+    elliptic problems', SIAM Journal on Scientific
+    Computing, 2013.
 """
 from __future__ import absolute_import
 from .utility import *
@@ -28,7 +43,7 @@ def metric_complexity(metric, boundary=False):
     return assemble(sqrt(det(metric))*differential)
 
 
-def isotropic_metric(error_indicator, target_space=None, f_min=1.0e-12):
+def isotropic_metric(error_indicator, target_space=None, **kwargs):
     r"""
     Compute an isotropic metric from some error indicator.
 
@@ -52,6 +67,7 @@ def isotropic_metric(error_indicator, target_space=None, f_min=1.0e-12):
     assert target_space.ufl_element().degree() == 1
 
     # Compute metric diagonal
+    f_min = kwargs.get('f_min', 1.0e-12)
     if family == 'Lagrange' and degree == 1:
         M_diag = interpolate(max_value(abs(error_indicator), f_min), fs)
     else:
@@ -83,7 +99,33 @@ def hessian_metric(hessian):
     return metric
 
 
-def anisotropic_metric(error_indicator, hessian, target_space=None, **kwargs):
+def anisotropic_metric(error_indicator, hessian, **kwargs):
+    r"""
+    Compute an element-wise anisotropic metric from some
+    error indicator, given a Hessian field.
+
+    Two formulations are currently available:
+      * the element-wise formulation presented
+        in [Carpio et al. 2013]; and
+      * the vertex-wise formulation presented in
+        [Power et al. 2006].
+
+    In both cases, a :math:`\mathbb P1` metric is
+    returned by default.
+
+    :arg error_indicator: (list of) error indicator(s)
+    :arg hessian: (list of) Hessian(s)
+    :kwarg target_space: :class:`TensorFunctionSpace` in
+        which the metric will exist
+    """
+    element_wise = kwargs.pop('element_wise', True)
+    if element_wise:
+        return element_wise_anisotropic_metric(error_indicator, hessian, **kwargs)
+    else:
+        return vertex_wise_anisotropic_metric(error_indicator, hessian, **kwargs)
+
+
+def element_wise_anisotropic_metric(error_indicator, hessian, target_space=None, **kwargs):
     r"""
     Compute an anisotropic metric from some error
     indicator, given a Hessian field.
@@ -105,19 +147,14 @@ def anisotropic_metric(error_indicator, hessian, target_space=None, **kwargs):
         which the metric will exist
     :kwarg target_complexity: target metric complexity
     :kwarg convergence rate: normalisation parameter
-
-    [Carpio et al. 2013] J Carpio, JL Prieto, R Bermejo,
-        'Anisotropic goal-oriented mesh adaptivity for
-        elliptic problems', SIAM Journal on Scientific
-        Computing, 2013.
     """
     target_complexity = kwargs.get('target_complexity', None)
     assert target_complexity > 0.0, "Target complexity must be positive"
-    convergence_rate = kwargs.get('convergence_rate', 1.0)
-    assert convergence_rate >= 1.0, "Convergence rate must be at least one"
     mesh = hessian.function_space().mesh()
     dim = mesh.topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
+    convergence_rate = kwargs.get('convergence_rate', 1.0)
+    assert convergence_rate >= 1.0, "Convergence rate must be at least one"
 
     # Get current element volume
     P0 = FunctionSpace(mesh, "DG", 0)
@@ -165,15 +202,49 @@ def anisotropic_metric(error_indicator, hessian, target_space=None, **kwargs):
     return hessian_metric(project(P0_metric, target_space))
 
 
+def vertex_wise_anisotropic_metric(error_indicators, hessians, target_space=None, **kwargs):
+    r"""
+    Compute a vertex-wise anisotropic metric from a (list
+    of) error indicator(s), given a (list of) Hessian
+    field(s).
+
+    The formulation used is based on that presented
+    in [Power et al. 2006].
+
+    :arg error_indicators: (list of) error indicator(s)
+    :arg hessians: (list of) Hessian(s)
+    :kwarg target_space: :class:`TensorFunctionSpace` in
+        which the metric will exist
+    :kwarg average: should metric components be averaged
+        or intersected?
+    """
+    from collections import Iterable
+    if not isinstance(error_indicators, Iterable):
+        error_indicators = [error_indicators]
+    if not isinstance(hessians, Iterable):
+        hessians = [hessians]
+    mesh = hessians[0].function_space().mesh()
+    dim = mesh.topological_dimension()
+    assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
+
+    # Project error indicators into P1 space and use them to weight Hessians
+    P1 = FunctionSpace(mesh, "CG", 1)
+    metrics = [Function(hessian, name="Metric") for hessian in hessians]
+    for error_indicator, hessian, metric in zip(error_indicators, hessians, metrics):
+        metric.interpolate(abs(project(error_indicator, P1))*hessian)
+    return combine_metrics(*metrics, average=kwargs.get('average', True))
+
+
 def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
     """
-    Post-process a list of metrics to enforce minimum and maximum
-    element sizes, as well as maximum anisotropy.
+    Post-process a list of metrics to enforce minimum and
+    maximum element sizes, as well as maximum anisotropy.
 
     :arg metrics: the metrics
     :arg h_min: minimum tolerated element size.
     :arg h_max: maximum tolerated element size.
-    :kwarg a_max: maximum tolerated element anisotropy (default 1000).
+    :kwarg a_max: maximum tolerated element anisotropy
+        (default 1000).
     """
     if not (0 < h_min < h_max):
         raise ValueError(
@@ -190,7 +261,6 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
 
 
 # --- Normalisation
-
 
 def space_normalise(metric, target, p):
     """
@@ -219,10 +289,12 @@ def space_time_normalise(metrics, end_time, timesteps, target, p):
     """
     Apply L-p normalisation is both space and time.
 
-    :arg metrics: list of :class:`Function`s corresponding
-        to the metric associated with each subinterval
+    :arg metrics: list of :class:`Function`s
+        corresponding to the metric associated with
+        each subinterval
     :arg end_time: end time of simulation
-    :arg timesteps: list of timesteps specified in each subinterval
+    :arg timesteps: list of timesteps specified in each
+        subinterval
     :arg target: target *space-time* metric complexity
     :arg p: normalisation order
     """
@@ -333,10 +405,10 @@ def combine_metrics(*metrics, average=True, **kwargs):
 
 # --- Metric decompositions and properties
 
-
 def density_and_quotients(metric, reorder=False):
     r"""
-    Extract the density and anisotropy quotients from a metric.
+    Extract the density and anisotropy quotients from a
+    metric.
 
     By symmetry, Riemannian metrics admit an orthogonal
     eigendecomposition,
@@ -349,9 +421,9 @@ def density_and_quotients(metric, reorder=False):
 
     at each point :math:`\mathbf x\in\Omega`, where
     :math:`\underline{\mathbf V}` and
-    :math:`\underline{\boldsymbol\Sigma}` are matrices holding
-    the eigenvectors and eigenvalues, respectively. By
-    positive-definiteness, entries of
+    :math:`\underline{\boldsymbol\Sigma}` are matrices
+    holding the eigenvectors and eigenvalues, respectively.
+    By positive-definiteness, entries of
     :math:`\underline{\boldsymbol\Lambda}` are all positive.
 
     An alternative decomposition,
@@ -372,8 +444,10 @@ def density_and_quotients(metric, reorder=False):
 
     where :math:`h_i := \frac1{\sqrt{\lambda_i}}`.
 
-    :arg metric: the metric to extract density and quotients from
-    :kwarg reorder: should the eigendecomposition be reordered?
+    :arg metric: the metric to extract density and
+        quotients from
+    :kwarg reorder: should the eigendecomposition be
+        reordered?
     """
     fs_ten = metric.function_space()
     mesh = fs_ten.mesh()
