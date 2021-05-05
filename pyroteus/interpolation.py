@@ -1,4 +1,5 @@
-from firedrake import *
+from __future__ import absolute_import
+from .utility import *
 
 
 __all__ = ["mesh2mesh_project", "mesh2mesh_project_adjoint"]
@@ -67,18 +68,18 @@ def mesh2mesh_project_adjoint(target_b, source_space, **kwargs):
     # Apply adjoint projection operator to each component
     for t_b, s_b in zip(target_b_split, source_b_split):
 
-        # Assemble mass matrix for target space and apply its inverse
-        M_t = assemble(inner(TrialFunction(target_space), TestFunction(target_space))*dx).M.handle
-        ksp = PETSc.KSP().create()
-        ksp.setOperators(M_t.transpose())
-        ksp.setFromOptions()
-        with t_b.dat.vec_ro as tb:
-            residual = tb.copy()
-            ksp.solve(tb, residual)
+        # Target space and mixed mass matrices
+        _target_space = t_b.function_space()
+        _source_space = s_b.function_space()
+        target_mass = assemble_mass_matrix(_target_space)
+        mixed_mass = assemble_mixed_mass_matrix(_source_space, _target_space)
 
-        # Assemble mixed mass matrix and multiply by its transpose
-        M_st = assemble_mixed_mass_matrix(source_space, target_space)
-        with s_b.dat.vec_ro as sb:
-            M_st.multTranspose(residual, sb)
+        # Apply transposed operators
+        ksp = PETSc.KSP().create()
+        ksp.setOperators(target_mass)
+        with t_b.dat.vec_ro as tb, s_b.dat.vec_wo as sb:
+            residual = tb.copy()
+            ksp.solveTranspose(tb, residual)
+            mixed_mass.multTranspose(residual, sb)
 
     return source_b
