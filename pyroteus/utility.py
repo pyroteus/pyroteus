@@ -81,12 +81,30 @@ def prod(arr):
     return None if n == 0 else arr[0] if n == 1 else arr[0]*prod(arr[1:])
 
 
+def assemble_mass_matrix(space, norm_type='L2'):
+    """
+    Assemble the `norm_type` mass matrix associated
+    with some finite element `space`.
+    """
+    trial = TrialFunction(space)
+    test = TestFunction(space)
+    if norm_type == 'L2':
+        lhs = inner(trial, test)*dx
+    elif norm_type == 'H1':
+        lhs = inner(trial, test)*dx + inner(grad(trial), grad(test))*dx
+    else:
+        raise ValueError(f"Norm type {norm_type} not recognised.")
+    return assemble(lhs).petscmat
+
+
 def norm(v, norm_type='L2', mesh=None):
     r"""
-    Overload Firedrake's `norm` function to allow for :math:`\ell^p` norms.
+    Overload Firedrake's `norm` function to allow
+    for :math:`\ell^p` norms.
 
-    Note that this version is case sensitive, i.e. l2 and L2 will give different
-    results in general.
+    Note that this version is case sensitive,
+    i.e. l2 and L2 will give different results in
+    general.
     """
     norm_codes = {'l1': 0, 'l2': 2, 'linf': 3}
     if norm_type in norm_codes:
@@ -100,10 +118,12 @@ def norm(v, norm_type='L2', mesh=None):
 
 def errornorm(u, uh, norm_type='L2', **kwargs):
     r"""
-    Overload Firedrake's `errornorm` function to allow for :math:`\ell^p` norms.
+    Overload Firedrake's `errornorm` function to allow
+    for :math:`\ell^p` norms.
 
-    Note that this version is case sensitive, i.e. l2 and L2 will give different
-    results in general.
+    Note that this version is case sensitive,
+    i.e. l2 and L2 will give different results in
+    general.
     """
     if len(u.ufl_shape) != len(uh.ufl_shape):
         raise RuntimeError("Mismatching rank between u and uh")
