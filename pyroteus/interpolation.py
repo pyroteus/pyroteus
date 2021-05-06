@@ -55,31 +55,29 @@ def mesh2mesh_project_adjoint(target_b, source_space, **kwargs):
 
     # Get subspaces
     if source_space == target_space:
-        return target_b
+        source_b.assign(target_b)
+        return source_b
     elif hasattr(source_space, 'num_sub_spaces'):
-        assert hasattr(target_space, 'num_sub_spaces')
-        assert target_space.num_sub_spaces() == source_space.num_sub_spaces()
+        if not hasattr(target_space, 'num_sub_spaces'):
+            raise ValueError(f"Incompatible spaces {source_space} and {target_space}")
+        if not target_space.num_sub_spaces() == source_space.num_sub_spaces():
+            raise ValueError(f"Incompatible spaces {source_space} and {target_space}")
         target_b_split = target_b.split()
         source_b_split = source_b.split()
+    elif hasattr(target_space, 'num_sub_spaces'):
+        raise ValueError(f"Incompatible spaces {source_space} and {target_space}")
     else:
         target_b_split = [target_b]
         source_b_split = [source_b]
 
     # Apply adjoint projection operator to each component
-    for t_b, s_b in zip(target_b_split, source_b_split):
-
-        # Target space and mixed mass matrices
-        _target_space = t_b.function_space()
-        _source_space = s_b.function_space()
-        target_mass = assemble_mass_matrix(_target_space)
-        mixed_mass = assemble_mixed_mass_matrix(_source_space, _target_space)
-
-        # Apply transposed operators
+    for i, (t_b, s_b) in enumerate(zip(target_b_split, source_b_split)):
         ksp = PETSc.KSP().create()
-        ksp.setOperators(target_mass)
+        ksp.setOperators(assemble_mass_matrix(t_b.function_space()))
+        mixed_mass = assemble_mixed_mass_matrix(t_b.function_space(), s_b.function_space())
         with t_b.dat.vec_ro as tb, s_b.dat.vec_wo as sb:
             residual = tb.copy()
             ksp.solveTranspose(tb, residual)
-            mixed_mass.multTranspose(residual, sb)
+            mixed_mass.mult(residual, sb)  # NOTE: mixed mass already transposed
 
     return source_b

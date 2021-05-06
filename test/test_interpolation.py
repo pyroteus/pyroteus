@@ -59,3 +59,23 @@ def test_project(coarse, fine):
 @pytest.mark.parallel(nprocs=3)
 def test_project_parallel(coarse, fine):
     test_project(coarse, fine)
+
+
+def test_adjoint_project(coarse, fine):
+    """
+    Test adjoint supermesh projection operator
+    applied to a mixed function space.
+    """
+    cmesh = RectangleMesh(2, 2, 1, 1, diagonal="left")
+    fmesh = RectangleMesh(5, 5, 1, 1, diagonal="right")
+
+    Vc = FunctionSpace(cmesh, *coarse)
+    vVc = VectorFunctionSpace(cmesh, *coarse)
+    Vf = FunctionSpace(fmesh, *fine)
+    vVf = VectorFunctionSpace(fmesh, *fine)
+
+    c = Function(Vc*vVc)
+    c1, c2 = c.split()
+    c1.interpolate(SpatialCoordinate(cmesh)**2)
+
+    mesh2mesh_project(c, Vf*vVf, adjoint=True)
