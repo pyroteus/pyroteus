@@ -1,11 +1,15 @@
+# Directories
 build/
 data/
 outputs/
 plots/
 __pycache__/
+pyroteus.egg-info/
 
-pyroteus.egg-info
+# Specific files
+docs/source/pyroteus.rst
 
+# File extensions
 *.jpg
 *.msh
 *.pdf
