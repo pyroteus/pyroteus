@@ -19,6 +19,7 @@
 # import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
+import datetime
 
 
 # -- General configuration ------------------------------------------------
@@ -51,7 +52,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Pyroteus'
-copyright = u'2021, Joseph Wallwork et al.'
+copyright = f'{datetime.datetime.now().year}, Joseph Wallwork et al.'
 author = u'Joseph Wallwork et al.'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -173,4 +174,4 @@ intersphinx_mapping = {
 autoclass_content = "both"
 
 #  -- Options for sphinxcontrib.bibtex ------------------------------------
-bibtex_bibfiles = []
+bibtex_bibfiles = ['references.bib']

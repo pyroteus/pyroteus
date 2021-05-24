@@ -30,6 +30,7 @@ html: apidoc $(GENERATED_FILES)
 .PHONY: apidoc
 apidoc:
 	$(SPHINXAPIDOC) $$(python -c 'import pyroteus; import os; print(os.path.dirname(pyroteus.__file__))') -o source -f -T
+	# TODO: link references.bib
 
 
 clean:
