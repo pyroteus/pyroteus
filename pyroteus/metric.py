@@ -276,7 +276,7 @@ def space_normalise(metric, target, p):
     """
     Apply L-p normalisation in space alone.
 
-    :arg metric: class:`Function`s corresponding to the
+    :arg metric: :class:`Function` s corresponding to the
         metric to be normalised.
     :arg target: target metric complexity *in space alone*.
     :arg p: normalisation order.
@@ -297,9 +297,9 @@ def space_normalise(metric, target, p):
 
 def space_time_normalise(metrics, end_time, timesteps, target, p):
     """
-    Apply L-p normalisation is both space and time.
+    Apply L-p normalisation in both space and time.
 
-    :arg metrics: list of :class:`Function`s
+    :arg metrics: list of :class:`Function` s
         corresponding to the metric associated with
         each subinterval
     :arg end_time: end time of simulation

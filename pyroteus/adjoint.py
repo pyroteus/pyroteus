@@ -60,13 +60,14 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     As well as the quantity of interest value, a dictionary of solution fields is returned,
     the contents of which give values at all exported timesteps, indexed by subinterval and
     then export. For a given export timestep, the solution fields are:
-        * 'forward': the forward solution after taking the timestep;
-        * 'forward_old': the forward solution before taking the timestep;
-        * 'adjoint': the adjoint solution after taking the timestep;
-        * 'adjoint_next': the adjoint solution before taking the timestep (backwards).
 
-    :arg solver: a function which takes an initial condition :class:`Function`, a start time and
-        an end time as arguments and returns the solution value at the final time
+    * 'forward': the forward solution after taking the timestep;
+    * 'forward_old': the forward solution before taking the timestep;
+    * 'adjoint': the adjoint solution after taking the timestep;
+    * 'adjoint_next': the adjoint solution before taking the timestep (backwards).
+
+    :arg solver: a function which takes an initial condition :class:`Function`, a start time
+        and an end time as arguments and returns the solution value at the final time
     :arg initial_condition: a function which maps a function space to a :class:`Function`
     :arg qoi: a function which maps a :class:`Function` (and possibly a time level) to a UFL 1-form
     :arg function_spaces: list of :class:`FunctionSpaces` associated with each subinterval
