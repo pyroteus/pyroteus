@@ -274,7 +274,7 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
 
 def space_normalise(metric, target, p):
     """
-    Apply L-p normalisation in space alone.
+    Apply :math:`L^p` normalisation in space alone.
 
     :arg metric: :class:`Function` s corresponding to the
         metric to be normalised.
@@ -297,7 +297,7 @@ def space_normalise(metric, target, p):
 
 def space_time_normalise(metrics, end_time, timesteps, target, p):
     """
-    Apply L-p normalisation in both space and time.
+    Apply :math:`L^p` normalisation in both space and time.
 
     :arg metrics: list of :class:`Function` s
         corresponding to the metric associated with
@@ -423,7 +423,7 @@ def density_and_quotients(metric, reorder=False):
     By symmetry, Riemannian metrics admit an orthogonal
     eigendecomposition,
 
-  ..math::
+    .. math::
         \underline{\mathbf M}(\mathbf x)
         = \underline{\mathbf V}(\mathbf x)\:
         \underline{\boldsymbol\Lambda}(\mathbf x)\:
@@ -438,7 +438,7 @@ def density_and_quotients(metric, reorder=False):
 
     An alternative decomposition,
 
-  ..math::
+    .. math::
         \underline{\mathbf M}(\mathbf x)
         = d(\mathbf x)^\frac2n
         \underline{\mathbf V}(\mathbf x)\:
@@ -448,7 +448,7 @@ def density_and_quotients(metric, reorder=False):
     can also be deduced, in terms of the <em>metric density</em>
     and <em>anisotropy quotients</em>,
 
-  ..math::
+    .. math::
         d = \sum_{i=1}^n h_i,\quad
         r_i = h_i^n/d,\quad \forall i=1:n,
 
