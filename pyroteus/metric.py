@@ -21,8 +21,8 @@ from .utility import *
 from . import kernel as kernels
 
 
-__all__ = ["metric_complexity", "isotropic_metric", "hessian_metric", "enforce_element_constraints",
-           "space_normalise", "space_time_normalise",
+__all__ = ["metric_complexity", "isotropic_metric", "anisotropic_metric", "hessian_metric",
+           "enforce_element_constraints", "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
            "density_and_quotients", "check_spd"]
 
@@ -241,22 +241,32 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
     maximum element sizes, as well as maximum anisotropy.
 
     :arg metrics: the metrics
-    :arg h_min: minimum tolerated element size.
-    :arg h_max: maximum tolerated element size.
+    :arg h_min: minimum tolerated element size,
+        which could be a :class:`Function` or a number.
+    :arg h_max: maximum tolerated element size,
+        which could be a :class:`Function` or a number.
     :kwarg a_max: maximum tolerated element anisotropy
         (default 1000).
     """
-    if not (0 < h_min < h_max):
-        raise ValueError(
-            f"Min/max tolerated element sizes {h_min}/{h_max} not valid"
-        )
+    from collections import Iterable
     if a_max <= 0:
         raise ValueError(f"Max tolerated anisotropy {a_max} not valid")
-    for metric in [metrics] if isinstance(metrics, Function) else metrics:
+    if isinstance(metrics, Function):
+        metrics = [metrics]
+    if not isinstance(h_min, Iterable):
+        h_min = [Constant(h_min)]*len(metrics)
+    if not isinstance(h_max, Iterable):
+        h_max = [Constant(h_max)]*len(metrics)
+    for metric, hmin, hmax in zip(metrics, h_min, h_max):
         fs = metric.function_space()
+        P1 = FunctionSpace(fs.mesh(), "CG", 1)
+        hmin = project(hmin, P1)
+        hmax = project(hmax, P1)
+        # TODO: Validate input
         dim = fs.mesh().topological_dimension()
-        kernel = kernels.eigen_kernel(kernels.postproc_metric, dim, h_min, h_max, a_max)
-        op2.par_loop(kernel, fs.node_set, metric.dat(op2.RW))
+        kernel = kernels.eigen_kernel(kernels.postproc_metric, dim, a_max)
+        op2.par_loop(kernel, fs.node_set,
+                     metric.dat(op2.RW), hmin.dat(op2.READ), hmax.dat(op2.READ))
     return metrics
 
 
