@@ -159,7 +159,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             for block in tape.get_blocks()
             if issubclass(block.__class__, GenericSolveBlock)
             and not issubclass(block.__class__, ProjectBlock)
-            and block.adj_sol is not None
+            and block.adj_sol is not None  # FIXME: Why are they all None for new Firedrake?
         ][-dt_per_mesh[i]*solves_per_dt::solves_per_dt]
 
         # Get old solution dependency index
