@@ -15,14 +15,12 @@ def eigen_kernel(kernel, *args, **kwargs):
     return op2.Kernel(kernel(*args, **kwargs), kernel.__name__, cpp=True, include_dirs=include_dir)
 
 
-def postproc_metric(d, h_min, h_max, a_max):
+def postproc_metric(d, a_max):
     """
     Post-process a metric field in order to enforce
     max/min element sizes and anisotropy.
 
     :arg d: spatial dimension
-    :arg h_min: minimum element size
-    :arg h_max: maximum element size
     :arg a_max: maximum element anisotropy
     """
     return """
@@ -30,11 +28,13 @@ def postproc_metric(d, h_min, h_max, a_max):
 
 using namespace Eigen;
 
-void postproc_metric(double A_[%d])
+void postproc_metric(double A_[%d], const double * h_min_, const double * h_max_)
 {
 
-  // Map input/output metric onto an Eigen object
+  // Map input/output metric onto an Eigen object and map h_min/h_max to doubles
   Map<Matrix<double, %d, %d, RowMajor> > A((double *)A_);
+  double h_min = *h_min_;
+  double h_max = *h_max_;
 
   // Solve eigenvalue problem
   SelfAdjointEigenSolver<Matrix<double, %d, %d, RowMajor>> eigensolver(A);
@@ -45,7 +45,7 @@ void postproc_metric(double A_[%d])
   int i;
   double max_eig = 0.0;
   for (i=0; i<%d; i++) {
-    D(i) = fmin(pow(%f, -2), fmax(pow(%f, -2), abs(D(i))));
+    D(i) = fmin(pow(h_min, -2), fmax(pow(h_max, -2), abs(D(i))));
     max_eig = fmax(max_eig, D(i));
   }
   for (i=0; i<%d; i++) D(i) = fmax(D(i), pow(%f, -2) * max_eig);
@@ -53,7 +53,7 @@ void postproc_metric(double A_[%d])
   // Build metric from eigendecomposition
   A = Q * D.asDiagonal() * Q.transpose();
 }
-""" % (d*d, d, d, d, d, d, d, d, d, h_min, h_max, d, a_max)
+""" % (d*d, d, d, d, d, d, d, d, d, d, a_max)
 
 
 def intersect(d):
