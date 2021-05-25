@@ -8,10 +8,12 @@
 Pyroteus Goal-Oriented Mesh Adaptation Toolkit
 ==============================================
 
-Pyroteus provides metric-based goal-oriented mesh adaptation functionality
-to the `Firedrake <http://www.firedrakeproject.org/>`__ finite element
-library.
-
+Pyroteus provides metric-based goal-oriented mesh adaptation
+functionality to the Python-based finite element library
+`Firedrake <http://www.firedrakeproject.org/>`__. The 'y' is
+silent, so its pronunciation is identical to 'Proteus' - the
+ancient Greek god of the constantly changing surface of the
+sea.
 
 .. rubric:: API documentation
 
