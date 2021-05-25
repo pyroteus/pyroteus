@@ -89,7 +89,7 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'basic'
+html_theme = 'classic'
 # Add any paths that contain custom themes here, relative to this directory.
 html_theme_path = ['_themes']
 

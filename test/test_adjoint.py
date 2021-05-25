@@ -149,10 +149,10 @@ if __name__ == "__main__":
         levels = np.linspace(0, 0.8, 9) if _qoi_type == 'end_time' else 9
         for i, adj_sols_step in enumerate(solutions['adjoint']):
             ax = axes[0] if N == 1 else axes[0, i]
-            ax.set_title("Mesh {:d}".format(i+1))
+            ax.set_title(f"Mesh {i+1}")
             for j, adj_sol in enumerate(adj_sols_step):
                 ax = axes[j] if N == 1 else axes[j, i]
-                tricontour(fadj_sol, axes=ax, levels=levels)
+                tricontour(adj_sol, axes=ax, levels=levels)
                 ax.annotate(
                     f"t={i*end_time/N + j*P.timesteps_per_export[i]*P.timesteps[i]:.2f}",
                     (0.05, 0.05),
