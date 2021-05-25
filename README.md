@@ -1,8 +1,11 @@
 ## Pyroteus Goal-Oriented Mesh Adaptation Toolkit
 
 Pyroteus provides metric-based goal-oriented mesh
-adaptation drivers for finite element problems
-solved using [Firedrake][firedrake].
+adaptation functionality to the Python-based finite
+element library [Firedrake][firedrake]. The 'y' is
+silent, so its pronunciation is identical to 'Proteus'
+- the ancient Greek god of the constantly changing
+surface of the sea.
 
 This is research of the Applied Modelling and
 Computation Group ([AMCG][amcg]) at Imperial College
