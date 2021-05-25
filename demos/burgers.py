@@ -78,10 +78,12 @@ def initial_condition(function_space):
 # <https://nbviewer.jupyter.org/github/firedrakeproject/firedrake/blob/master/docs/notebooks/11-extract-adjoint-solutions.ipynb>`__, we choose the QoI
 #
 # .. math::
-#    J(u) = \int_0^1 u(1,y,T_{\mathrm{end}})^2\;\mathrm dy,
+#    J(u) = \int_0^1 \mathbf u(1,y,T_{\mathrm{end}})
+#    \cdot \mathbf u(1,y,T_{\mathrm{end}})\;\mathrm dy,
 #
-# which integrates the square of the solution :math:`u(x,y,t)`
-# at the final time over the right hand boundary. ::
+# which integrates the square of the solution
+# :math:`\mathbf u(x,y,t)` at the final time over the right
+# hand boundary. ::
 
 
 def end_time_qoi(sol):
