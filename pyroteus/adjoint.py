@@ -51,8 +51,7 @@ def wrap_qoi(qoi):
     return wrapper
 
 
-# TODO: Just pass a TimePartition
-def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, timesteps, **kwargs):
+def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partition, **kwargs):
     """
     Solve an adjoint problem on a sequence of subintervals.
 
@@ -72,11 +71,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     :arg initial_condition: a function which maps a function space to a :class:`Function`
     :arg qoi: a function which maps a :class:`Function` (and possibly a time level) to a UFL 1-form
     :arg function_spaces: list of :class:`FunctionSpaces` associated with each subinterval
-    :arg end_time: the simulation end time
-    :arg timesteps: a list of floats or single float corresponding to the timestep on each
-        subinterval
-    :kwarg timesteps_per_export: a list of ints or single int corresponding to the number of
-        timesteps per export on each subinterval
+    :arg time_partition: :class:`TimePartition` object containing the subintervals
     :kwarg solves_per_timestep: integer number of linear or nonlinear solves performed per timestep
     :kwarg solver_kwargs: a dictionary providing parameters to the solver
     :kwarg adjoint_projection: if `False`, conservative projection is applied when transferring
@@ -90,21 +85,16 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     # assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
     assert nargs >= 1, "QoI should have at least one argument"  # FIXME: kwargs are counted as args
 
-    # Handle timestepping
-    num_subintervals = len(function_spaces)
-    P = TimePartition(end_time, num_subintervals, timesteps, **kwargs)
-    solves_per_dt = kwargs.get('solves_per_timestep', 1)
-
     # Solve forward to get checkpoints and evaluate QoI
     J, checkpoints = get_checkpoints(
-        solver, initial_condition, qoi, function_spaces, end_time, P.timesteps, **kwargs
+        solver, initial_condition, qoi, function_spaces, time_partition, **kwargs,
     )
 
     # Create arrays to hold exported foward and adjoint solutions
     solutions = {
         label: [[
             firedrake.Function(fs)
-            for j in range(P.exports_per_subinterval[i]-1)]
+            for j in range(time_partition.exports_per_subinterval[i]-1)]
             for i, fs in enumerate(function_spaces)
         ]
         for label in ('forward', 'forward_old', 'adjoint', 'adjoint_next')
@@ -125,19 +115,14 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     # Loop over subintervals in reverse
     seed = None
     adj_proj = kwargs.get('adjoint_projection', True)
-    for i in reversed(range(num_subintervals)):
-        subinterval = P.subintervals[i]
+    solves_per_dt = kwargs.get('solves_per_timestep', 1)
+    for i in reversed(range(time_partition.num_subintervals)):
 
         # Annotate tape on current subinterval
-        sol, control = wrapped_solver(
-            checkpoints[i],
-            *subinterval,
-            P.timesteps[i],
-            **solver_kwargs,
-        )
+        sol, control = wrapped_solver(checkpoints[i], *time_partition[i], **solver_kwargs)
 
         # Get seed vector for reverse mode propagation
-        if i == num_subintervals-1:
+        if i == time_partition.num_subintervals-1:
             if nargs == 1:
                 J = wrapped_qoi(sol)  # TODO: What about kwargs?
         else:
@@ -157,7 +142,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             if issubclass(block.__class__, GenericSolveBlock)
             and not issubclass(block.__class__, ProjectBlock)
             and block.adj_sol is not None  # FIXME: Why are they all None for new Firedrake?
-        ][-P.timesteps_per_subinterval[i]*solves_per_dt::solves_per_dt]
+        ][-time_partition.timesteps_per_subinterval[i]*solves_per_dt::solves_per_dt]
 
         # Get old solution dependency index
         for dep_index, dep in enumerate(solve_blocks[0].get_dependencies()):
@@ -167,7 +152,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
         # FIXME: What if other dependencies are in the prognostic space?
 
         # Extract solution data
-        for j, block in enumerate(solve_blocks[::P.timesteps_per_export[i]]):
+        for j, block in enumerate(solve_blocks[::time_partition.timesteps_per_export[i]]):
             solutions['forward_old'][i][j].assign(block.get_dependencies()[dep_index].saved_output)
             solutions['forward'][i][j].assign(block.get_outputs()[0].saved_output)
             solutions['adjoint'][i][j].assign(block.adj_sol)
@@ -183,7 +168,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
 
 
 @pyadjoint.no_annotations
-def get_checkpoints(solver, initial_condition, qoi, function_spaces, end_time, timesteps, **kwargs):
+def get_checkpoints(solver, initial_condition, qoi, function_spaces, time_partition, **kwargs):
     """
     Just solve forward to get checkpoints and evaluate the QoI.
 
@@ -192,11 +177,7 @@ def get_checkpoints(solver, initial_condition, qoi, function_spaces, end_time, t
     :arg initial_condition: a function which maps a function space to a :class:`Function`
     :arg qoi: a function which maps a :class:`Function` (and possibly a time level) to a UFL 1-form
     :arg function_spaces: list of :class:`FunctionSpaces` associated with each subinterval
-    :arg end_time: the simulation end time
-    :arg timesteps: a list of floats or single float corresponding to the timestep on each
-        subinterval
-    :kwarg timesteps_per_export: a list of ints or single int corresponding to the number of
-        timesteps per export on each subinterval
+    :arg time_partition: :class:`TimePartition` object containing the subintervals
     :kwarg solver_kwargs: a dictionary providing parameters to the solver
 
     :return J: quantity of interest value
@@ -207,19 +188,15 @@ def get_checkpoints(solver, initial_condition, qoi, function_spaces, end_time, t
     # assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
     assert nargs >= 1, "QoI should have at least one argument"  # FIXME: kwargs are counted as args
 
-    # Handle timestepping
-    num_subintervals = len(function_spaces)
-    P = TimePartition(end_time, num_subintervals, timesteps, **kwargs)
-
     # Solve forward to get checkpoints and evaluate QoI
     solver_kwargs = kwargs.get('solver_kwargs', {})
     if nargs > 1:
         solver_kwargs['qoi'] = lambda *args, **kwargs: firedrake.assemble(qoi(*args, **kwargs))
     J = 0
     checkpoints = [initial_condition(function_spaces[0])]
-    for i, subinterval in enumerate(P.subintervals):
-        sol, J = solver(checkpoints[i], *subinterval, P.timesteps[i], J=J, **solver_kwargs)
-        if i < num_subintervals-1:
+    for i in range(time_partition.num_subintervals):
+        sol, J = solver(checkpoints[i], *time_partition[i], J=J, **solver_kwargs)
+        if i < time_partition.num_subintervals-1:
             checkpoints.append(mesh2mesh_project(sol, function_spaces[i+1]))
     if nargs == 1:
         J = firedrake.assemble(qoi(sol))  # TODO: What about kwargs?

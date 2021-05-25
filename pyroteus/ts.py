@@ -92,7 +92,17 @@ class TimePartition(object):
         self.print("exports_per_subinterval")
 
     def print(self, msg):
+        """
+        Print attribute 'msg' for debugging purposes.
+        """
         val = self.__getattribute__(msg)
         label = ' '.join(msg.split('_'))
         if self.debug:
             print(f"TimePartition: {label:25s} {val}")
+
+    def __getitem__(self, i):
+        """
+        :arg i: index
+        :return: subinterval bounds and timestep associated with that index
+        """
+        return *self.subintervals[i], self.timesteps[i]

@@ -64,11 +64,8 @@ def test_adjoint_same_mesh(problem, qoi_type):
     end_time = test_case.end_time
     if problem == "solid_body_rotation" and qoi_type == "time_integrated":
         end_time /= 4  # Reduce testing time
-    dt = test_case.dt
-    dt_per_export = test_case.dt_per_export
-    solves_per_dt = test_case.solves_per_dt
     qoi = test_case.end_time_qoi if qoi_type == 'end_time' else test_case.time_integrated_qoi
-    num_timesteps = int(end_time/dt)
+    num_timesteps = int(end_time/test_case.dt)
 
     # Solve forward and adjoint without the subinterval framework
     print("\n--- Solving the adjoint problem on 1 subinterval using pyadjoint\n")
@@ -76,7 +73,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
     if qoi_type == 'time_integrated':
         solver_kwargs['qoi'] = lambda *args: assemble(qoi(*args))
     ic = test_case.initial_condition(fs)
-    sol, J = test_case.solver(ic, 0.0, end_time, dt, **solver_kwargs)
+    sol, J = test_case.solver(ic, 0.0, end_time, test_case.dt, **solver_kwargs)
     if qoi_type == 'end_time':
         J = assemble(qoi(sol))
     pyadjoint.compute_gradient(J, Control(ic))  # FIXME: gradient w.r.t. mixed function not correct
@@ -86,7 +83,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
         if issubclass(block.__class__, GenericSolveBlock)
         and not issubclass(block.__class__, ProjectBlock)
         and block.adj_sol is not None
-    ][-num_timesteps*solves_per_dt::solves_per_dt]
+    ][-num_timesteps*test_case.solves_per_dt::test_case.solves_per_dt]
     _adj_sol = solve_blocks[0].adj_sol.copy(deepcopy=True)
     _J = float(J)
 
@@ -97,9 +94,12 @@ def test_adjoint_same_mesh(problem, qoi_type):
         print(f"\n--- Solving the adjoint problem on {N} subinterval{plural} using pyroteus\n")
 
         # Solve forward and adjoint on each subinterval
+        time_partition = TimePartition(
+            end_time, N, test_case.dt,
+            timesteps_per_export=test_case.dt_per_export)
         J, solutions = solve_adjoint(
-            test_case.solver, test_case.initial_condition, qoi, spaces, end_time, dt,
-            timesteps_per_export=dt_per_export, solves_per_timestep=solves_per_dt,
+            test_case.solver, test_case.initial_condition, qoi, spaces, time_partition,
+            solves_per_timestep=test_case.solves_per_dt,
         )
 
         # Check quantities of interest match
@@ -130,11 +130,7 @@ if __name__ == "__main__":
     # Setup Burgers test case
     fs = burgers.function_space
     end_time = burgers.end_time
-    dt = burgers.dt
-    dt_per_export = burgers.dt_per_export
-    solves_per_dt = burgers.solves_per_dt
     qoi = burgers.end_time_qoi if _qoi_type == 'end_time' else burgers.time_integrated_qoi
-    num_timesteps = int(end_time/dt)
 
     # Loop over having one or two subintervals
     for spaces in ([fs], [fs, fs]):
@@ -143,15 +139,17 @@ if __name__ == "__main__":
         print(f"\n--- Solving the adjoint problem on {N} subinterval{plural}\n")
 
         # Solve forward and adjoint on each subinterval
+        P = TimePartition(
+            end_time, N, burgers.dt,
+            timesteps_per_export=burgers.dt_per_export, debug=True)
         J, solutions = solve_adjoint(
-            burgers.solver, burgers.initial_condition, qoi, spaces, end_time, dt,
-            timesteps_per_export=dt_per_export, solves_per_timestep=solves_per_dt,
-            debug=True,
+            burgers.solver, burgers.initial_condition, qoi, spaces, P,
+            solves_per_timestep=burgers.solves_per_dt,
         )
 
         # Plot adjoint solutions
-        P = TimePartition(end_time, N, dt, timesteps_per_export=dt_per_export, debug=True)
-        fig, axes = plt.subplots(P.exports_per_subinterval[0]-1, N, sharex='col', figsize=(6*N, 24//N))
+        Nx = P.exports_per_subinterval[0]-1
+        fig, axes = plt.subplots(Nx, N, sharex='col', figsize=(6*N, 24//N))
         levels = np.linspace(0, 0.8, 9) if _qoi_type == 'end_time' else 9
         for i, adj_sols_step in enumerate(solutions['adjoint']):
             ax = axes[0] if N == 1 else axes[0, i]
