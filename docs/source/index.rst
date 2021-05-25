@@ -21,3 +21,10 @@ The classes and functions which comprise Pyroteus may be found on the
 :doc:`pyroteus` page. They are also listed alphabetically on the
 :ref:`index <genindex>` page. The index may be searched using the
 inbuilt :ref:`search engine <search>`.
+
+.. rubric:: Demos
+
+.. toctree::
+    :maxdepth: 1
+
+    Adjoint of Burgers equation <demos/burgers.py>
