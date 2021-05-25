@@ -1,43 +1,98 @@
+from collections import Iterable
 import numpy as np
 
 
-__all__ = ["get_subintervals", "get_exports_per_subinterval"]
+__all__ = ["TimePartition"]
 
 
-def get_subintervals(end_time, num_subintervals):
+class TimePartition(object):
     """
-    Calculate a list of subintervals.
+    Object describing the partition of the time
+    interval of interest into subintervals.
 
-    Note that they are assumed to be of equal length.
-
-    :arg end_time: simulation end time
-    :arg num_subintervals: number of subintervals
+    For now, the subintervals are assumed to be
+    uniform in length. However, different values
+    may be used of the timestep on each.
     """
-    subinterval_time = end_time/num_subintervals  # NOTE: Assumes uniform
-    return [(i*subinterval_time, (i+1)*subinterval_time) for i in range(num_subintervals)]
+    def __init__(self, end_time, num_subintervals, timesteps, **kwargs):
+        """
+        :arg end_time: end time of the interval of interest
+        :arg num_subintervals: number of subintervals in the partition
+        :arg timesteps: (list of values for the) timestep used on each subinterval
+        :kwarg timesteps_per_export: (list of) timesteps per export (default 1)
+        :kwarg start_time: start time of the interval of interest (default 0.0)
+        """
+        self.debug = kwargs.get('debug', False)
+        timesteps_per_export = kwargs.get('timesteps_per_export', 1)
+        start_time = kwargs.get('start_time', 0.0)
+        self.num_subintervals = num_subintervals
+        self.interval = (start_time, end_time)
+        self.print("interval")
+        self.subinterval_time = (end_time - start_time)/num_subintervals
+        self.print("subinterval_time")
+        # TODO: Allow non-uniform subintervals by passing a subintervals=None kwarg
 
+        # Get subintervals
+        self.subintervals = [
+            (start_time + i*self.subinterval_time, start_time + (i+1)*self.subinterval_time)
+            for i in range(num_subintervals)
+        ]
+        self.print("subintervals")
 
-def get_exports_per_subinterval(subintervals, timesteps, dt_per_export):
-    """
-    :arg subintervals: list of tuples corresponding to subintervals
-    :arg timesteps: list of floats or single float corresponding to timesteps
-    :arg dt_per_export: list of ints or single in corresponding to timesteps per export
-    """
-    if isinstance(timesteps, (float, int)):
-        timesteps = [timesteps for subinterval in subintervals]
-    timesteps = np.array(timesteps)
-    assert len(timesteps) == len(subintervals), f"{len(timesteps)} vs. {len(subintervals)}"
-    _dt_per_mesh = [(t[1] - t[0])/dt for t, dt in zip(subintervals, timesteps)]
-    dt_per_mesh = [int(np.round(dtpm)) for dtpm in _dt_per_mesh]
-    assert np.allclose(dt_per_mesh, _dt_per_mesh), f"{dt_per_mesh} vs. {_dt_per_mesh}"
-    if isinstance(dt_per_export, float):
-        dt_per_export = int(dt_per_export)
-    if isinstance(dt_per_export, int):
-        dt_per_export = [dt_per_export for subinterval in subintervals]
-    dt_per_export = np.array(dt_per_export, dtype=np.int32)
-    assert len(dt_per_mesh) == len(dt_per_export), f"{len(dt_per_mesh)} vs. {len(dt_per_export)}"
-    for dtpe, dtpm in zip(dt_per_export, dt_per_mesh):
-        assert dtpm % dtpe == 0
-    export_per_subinterval = [dtpm//dtpe + 1 for dtpe, dtpm in zip(dt_per_export, dt_per_mesh)]
-    export_per_subinterval = np.array(export_per_subinterval, dtype=np.int32)
-    return timesteps, dt_per_export, export_per_subinterval
+        # Get timestep on each subinterval
+        if not isinstance(timesteps, Iterable):
+            timesteps = [timesteps for subinterval in self.subintervals]
+        self.timesteps = np.array(timesteps)
+        self.print("timesteps")
+        if len(self.timesteps) != num_subintervals:
+            raise ValueError("Number of timesteps and subintervals do not match"
+                             + f" ({len(self.timesteps)} vs. {num_subintervals})")
+
+        # Get number of timesteps on each subinterval
+        _timesteps_per_subinterval = [
+            (t[1] - t[0])/dt
+            for t, dt in zip(self.subintervals, self.timesteps)
+        ]
+        self.timesteps_per_subinterval = [
+            int(np.round(tsps))
+            for tsps in _timesteps_per_subinterval
+        ]
+        if not np.allclose(self.timesteps_per_subinterval, _timesteps_per_subinterval):
+            raise ValueError("Non-integer timesteps per subinterval"
+                             + f" ({_timesteps_per_subinterval})")
+        self.print("timesteps_per_subinterval")
+
+        # Get timesteps per export
+        if not isinstance(timesteps_per_export, Iterable):
+            if not np.isclose(timesteps_per_export, np.round(timesteps_per_export)):
+                raise ValueError("Non-integer timesteps per export"
+                                 + f" ({timesteps_per_export})")
+            timesteps_per_export = [
+                int(np.round(timesteps_per_export))
+                for subinterval in self.subintervals
+            ]
+        self.timesteps_per_export = np.array(timesteps_per_export, dtype=np.int32)
+        if len(self.timesteps_per_export) != len(self.timesteps_per_subinterval):
+            raise ValueError("Number of timesteps per export and subinterval do not match"
+                             + f" ({len(self.timesteps_per_export)}"
+                             + f" vs. {self.timesteps_per_subinterval})")
+        for i, (tspe, tsps) in enumerate(zip(self.timesteps_per_export,
+                                             self.timesteps_per_subinterval)):
+            if tsps % tspe != 0:
+                raise ValueError("Number of timesteps per export does not divide number of"
+                                 + f" timesteps per subinterval ({tspe} vs. {tsps}"
+                                 + f" on subinteral {i})")
+        self.print("timesteps_per_export")
+
+        # Get exports per subinterval
+        self.exports_per_subinterval = np.array([
+            tsps//tspe + 1
+            for tspe, tsps in zip(self.timesteps_per_export, self.timesteps_per_subinterval)
+        ], dtype=np.int32)
+        self.print("exports_per_subinterval")
+
+    def print(self, msg):
+        val = self.__getattribute__(msg)
+        label = ' '.join(msg.split('_'))
+        if self.debug:
+            print(f"TimePartition: {label:25s} {val}")
