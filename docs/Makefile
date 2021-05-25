@@ -14,7 +14,20 @@ help:
 
 .PHONY: help Makefile clean
 
-GENERATED_FILES =
+GENERATED_FILES = source/demos
+
+.PHONY: copy_demos
+
+source/demos: copy_demos
+
+copy_demos:
+	install -d source/demos
+	cp ../demos/*.py source/demos
+	cp ../demos/*.jpg source/demos
+	for file in source/demos/*.py; do ${VIRTUAL_ENV}/src/firedrake/pylit/pylit.py -c $$file; mv $$file.txt $$file.rst; done
+	install -d $(BUILDDIR)/html/demos
+	cp source/demos/*.py $(BUILDDIR)/html/demos
+	cp source/demos/*.jpg $(BUILDDIR)/html/demos
 
 SPHINX_TARGETS = html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub \
 	latex latexpdf latexpdfja text man texinfo info gettext changes \

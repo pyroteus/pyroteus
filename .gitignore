@@ -1,6 +1,7 @@
 # Directories
 build/
 data/
+docs/source/demos/
 outputs/
 plots/
 __pycache__/
