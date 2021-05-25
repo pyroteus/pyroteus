@@ -28,3 +28,4 @@ inbuilt :ref:`search engine <search>`.
     :maxdepth: 1
 
     Adjoint of Burgers equation <demos/burgers.py>
+    Adjoint of Burgers equation on two meshes <demos/burgers2.py>

@@ -11,7 +11,8 @@
 #    \nabla u\cdot n = 0 \quad\text{on}\quad \partial\Omega
 #
 # and its discrete adjoint are solved on a single, uniform mesh
-# of the unit square, :math:`\Omega = [0, 1]^2`.
+# of the unit square, :math:`\Omega = [0, 1]^2`. See the
+# Firedrake demo for details on the discretisation used.
 #
 # We always begin by importing Pyroteus. Adjoint mode is used
 # so that we have access to the discrete adjoint functionality
@@ -24,6 +25,7 @@ from pyroteus_adjoint import *
 # also takes two keyword arguments: a quantity of interest (QoI)
 # ``qoi`` and a current value for the QoI, ``J``. The following
 # pattern is used for the QoI, which will be specified later. ::
+
 
 def solver(ic, t_start, t_end, dt, qoi=None, J=0):
     function_space = ic.function_space()
@@ -51,35 +53,36 @@ def solver(ic, t_start, t_end, dt, qoi=None, J=0):
         t += dt
     return u_, J
 
+
 # Pyroteus also requires a function for generating an initial
 # condition from a function space. Note that we add the
 # ``no_annotations`` decorator to initial conditions so that
 # their contents aren't annotated. ::
+
 
 @no_annotations
 def initial_condition(function_space):
     x, y = SpatialCoordinate(function_space.mesh())
     return interpolate(as_vector([sin(pi*x), 0]), function_space)
 
+
 # In line with the
 # `firedrake-adjoint demo <https://nbviewer.jupyter.org/github/firedrakeproject/firedrake/blob/master/docs/notebooks/11-extract-adjoint-solutions.ipynb>`__, we choose
 # a QoI which integrates the squared solution at the final time
 # over the right hand boundary. ::
 
+
 def end_time_qoi(sol):
     return inner(sol, sol)*ds(2)
 
+
 # Now that we have the above functions defined, we move onto the
-# concrete parts of the solver. As in the original demo, we use a
-# :math:`\mathbb P2` function space to represent the prognostic
-# variable, :math:`u`. The timestep is chosen according to the
-# mesh resolution. ::
+# concrete parts of the solver, which mimic the original demo. ::
 
 n = 32
 mesh = UnitSquareMesh(n, n)
 V = VectorFunctionSpace(mesh, "CG", 2)
 end_time = 0.5
-num_subintervals = 1
 dt = 1/n
 
 # The final ingredient required to solve the adjoint problem using
@@ -88,6 +91,7 @@ dt = 1/n
 # adaptation. In our case, there is a single mesh, so the partition
 # is trivial. ::
 
+num_subintervals = 1
 P = TimePartition(end_time, num_subintervals, dt, timesteps_per_export=2)
 
 # Finally, we are able to call ``solve_adjoint``, which returns the
@@ -120,5 +124,14 @@ plt.savefig("burgers-end_time.jpg")
 # .. figure:: burgers-end_time.jpg
 #    :figwidth: 50%
 #    :align: center
+#
+# Where the arrow of time progresses forwards for Burgers equation,
+# it reverses for its adjoint. As such, the plots should be read from
+# bottom to top. The QoI acts as an impulse at the final time, which
+# propagates in the opposite direction than information flows in the
+# forward problem.
+#
+# In the `next demo <./burgers2.py.html>`__, we solve the same problem
+# on two subintervals and check that the results match.
 #
 # This demo can also be accessed as a `Python script <burgers.py>`__.
