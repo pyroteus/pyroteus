@@ -1,6 +1,5 @@
 import firedrake
 from firedrake_adjoint import Control
-from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
 import pyadjoint
 from pyroteus.interpolation import mesh2mesh_project
 from pyroteus.ts import TimePartition
@@ -72,7 +71,6 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     :arg qoi: a function which maps a :class:`Function` (and possibly a time level) to a UFL 1-form
     :arg function_spaces: list of :class:`FunctionSpaces` associated with each subinterval
     :arg time_partition: :class:`TimePartition` object containing the subintervals
-    :kwarg solves_per_timestep: integer number of linear or nonlinear solves performed per timestep
     :kwarg solver_kwargs: a dictionary providing parameters to the solver
     :kwarg adjoint_projection: if `False`, conservative projection is applied when transferring
         data between meshes in the adjoint solve, rather than the corresponding adjoint operator
@@ -115,7 +113,6 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     # Loop over subintervals in reverse
     seed = None
     adj_proj = kwargs.get('adjoint_projection', True)
-    solves_per_dt = kwargs.get('solves_per_timestep', 1)
     for i in reversed(range(time_partition.num_subintervals)):
 
         # Annotate tape on current subinterval
@@ -135,16 +132,8 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
             with tape.marked_nodes(m):
                 tape.evaluate_adj(markings=True)
 
-        # Get solve blocks
-        solve_blocks = [
-            block
-            for block in tape.get_blocks()
-            if issubclass(block.__class__, GenericSolveBlock)
-            and not issubclass(block.__class__, ProjectBlock)
-            and block.adj_sol is not None  # FIXME: Why are they all None for new Firedrake?
-        ][-time_partition.timesteps_per_subinterval[i]*solves_per_dt::solves_per_dt]
-
         # Get old solution dependency index
+        solve_blocks = time_partition.solve_blocks(i)
         for dep_index, dep in enumerate(solve_blocks[0].get_dependencies()):
             if hasattr(dep.output, 'function_space'):
                 if dep.output.function_space() == solve_blocks[0].function_space:

@@ -2,7 +2,6 @@
 Test adjoint drivers.
 """
 from pyroteus_adjoint import *
-from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
 import pyadjoint
 import pytest
 
@@ -65,9 +64,12 @@ def test_adjoint_same_mesh(problem, qoi_type):
     if problem == "solid_body_rotation" and qoi_type == "time_integrated":
         end_time /= 4  # Reduce testing time
     qoi = test_case.end_time_qoi if qoi_type == 'end_time' else test_case.time_integrated_qoi
-    num_timesteps = int(end_time/test_case.dt)
+    time_partition = TimePartition(
+        end_time, 1, test_case.dt, timesteps_per_export=test_case.dt_per_export,
+        solves_per_timestep=test_case.solves_per_dt,
+    )
 
-    # Solve forward and adjoint without the subinterval framework
+    # Solve forward and adjoint without solve_adjoint
     print("\n--- Solving the adjoint problem on 1 subinterval using pyadjoint\n")
     solver_kwargs = {}
     if qoi_type == 'time_integrated':
@@ -77,29 +79,22 @@ def test_adjoint_same_mesh(problem, qoi_type):
     if qoi_type == 'end_time':
         J = assemble(qoi(sol))
     pyadjoint.compute_gradient(J, Control(ic))  # FIXME: gradient w.r.t. mixed function not correct
-    tape = pyadjoint.get_working_tape()
-    solve_blocks = [
-        block for block in tape.get_blocks()
-        if issubclass(block.__class__, GenericSolveBlock)
-        and not issubclass(block.__class__, ProjectBlock)
-        and block.adj_sol is not None
-    ][-num_timesteps*test_case.solves_per_dt::test_case.solves_per_dt]
-    _adj_sol = solve_blocks[0].adj_sol.copy(deepcopy=True)
+    _adj_sol = time_partition.solve_blocks()[0].adj_sol.copy(deepcopy=True)
     _J = float(J)
 
     # Loop over having one or two subintervals
     for spaces in ([fs], [fs, fs]):
         N = len(spaces)
-        plural = '' if N == 1 else 's'
-        print(f"\n--- Solving the adjoint problem on {N} subinterval{plural} using pyroteus\n")
+        print(f"\n--- Solving the adjoint problem on {N} subinterval"
+              + f"{'' if N == 1 else 's'} using pyroteus\n")
 
         # Solve forward and adjoint on each subinterval
         time_partition = TimePartition(
-            end_time, N, test_case.dt,
-            timesteps_per_export=test_case.dt_per_export)
+            end_time, N, test_case.dt, timesteps_per_export=test_case.dt_per_export,
+            solves_per_timestep=test_case.solves_per_dt,
+        )
         J, solutions = solve_adjoint(
             test_case.solver, test_case.initial_condition, qoi, spaces, time_partition,
-            solves_per_timestep=test_case.solves_per_dt,
         )
 
         # Check quantities of interest match
@@ -121,11 +116,14 @@ def test_adjoint_same_mesh(problem, qoi_type):
 # ---------------------------
 
 if __name__ == "__main__":
+    import argparse
     import burgers
     import matplotlib.pyplot as plt
 
-    _qoi_type = 'end_time'
-    # _qoi_type = 'time_integrated'
+    # Parse arguments
+    parser = argparse.ArgumentParser(prog='pyroteus/adjoint.py')
+    parser.add_argument('-qoi_type', help="Choose from 'end_time' or 'time_integrated'")
+    _qoi_type = parser.parse_args().qoi_type or 'end_time'
 
     # Setup Burgers test case
     fs = burgers.function_space
@@ -135,16 +133,14 @@ if __name__ == "__main__":
     # Loop over having one or two subintervals
     for spaces in ([fs], [fs, fs]):
         N = len(spaces)
-        plural = '' if N == 1 else 's'
-        print(f"\n--- Solving the adjoint problem on {N} subinterval{plural}\n")
+        print(f"\n--- Solving the adjoint problem on {N} subinterval{'' if N == 1 else 's'}\n")
 
         # Solve forward and adjoint on each subinterval
         P = TimePartition(
-            end_time, N, burgers.dt,
-            timesteps_per_export=burgers.dt_per_export, debug=True)
+            end_time, N, burgers.dt, timesteps_per_export=burgers.dt_per_export, debug=True,
+        )
         J, solutions = solve_adjoint(
             burgers.solver, burgers.initial_condition, qoi, spaces, P,
-            solves_per_timestep=burgers.solves_per_dt,
         )
 
         # Plot adjoint solutions
@@ -156,10 +152,10 @@ if __name__ == "__main__":
             ax.set_title("Mesh {:d}".format(i+1))
             for j, adj_sol in enumerate(adj_sols_step):
                 ax = axes[j] if N == 1 else axes[j, i]
-                tricontourf(adj_sol, axes=ax, levels=levels)
+                tricontour(fadj_sol, axes=ax, levels=levels)
                 ax.annotate(
                     f"t={i*end_time/N + j*P.timesteps_per_export[i]*P.timesteps[i]:.2f}",
                     (0.05, 0.05),
                     color='white',
                 )
-        plt.savefig(f"plots/burgers_test_{N}_{qoi_type}.jpg")
+        plt.savefig(f"plots/burgers_test_{N}_{_qoi_type}.jpg")
