@@ -7,12 +7,19 @@
 # the PDE
 #
 # .. math::
-#    \frac{\partial u}{\partial t} + (u\cdot\nabla)u - \nu\nabla^2u = 0 \quad\text{in}\quad \Omega\\
-#    \nabla u\cdot n = 0 \quad\text{on}\quad \partial\Omega
+#
+#    \frac{\partial\mathbf u}{\partial t}
+#    + (\mathbf u\cdot\nabla)\mathbf u
+#    - \nu\nabla^2\mathbf u = \boldsymbol0 \quad\text{in}\quad \Omega\\
+#
+#    (\widehat{\mathbf n}\cdot\nabla)\mathbf u
+#    = \boldsymbol0 \quad\text{on}\quad \partial\Omega
 #
 # and its discrete adjoint are solved on a single, uniform mesh
-# of the unit square, :math:`\Omega = [0, 1]^2`. See the
-# Firedrake demo for details on the discretisation used.
+# of the unit square, :math:`\Omega = [0, 1]^2`. The forward
+# solution is initialised as a sine wave and is nonlinearly
+# advected to the right hand side. See the Firedrake demo for
+# details on the discretisation used.
 #
 # We always begin by importing Pyroteus. Adjoint mode is used
 # so that we have access to the discrete adjoint functionality
@@ -67,9 +74,14 @@ def initial_condition(function_space):
 
 
 # In line with the
-# `firedrake-adjoint demo <https://nbviewer.jupyter.org/github/firedrakeproject/firedrake/blob/master/docs/notebooks/11-extract-adjoint-solutions.ipynb>`__, we choose
-# a QoI which integrates the squared solution at the final time
-# over the right hand boundary. ::
+# `firedrake-adjoint demo
+# <https://nbviewer.jupyter.org/github/firedrakeproject/firedrake/blob/master/docs/notebooks/11-extract-adjoint-solutions.ipynb>`__, we choose the QoI
+#
+# .. math::
+#    J(u) = \int_0^1 u(1,y,T_{\mathrm{end}})^2\;\mathrm dy,
+#
+# which integrates the square of the solution :math:`u(x,y,t)`
+# at the final time over the right hand boundary. ::
 
 
 def end_time_qoi(sol):
@@ -96,7 +108,12 @@ P = TimePartition(end_time, num_subintervals, dt, timesteps_per_export=2)
 
 # Finally, we are able to call ``solve_adjoint``, which returns the
 # QoI value and a dictionary of solutions for the forward and adjoint
-# problems. ::
+# problems. The solution dictionary has keys `'forward'`, `'forward_old'`,
+# `'adjoint'` and `'adjoint_next'` and arrays as values. When passed
+# an index corresponding to a particular exported timestep, the array
+# entries correspond to the current forward solution, the forward
+# solution at the previous timestep, the current adjoint solution and
+# the adjoint solution at the next timestep, respectively. ::
 
 J, solutions = solve_adjoint(solver, initial_condition, end_time_qoi, V, P)
 

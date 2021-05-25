@@ -16,7 +16,7 @@ from pyroteus_adjoint import *
 from burgers import solver, initial_condition, end_time_qoi
 
 n = 32
-mesh = UnitSquareMesh(n, n)
+mesh = UnitSquareMesh(n, n, diagonal='left')
 V = VectorFunctionSpace(mesh, "CG", 2)
 end_time = 0.5
 dt = 1/n
@@ -24,7 +24,7 @@ dt = 1/n
 # This time, the ``TimePartition`` is defined on *two* subintervals
 # and with a list of *two* function spaces (which actually coincide).
 # The ``debug=True`` keyword argument is useful for checking that
-# the partition has been created as desired.::
+# the partition has been created as desired. ::
 
 num_subintervals = 2
 P = TimePartition(end_time, num_subintervals, dt, timesteps_per_export=2, debug=True)
@@ -58,5 +58,15 @@ plt.savefig("burgers2-end_time.jpg")
 # The adjoint solution fields at each time level appear to match
 # those due to the previous demo at each timestep. That they actually
 # do coincide is checked in Pyroteus' test suite.
+#
+# .. rubric:: Exercise
+#
+# Note that the keyword argument ``diagonal='left'`` was passed to the
+# ``UnitSquareMesh`` constructor in this example, defining which way
+# the diagonal lines in the uniform mesh should go. Instead of having
+# both function spaces defined on this mesh, try defining the second
+# one on a different mesh with ``diagonal='right'``. How does the
+# adjoint solution change when the solution is trasferred between
+# different meshes?
 #
 # This demo can also be accessed as a `Python script <burgers2.py>`__.
