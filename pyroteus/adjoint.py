@@ -79,10 +79,13 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     :return J: quantity of interest value
     :return solution: a dictionary containing solution fields and their lagged versions
     """
+    from collections import Iterable
     import inspect
     nargs = len(inspect.getfullargspec(qoi).args)
     # assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
     assert nargs >= 1, "QoI should have at least one argument"  # FIXME: kwargs are counted as args
+    if not isinstance(function_spaces, Iterable):
+        function_spaces = [function_spaces]
 
     # Solve forward to get checkpoints and evaluate QoI
     J, checkpoints = get_checkpoints(

@@ -335,7 +335,7 @@ def metric_relaxation(*metrics, weights=None, function_space=None):
     """
     Combine a list of metrics with a weighted average.
 
-    :args metrics: the metrics to be combined
+    :arg metrics: the metrics to be combined
     :kwarg weights: a list of weights
     :kwarg function_space: the :class:`FunctionSpace`
         the relaxed metric should live in
@@ -360,7 +360,7 @@ def metric_average(*metrics, function_space=None):
     """
     Combine a list of metrics by averaging.
 
-    :args metrics: the metrics to be combined
+    :arg metrics: the metrics to be combined
     :kwarg function_space: the :class:`FunctionSpace`
         the averaged metric should live in
     """
@@ -371,7 +371,7 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     """
     Combine a list of metrics by intersection.
 
-    :args metrics: the metrics to be combined
+    :arg metrics: the metrics to be combined
     :kwarg function_space: the :class:`FunctionSpace`
         the intersected metric should live in
     :kwarg boundary_tag: boundary segment physical
