@@ -123,7 +123,6 @@ def test_adjoint_same_mesh(problem, qoi_type):
 if __name__ == "__main__":
     import burgers
     import matplotlib.pyplot as plt
-    from pyroteus.ts import get_exports_per_subinterval
 
     _qoi_type = 'end_time'
     # _qoi_type = 'time_integrated'
@@ -147,13 +146,12 @@ if __name__ == "__main__":
         J, solutions = solve_adjoint(
             burgers.solver, burgers.initial_condition, qoi, spaces, end_time, dt,
             timesteps_per_export=dt_per_export, solves_per_timestep=solves_per_dt,
+            debug=True,
         )
 
-        # Plot adjoint solutions, if requested
-        subintervals = get_subintervals(end_time, N)
-        timesteps, timesteps_per_export, exports_per_mesh = \
-            get_exports_per_subinterval(subintervals, dt, dt_per_export)
-        fig, axes = plt.subplots(exports_per_mesh[0]-1, N, sharex='col', figsize=(6*N, 24//N))
+        # Plot adjoint solutions
+        P = TimePartition(end_time, N, dt, timesteps_per_export=dt_per_export, debug=True)
+        fig, axes = plt.subplots(P.exports_per_subinterval[0]-1, N, sharex='col', figsize=(6*N, 24//N))
         levels = np.linspace(0, 0.8, 9) if _qoi_type == 'end_time' else 9
         for i, adj_sols_step in enumerate(solutions['adjoint']):
             ax = axes[0] if N == 1 else axes[0, i]
@@ -162,7 +160,7 @@ if __name__ == "__main__":
                 ax = axes[j] if N == 1 else axes[j, i]
                 tricontourf(adj_sol, axes=ax, levels=levels)
                 ax.annotate(
-                    f"t={i*end_time/N + j*timesteps_per_export[i]*timesteps[i]:.2f}",
+                    f"t={i*end_time/N + j*P.timesteps_per_export[i]*P.timesteps[i]:.2f}",
                     (0.05, 0.05),
                     color='white',
                 )

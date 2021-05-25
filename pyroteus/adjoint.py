@@ -3,12 +3,12 @@ from firedrake_adjoint import Control
 from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
 import pyadjoint
 from pyroteus.interpolation import mesh2mesh_project
-from pyroteus.ts import get_subintervals, get_exports_per_subinterval
+from pyroteus.ts import TimePartition
 from pyroteus.utility import norm
 from functools import wraps
 
 
-__all__ = ["solve_adjoint", "get_checkpoints", "get_subintervals", "get_exports_per_subinterval"]
+__all__ = ["solve_adjoint", "TimePartition"]
 
 
 def wrap_solver(solver):
@@ -51,6 +51,7 @@ def wrap_qoi(qoi):
     return wrapper
 
 
+# TODO: Just pass a TimePartition
 def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, timesteps, **kwargs):
     """
     Solve an adjoint problem on a sequence of subintervals.
@@ -91,23 +92,19 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
 
     # Handle timestepping
     num_subintervals = len(function_spaces)
-    subintervals = get_subintervals(end_time, num_subintervals)
-    dt_per_export = kwargs.get('timesteps_per_export', 1)
+    P = TimePartition(end_time, num_subintervals, timesteps, **kwargs)
     solves_per_dt = kwargs.get('solves_per_timestep', 1)
-    timesteps, dt_per_export, export_per_mesh = \
-        get_exports_per_subinterval(subintervals, timesteps, dt_per_export)
-    dt_per_mesh = [dtpe*(epm-1) for dtpe, epm in zip(dt_per_export, export_per_mesh)]
 
     # Solve forward to get checkpoints and evaluate QoI
     J, checkpoints = get_checkpoints(
-        solver, initial_condition, qoi, function_spaces, end_time, timesteps, **kwargs
+        solver, initial_condition, qoi, function_spaces, end_time, P.timesteps, **kwargs
     )
 
     # Create arrays to hold exported foward and adjoint solutions
     solutions = {
         label: [[
             firedrake.Function(fs)
-            for j in range(export_per_mesh[i]-1)]
+            for j in range(P.exports_per_subinterval[i]-1)]
             for i, fs in enumerate(function_spaces)
         ]
         for label in ('forward', 'forward_old', 'adjoint', 'adjoint_next')
@@ -129,13 +126,13 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
     seed = None
     adj_proj = kwargs.get('adjoint_projection', True)
     for i in reversed(range(num_subintervals)):
-        subinterval = subintervals[i]
+        subinterval = P.subintervals[i]
 
         # Annotate tape on current subinterval
         sol, control = wrapped_solver(
             checkpoints[i],
             *subinterval,
-            timesteps[i],
+            P.timesteps[i],
             **solver_kwargs,
         )
 
@@ -160,7 +157,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
             if issubclass(block.__class__, GenericSolveBlock)
             and not issubclass(block.__class__, ProjectBlock)
             and block.adj_sol is not None  # FIXME: Why are they all None for new Firedrake?
-        ][-dt_per_mesh[i]*solves_per_dt::solves_per_dt]
+        ][-P.timesteps_per_subinterval[i]*solves_per_dt::solves_per_dt]
 
         # Get old solution dependency index
         for dep_index, dep in enumerate(solve_blocks[0].get_dependencies()):
@@ -170,7 +167,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, end_time, tim
         # FIXME: What if other dependencies are in the prognostic space?
 
         # Extract solution data
-        for j, block in enumerate(solve_blocks[::dt_per_export[i]]):
+        for j, block in enumerate(solve_blocks[::P.timesteps_per_export[i]]):
             solutions['forward_old'][i][j].assign(block.get_dependencies()[dep_index].saved_output)
             solutions['forward'][i][j].assign(block.get_outputs()[0].saved_output)
             solutions['adjoint'][i][j].assign(block.adj_sol)
@@ -212,10 +209,7 @@ def get_checkpoints(solver, initial_condition, qoi, function_spaces, end_time, t
 
     # Handle timestepping
     num_subintervals = len(function_spaces)
-    subintervals = get_subintervals(end_time, num_subintervals)
-    dt_per_export = kwargs.get('timesteps_per_export', 1)
-    timesteps, dt_per_export, export_per_mesh = \
-        get_exports_per_subinterval(subintervals, timesteps, dt_per_export)
+    P = TimePartition(end_time, num_subintervals, timesteps, **kwargs)
 
     # Solve forward to get checkpoints and evaluate QoI
     solver_kwargs = kwargs.get('solver_kwargs', {})
@@ -223,8 +217,8 @@ def get_checkpoints(solver, initial_condition, qoi, function_spaces, end_time, t
         solver_kwargs['qoi'] = lambda *args, **kwargs: firedrake.assemble(qoi(*args, **kwargs))
     J = 0
     checkpoints = [initial_condition(function_spaces[0])]
-    for i, subinterval in enumerate(subintervals):
-        sol, J = solver(checkpoints[i], *subinterval, timesteps[i], J=J, **solver_kwargs)
+    for i, subinterval in enumerate(P.subintervals):
+        sol, J = solver(checkpoints[i], *subinterval, P.timesteps[i], J=J, **solver_kwargs)
         if i < num_subintervals-1:
             checkpoints.append(mesh2mesh_project(sol, function_spaces[i+1]))
     if nargs == 1:
