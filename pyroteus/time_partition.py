@@ -17,15 +17,20 @@ class TimePartition(object):
     uniform in length. However, different values
     may be used of the timestep on each.
     """
-    def __init__(self, end_time, num_subintervals, timesteps, **kwargs):
+    def __init__(self, end_time, num_subintervals, timesteps, fields, **kwargs):
         """
         :arg end_time: end time of the interval of interest
         :arg num_subintervals: number of subintervals in the partition
         :arg timesteps: (list of values for the) timestep used on each subinterval
+        :arg fields: (list of) field names ordered by call sequence
         :kwarg timesteps_per_export: (list of) timesteps per export (default 1)
         :kwarg start_time: start time of the interval of interest (default 0.0)
-        :kwarg solves_per_timestep: number of (non)linear solves per timestep (default 1)
+        :kwarg solves_per_timestep: (list of) (non)linear solves per timestep
+            corresponding to the fields (defaults to 1 for each)
         """
+        if isinstance(fields, str):
+            fields = [fields]
+        self.fields = fields
         self.debug = kwargs.get('debug', False)
         timesteps_per_export = kwargs.get('timesteps_per_export', 1)
         start_time = kwargs.get('start_time', 0.0)
@@ -33,8 +38,8 @@ class TimePartition(object):
         if not np.isclose(num_subintervals, self.num_subintervals):
             raise ValueError(f"Non-integer number of subintervals {num_subintervals}")
         self.print("num_subintervals")
-        solves_per_timestep = kwargs.get('solves_per_timestep', 1)
-        self.solves_per_timestep = int(np.round(solves_per_timestep))
+        solves_per_timestep = kwargs.get('solves_per_timestep', [1 for field in fields])
+        self.solves_per_timestep = [int(np.round(spts)) for spts in solves_per_timestep]
         if not np.isclose(solves_per_timestep, self.solves_per_timestep):
             raise ValueError(f"Non-integer number of solves per timestep {solves_per_timestep}")
         self.print("solves_per_timestep")
@@ -122,19 +127,21 @@ class TimePartition(object):
         """
         return *self.subintervals[i], self.timesteps[i]
 
-    def solve_blocks(self, i=0):  # TODO: Account for systems of coupled equations
+    def get_solve_blocks(self, field, subinterval=0):
         """
         Get all blocks of the tape corresponding to
-        solve steps of the prognostic equation on
-        subinterval i.
+        solve steps for prognostic solution ``field``
+        on a given ``subinterval``.
         """
         from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
         from pyadjoint import get_working_tape
-        stride = self.solves_per_timestep
+
+        offset = self.fields.index(field)
+        stride = self.solves_per_timestep[offset]
         return [
             block
             for block in get_working_tape().get_blocks()
             if issubclass(block.__class__, GenericSolveBlock)
             and not issubclass(block.__class__, ProjectBlock)
             and block.adj_sol is not None  # FIXME: Why are they all None for new Firedrake?
-        ][-self.timesteps_per_subinterval[i]*stride::stride]
+        ][offset - self.timesteps_per_subinterval[subinterval]*stride::stride]

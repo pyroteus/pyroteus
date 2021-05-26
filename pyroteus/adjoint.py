@@ -7,6 +7,7 @@ import pyadjoint
 from pyroteus.interpolation import project
 from pyroteus.utility import AttrDict, norm
 from functools import wraps
+import numpy as np
 
 
 __all__ = ["get_checkpoints", "solve_adjoint"]
@@ -56,30 +57,45 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     """
     Solve an adjoint problem on a sequence of subintervals.
 
-    The current implementation assumes that the quantity of interest is a function of the
-    terminal solution alone.
+    As well as the quantity of interest value, a dictionary
+    of solution fields is returned, the contents of which
+    give values at all exported timesteps, indexed first by
+    the field label and then by type. The contents of these
+    nested dictionaries are lists which are indexed first by
+    subinterval and then by export. For a given exported
+    timestep, the solution types are:
 
-    As well as the quantity of interest value, a dictionary of solution fields is returned,
-    the contents of which give values at all exported timesteps, indexed by subinterval and
-    then export. For a given export timestep, the solution fields are:
+    * ``'forward'``: the forward solution after taking the
+        timestep;
+    * ``'forward_old'``: the forward solution before taking
+        the timestep;
+    * ``'adjoint'``: the adjoint solution after taking the
+        timestep;
+    * ``'adjoint_next'``: the adjoint solution before taking
+        the timestep (backwards).
 
-    * ``'forward'``: the forward solution after taking the timestep;
-    * ``'forward_old'``: the forward solution before taking the timestep;
-    * ``'adjoint'``: the adjoint solution after taking the timestep;
-    * ``'adjoint_next'``: the adjoint solution before taking the timestep (backwards).
-
-    :arg solver: a function which takes an initial condition :class:`Function`, a start time
-        and an end time as arguments and returns the solution value at the final time
-    :arg initial_condition: a function which maps a function space to a :class:`Function`
-    :arg qoi: a function which maps a :class:`Function` (and possibly a time level) to a UFL 1-form
-    :arg function_spaces: list of :class:`FunctionSpaces` associated with each subinterval
-    :arg time_partition: :class:`TimePartition` object containing the subintervals
-    :kwarg solver_kwargs: a dictionary providing parameters to the solver
-    :kwarg adjoint_projection: if `False`, conservative projection is applied when transferring
-        data between meshes in the adjoint solve, rather than the corresponding adjoint operator
+    :arg solver: a function which takes an initial condition
+        :class:`Function`, a start time and an end time as
+        arguments and returns the solution value at the final
+        time
+    :arg initial_condition: a function which maps a
+        :class:`FunctionSpace` to a :class:`Function`
+    :arg qoi: a function which maps a :class:`Function` (and
+        possibly a time level) to a UFL 1-form
+    :arg function_spaces: list of :class:`FunctionSpaces`
+        associated with each subinterval
+    :arg time_partition: :class:`TimePartition` object
+        containing the subintervals
+    :kwarg solver_kwargs: a dictionary providing parameters
+        to the solver
+    :kwarg adjoint_projection: if `False`, conservative
+        projection is applied when transferring data between
+        meshes in the adjoint solve, rather than the
+        corresponding adjoint operator
 
     :return J: quantity of interest value
-    :return solution: a dictionary containing solution fields and their lagged versions
+    :return solution: an :class:`AttrDict` containing
+        solution fields and their lagged versions.
     """
     from collections.abc import Iterable
     import inspect
@@ -96,16 +112,15 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
 
     # Create arrays to hold exported foward and adjoint solutions
     solutions = AttrDict({
-        label: [
-            [
-                firedrake.Function(fs)
-                for j in range(time_partition.exports_per_subinterval[i]-1)
-            ]
-            for i, fs in enumerate(function_spaces)
-        ]
-        for label in ('forward', 'forward_old', 'adjoint', 'adjoint_next')
+        field: AttrDict({
+            label: [
+                [
+                    firedrake.Function(fs)
+                    for j in range(time_partition.exports_per_subinterval[i]-1)
+                ] for i, fs in enumerate(function_spaces)
+            ] for label in ('forward', 'forward_old', 'adjoint', 'adjoint_next')
+        }) for field in time_partition.fields
     })
-    adj_sols = solutions.adjoint
 
     # Wrap solver and QoI
     wrapped_solver = wrap_solver(solver)
@@ -141,20 +156,23 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
                 tape.evaluate_adj(markings=True)
 
         # Get old solution dependency index
-        solve_blocks = time_partition.solve_blocks(i)
-        for dep_index, dep in enumerate(solve_blocks[0].get_dependencies()):
-            if hasattr(dep.output, 'function_space'):
-                if dep.output.function_space() == solve_blocks[0].function_space:
-                    break
-        # FIXME: What if other dependencies are in the prognostic space?
+        for field in time_partition.fields:
+            solve_blocks = time_partition.get_solve_blocks(field, subinterval=i)
+            for dep_index, dep in enumerate(solve_blocks[0].get_dependencies()):
+                if hasattr(dep.output, 'function_space'):
+                    if dep.output.function_space() == solve_blocks[0].function_space:
+                        break
+            # FIXME: What if other dependencies are in the prognostic space?
 
-        # Extract solution data
-        for j, block in enumerate(solve_blocks[::time_partition.timesteps_per_export[i]]):
-            solutions.forward_old[i][j].assign(block.get_dependencies()[dep_index].saved_output)
-            solutions.forward[i][j].assign(block.get_outputs()[0].saved_output)
-            solutions.adjoint[i][j].assign(block.adj_sol)
-            solutions.adjoint_next[i][j].assign(solve_blocks[j+1].adj_sol)
-        assert norm(adj_sols[i][0]) > 0.0, f"Adjoint solution on subinterval {i} is zero"
+            # Extract solution data
+            sols = solutions[field]
+            for j, block in enumerate(solve_blocks[::time_partition.timesteps_per_export[i]]):
+                sols.forward_old[i][j].assign(block.get_dependencies()[dep_index].saved_output)
+                sols.forward[i][j].assign(block.get_outputs()[0].saved_output)
+                sols.adjoint[i][j].assign(block.adj_sol)
+                sols.adjoint_next[i][j].assign(solve_blocks[j+1].adj_sol)
+            if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
+                raise ValueError(f"Adjoint solution on subinterval {i} is zero")
 
         # Get adjoint action
         seed = firedrake.Function(function_spaces[i], val=control.block_variable.adj_value)
