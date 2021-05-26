@@ -145,8 +145,8 @@ class TimePartition(object):
         from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
         from pyadjoint import get_working_tape
 
-        offset = self.fields.index(field)
-        stride = self.solves_per_timestep[offset]
+        offset = sum(self.solves_per_timestep[:self.fields.index(field) + 1])
+        stride = sum(self.solves_per_timestep)
         return [
             block
             for block in get_working_tape().get_blocks()
