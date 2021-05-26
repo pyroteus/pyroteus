@@ -27,21 +27,31 @@
 
 from pyroteus_adjoint import *
 
-# Pyroteus requires a solver with four arguments: an initial
-# condition, a start time, an end time and a timestep. It
-# also takes two keyword arguments: a quantity of interest (QoI)
-# ``qoi`` and a current value for the QoI, ``J``. The following
-# pattern is used for the QoI, which will be specified later. ::
+# In this problem, we have a single prognostic variable,
+# :math:`\mathbf u`. Its name is recorded in a list of
+# fields. ::
+
+fields = ['velocity']
+
+# Pyroteus requires a solver with four arguments: a dictionary
+# containing initial conditions for each prognostic solution,
+# a start time, an end time and a timestep. It also takes two
+# keyword arguments: a quantity of interest (QoI) ``qoi`` and a
+# current value for the QoI, ``J``. The following pattern is
+# used for the QoI, which will be specified later. The
+# dictionary usage may seem cumbersome when applied to such a
+# simple problem, but it comes in handy when solving adjoint
+# problems associated with coupled systems of equations. ::
 
 
 def solver(ic, t_start, t_end, dt, qoi=None, J=0):
-    function_space = ic.function_space()
+    function_space = ic['velocity'].function_space()
     dtc = Constant(dt)
     nu = Constant(0.0001)
 
     # Set initial condition
     u_ = Function(function_space)
-    u_.assign(ic)
+    u_.assign(ic['velocity'])
 
     # Setup variational problem
     v = TestFunction(function_space)
@@ -55,10 +65,10 @@ def solver(ic, t_start, t_end, dt, qoi=None, J=0):
     while t < t_end - 1.0e-05:
         solve(F == 0, u)
         if qoi is not None:
-            J += qoi(u, t)
+            J += qoi({'velocity': u}, t)
         u_.assign(u)
         t += dt
-    return u_, J
+    return {'velocity': u_}, J
 
 
 # Pyroteus also requires a function for generating an initial
@@ -69,8 +79,9 @@ def solver(ic, t_start, t_end, dt, qoi=None, J=0):
 
 @no_annotations
 def initial_condition(function_space):
-    x, y = SpatialCoordinate(function_space.mesh())
-    return interpolate(as_vector([sin(pi*x), 0]), function_space)
+    fs = function_space['velocity'][0]
+    x, y = SpatialCoordinate(fs.mesh())
+    return {'velocity': interpolate(as_vector([sin(pi*x), 0]), fs)}
 
 
 # In line with the
@@ -87,15 +98,19 @@ def initial_condition(function_space):
 
 
 def end_time_qoi(sol):
-    return inner(sol, sol)*ds(2)
+    u = sol['velocity']
+    return inner(u, u)*ds(2)
 
 
 # Now that we have the above functions defined, we move onto the
-# concrete parts of the solver, which mimic the original demo. ::
+# concrete parts of the solver, which mimic the original demo. 
+# Function spaces are given as a dictionary, indexed by the
+# prognostic solution field names. ::
 
 n = 32
 mesh = UnitSquareMesh(n, n)
 V = VectorFunctionSpace(mesh, "CG", 2)
+function_spaces = {'velocity': V}
 end_time = 0.5
 dt = 1/n
 
@@ -106,7 +121,7 @@ dt = 1/n
 # is trivial. ::
 
 num_subintervals = 1
-P = TimePartition(end_time, num_subintervals, dt, timesteps_per_export=2)
+P = TimePartition(end_time, num_subintervals, dt, fields, timesteps_per_export=2)
 
 # Finally, we are able to call ``solve_adjoint``, which returns the
 # QoI value and a dictionary of solutions for the forward and adjoint
@@ -117,7 +132,7 @@ P = TimePartition(end_time, num_subintervals, dt, timesteps_per_export=2)
 # solution at the previous timestep, the current adjoint solution and
 # the adjoint solution at the next timestep, respectively. ::
 
-J, solutions = solve_adjoint(solver, initial_condition, end_time_qoi, V, P)
+J, solutions = solve_adjoint(solver, initial_condition, end_time_qoi, function_spaces, P)
 
 # Finally, we plot the adjoint solution at each exported timestep by
 # looping over ``solutions['adjoint']``. ::
@@ -127,7 +142,7 @@ rows = P.exports_per_subinterval[0] - 1
 cols = P.num_subintervals
 fig, axes = plt.subplots(rows, cols, figsize=(6*cols, 24//cols))
 levels = np.linspace(0, 0.8, 9)
-for i, adj_sols_step in enumerate(solutions['adjoint']):
+for i, adj_sols_step in enumerate(solutions.velocity.adjoint):
     ax = axes[0]
     ax.set_title(f"Mesh {i+1}")
     for j, adj_sol in enumerate(adj_sols_step):
