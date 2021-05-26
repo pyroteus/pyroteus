@@ -19,14 +19,22 @@ class TimePartition(object):
     """
     def __init__(self, end_time, num_subintervals, timesteps, fields, **kwargs):
         """
-        :arg end_time: end time of the interval of interest
-        :arg num_subintervals: number of subintervals in the partition
-        :arg timesteps: (list of values for the) timestep used on each subinterval
-        :arg fields: (list of) field names ordered by call sequence
-        :kwarg timesteps_per_export: (list of) timesteps per export (default 1)
-        :kwarg start_time: start time of the interval of interest (default 0.0)
-        :kwarg solves_per_timestep: (list of) (non)linear solves per timestep
-            corresponding to the fields (defaults to 1 for each)
+        :arg end_time: end time of the interval
+            of interest
+        :arg num_subintervals: number of
+            subintervals in the partition
+        :arg timesteps: (list of values for the)
+            timestep used on each subinterval
+        :arg fields: (list of) field names ordered
+            by call sequence
+        :kwarg timesteps_per_export: (list of)
+            timesteps per export (default 1)
+        :kwarg start_time: start time of the
+            interval of interest (default 0.0)
+        :kwarg solves_per_timestep: (list of)
+            (non)linear solves per timestep
+            corresponding to the fields (defaults
+            to 1 for each)
         """
         if isinstance(fields, str):
             fields = [fields]
@@ -123,7 +131,8 @@ class TimePartition(object):
     def __getitem__(self, i):
         """
         :arg i: index
-        :return: subinterval bounds and timestep associated with that index
+        :return: subinterval bounds and timestep
+            associated with that index
         """
         return *self.subintervals[i], self.timesteps[i]
 
