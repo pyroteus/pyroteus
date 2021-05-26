@@ -1,20 +1,61 @@
+"""
+Driver functions for mesh-to-mesh data transfer.
+"""
 from __future__ import absolute_import
 from .utility import *
 
 
-__all__ = ["mesh2mesh_project", "mesh2mesh_project_adjoint"]
+__all__ = ["project"]
+
+
+# --- Linear interpolation
+
+# TODO
+
+# --- Conservative interpolation by supermesh projection
+
+def project(source, target_space, adjoint=False, **kwargs):
+    """
+    Overload Firedrake's ``project`` function to account
+    for the case of two mixed function spaces defined on
+    different meshes and for the adjoint projection
+    operator.
+
+    Extra keyword arguments are passed to Firedrake's
+    ``project`` function.
+
+    :arg source: the :class:`Function` to be projected
+    :arg target_space: the :class:`FunctionSpace` which
+        we seek to project into
+    :kwarg adjoint: apply the transposed projection
+        operator?
+    """
+    if not (isinstance(source, Function) and isinstance(target_space, FunctionSpace)):
+        raise NotImplementedError  # TODO
+    source_space = source.function_space()
+    if source_space.ufl_domain() == target_space.ufl_domain():
+        target = Function(target_space)
+        target.project(source, **kwargs)
+        return target
+    else:
+        return mesh2mesh_project(source, target_space, adjoint=adjoint, **kwargs)
 
 
 def mesh2mesh_project(source, target_space, adjoint=False, **kwargs):
     """
     Apply a mesh-to-mesh conservative projection to some
-    `source`, mapping into a `target_space`.
+    ``source``, mapping into a ``target_space``.
 
     This function extends to the case of mixed spaces.
+
+    Extra keyword arguments are passed to Firedrake's
+    ``project`` function.
 
     :arg source: the :class:`Function` to be projected
     :arg target_space: the :class:`FunctionSpace` which we
         seek to project into
+    :kwarg adjoint: apply the transposed projection
+        operator?
     """
     if adjoint:
         return mesh2mesh_project_adjoint(source, target_space)
@@ -35,13 +76,16 @@ def mesh2mesh_project(source, target_space, adjoint=False, **kwargs):
 def mesh2mesh_project_adjoint(target_b, source_space, **kwargs):
     """
     Apply the adjoint of a mesh-to-mesh conservative
-    projection to some seed `target_b`, mapping into a
-    `source_space`.
+    projection to some seed ``target_b``, mapping into a
+    ``source_space``.
 
     The notation used here is in terms of the adjoint of
-    `mesh2mesh_project`. However, this function may also
+    ``mesh2mesh_project``. However, this function may also
     be interpreted as a projector in its own right,
-    mapping `target_b` into `source_space`.
+    mapping ``target_b`` into ``source_space``.
+
+    Extra keyword arguments are passed to Firedrake's
+    ``project`` function.
 
     :arg target_b: seed :class:`Function` from the target
         space
