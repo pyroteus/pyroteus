@@ -51,7 +51,7 @@ def test_project(coarse, fine):
     c.interpolate(SpatialCoordinate(cmesh)**2)
     expect = assemble(c*dx)
 
-    actual = assemble(mesh2mesh_project(c, Vf)*dx)
+    actual = assemble(project(c, Vf)*dx)
 
     assert np.isclose(expect, actual)
 
@@ -78,4 +78,4 @@ def test_adjoint_project(coarse, fine):
     c1, c2 = c.split()
     c1.interpolate(SpatialCoordinate(cmesh)**2)
 
-    mesh2mesh_project(c, Vf*vVf, adjoint=True)
+    project(c, Vf*vVf, adjoint=True)
