@@ -25,8 +25,9 @@ def wrap_solver(solver):
 
     @wraps(solver)
     def wrapper(ic, t_start, t_end, dt, **kwargs):
-        init = {key: value.copy(deepcopy=True) for key, value in ic.items()}
-        control = [Control(value) for key, value in init.items()]  # TODO: Check order
+        fields = kwargs.pop('fields')
+        init = {field: ic[field].copy(deepcopy=True) for field in fields}
+        control = [Control(init[field]) for field in fields]
         out, J = solver(init, t_start, t_end, dt, **kwargs)
         msg = "Solver should return a dictionary of Functions" \
               + "corresponding to the final solution"
@@ -126,6 +127,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     solver_kwargs = kwargs.get('solver_kwargs', {})
     if nargs > 1:
         solver_kwargs['qoi'] = wrapped_qoi
+    solver_kwargs['fields'] = fields
 
     # Clear tape
     tape = pyadjoint.get_working_tape()
