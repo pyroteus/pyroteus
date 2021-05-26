@@ -25,8 +25,13 @@ demo:
 	@cd demos && python3 burgers2.py
 	@echo "Done."
 
+doc:
+	@echo "Building docs in html format..."
+	@cd docs && make html
+	@echo "Done."
+
 tree:
-	@tree .
+	@tree -d .
 
 clean:
 	@echo "Removing compiled code..."
