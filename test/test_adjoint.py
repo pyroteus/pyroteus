@@ -67,7 +67,8 @@ def test_adjoint_same_mesh(problem, qoi_type):
         end_time /= 4  # Reduce testing time
     qoi = test_case.end_time_qoi if qoi_type == 'end_time' else test_case.time_integrated_qoi
     time_partition = TimePartition(
-        end_time, 1, test_case.dt, timesteps_per_export=test_case.dt_per_export,
+        end_time, 1, test_case.dt, test_case.fields,
+        timesteps_per_export=test_case.dt_per_export,
         solves_per_timestep=test_case.solves_per_dt,
     )
 
@@ -81,8 +82,11 @@ def test_adjoint_same_mesh(problem, qoi_type):
     if qoi_type == 'end_time':
         J = assemble(qoi(sol))
     pyadjoint.compute_gradient(J, Control(ic))  # FIXME: gradient w.r.t. mixed function not correct
-    _adj_sol = time_partition.solve_blocks()[0].adj_sol.copy(deepcopy=True)
-    _J = float(J)
+    J_expected = float(J)
+    adj_sols_expected = {
+        field: time_partition.get_solve_blocks(field)[0].adj_sol.copy(deepcopy=True)
+        for field in time_partition.fields
+    }
 
     # Loop over having one or two subintervals
     for spaces in ([fs], [fs, fs]):
@@ -92,7 +96,8 @@ def test_adjoint_same_mesh(problem, qoi_type):
 
         # Solve forward and adjoint on each subinterval
         time_partition = TimePartition(
-            end_time, N, test_case.dt, timesteps_per_export=test_case.dt_per_export,
+            end_time, N, test_case.dt, test_case.fields,
+            timesteps_per_export=test_case.dt_per_export,
             solves_per_timestep=test_case.solves_per_dt,
         )
         J, solutions = solve_adjoint(
@@ -100,11 +105,14 @@ def test_adjoint_same_mesh(problem, qoi_type):
         )
 
         # Check quantities of interest match
-        assert np.isclose(_J, J), f"QoIs do not match ({_J} vs. {J})"
+        assert np.isclose(J_expected, J), f"QoIs do not match ({J_expected} vs. {J})"
 
         # Check adjoint solutions at initial time match
-        err = errornorm(_adj_sol, solutions['adjoint'][0][0])/norm(_adj_sol)
-        assert np.isclose(err, 0.0), f"Non-zero adjoint error ({err})"
+        for field in time_partition.fields:
+            adj_sol_expected = adj_sols_expected[field]
+            adj_sol_computed = solutions[field].adjoint[0][0]
+            err = errornorm(adj_sol_expected, adj_sol_computed)/norm(adj_sol_expected)
+            assert np.isclose(err, 0.0), f"Non-zero adjoint error ({err})"
 
 
 # FIXME

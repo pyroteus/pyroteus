@@ -32,9 +32,10 @@ function_space = MixedFunctionSpace([U_2d, H_2d])
 dt = 9.6/n
 end_time = 20.0
 dt_per_export = int(10.0/dt)
-solves_per_dt = 1
+solves_per_dt = [1]
 order = 1
 soliton_amplitude = 0.395
+fields = ['velocity_elevation']
 
 
 def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):

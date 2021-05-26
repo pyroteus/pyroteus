@@ -15,7 +15,8 @@ function_space = VectorFunctionSpace(mesh, "CG", 2)
 end_time = 0.5
 dt = 1/n
 dt_per_export = 2
-solves_per_dt = 1
+solves_per_dt = [1]
+fields = ['velocity']
 
 
 def solver(ic, t_start, t_end, dt, J=0, qoi=None):

@@ -24,7 +24,8 @@ function_space = FunctionSpace(mesh, "DQ", 1)
 end_time = 2*pi
 dt = pi/300
 dt_per_export = 75
-solves_per_dt = 3
+solves_per_dt = [3]
+fields = ['tracer_concentration']
 
 
 def solver(ic, t_start, t_end, dt, J=0, qoi=None):
