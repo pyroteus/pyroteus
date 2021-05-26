@@ -1,3 +1,6 @@
+"""
+Functions which generate C kernels for dense numerical linear algebra.
+"""
 from firedrake import op2
 import os
 
@@ -10,7 +13,11 @@ include_dir = ["%s/include/eigen3" % PETSC_ARCH]
 
 def eigen_kernel(kernel, *args, **kwargs):
     """
-    Helper function to easily pass Eigen kernels to Firedrake via PyOP2.
+    Helper function to easily pass Eigen kernels
+    to Firedrake via PyOP2.
+
+    :arg kernel: a string containing C code which
+        is to be formatted.
     """
     return op2.Kernel(kernel(*args, **kwargs), kernel.__name__, cpp=True, include_dirs=include_dir)
 
@@ -96,7 +103,8 @@ void intersect(double M_[%d], const double * A_, const double * B_) {
 
 def get_eigendecomposition(d):
     """
-    Extract eigenvectors/eigenvalues from a metric field.
+    Extract eigenvectors/eigenvalues from a
+    metric field.
 
     :arg d: spatial dimension
     """
@@ -122,7 +130,8 @@ void get_eigendecomposition(double EVecs_[%d], double EVals_[%d], const double *
 
 def get_reordered_eigendecomposition(d):
     """
-    Extract eigenvectors/eigenvalues from a metric field, with eigenvalues
+    Extract eigenvectors/eigenvalues from a
+    metric field, with eigenvalues
     **decreasing** in magnitude.
     """
     assert d in (2, 3), f"Spatial dimension {d:d} not supported."
@@ -267,8 +276,9 @@ void metric_from_hessian(double A_[%d], const double * B_) {
 
 def set_eigendecomposition(d):
     """
-    Construct a metric from eigenvectors and eigenvalues as an
-    orthogonal eigendecomposition.
+    Construct a metric from eigenvectors
+    and eigenvalues as an orthogonal
+    eigendecomposition.
 
     :arg d: spatial dimension
     """

@@ -1,20 +1,10 @@
 """
 Driver functions for metric-based mesh adaptation.
 
+.. rubric:: References
 
-References
-==========
-
-[Power et al. 2006] PW Power, CC Pain, MD Piggott,
-    F Fang, GJ Gorman, AP Umpleby, AJH Goddard,
-    IM Navon, 'Adjoint a posteriori error measures
-    for anisotropic mesh optimisation', Computers
-    and Mathematics with Applications, 2006.
-
-[Carpio et al. 2013] J Carpio, JL Prieto, R Bermejo,
-    'Anisotropic goal-oriented mesh adaptivity for
-    elliptic problems', SIAM Journal on Scientific
-    Computing, 2013.
+.. bibliography:: references.bib
+    :filter: docname in docnames
 """
 from __future__ import absolute_import
 from .utility import *
@@ -106,9 +96,9 @@ def anisotropic_metric(error_indicator, hessian, **kwargs):
 
     Two formulations are currently available:
       * the element-wise formulation presented
-        in [Carpio et al. 2013]; and
+        in :cite:`CP13`; and
       * the vertex-wise formulation presented in
-        [Power et al. 2006].
+        :cite:`PP06`.
 
     In both cases, a :math:`\mathbb P1` metric is
     returned by default.
@@ -131,7 +121,7 @@ def element_wise_anisotropic_metric(error_indicator, hessian, target_space=None,
     indicator, given a Hessian field.
 
     The formulation used is based on that presented
-    in [Carpio et al. 2013].
+    in :cite:`CP13`.
 
     Whilst an element-based formulation is used to
     derive the metric, the result is projected into
@@ -139,7 +129,7 @@ def element_wise_anisotropic_metric(error_indicator, hessian, target_space=None,
 
     Note that normalisation is implicit in the metric
     construction and involves the `convergence_rate`
-    parameter, named :math:`alpha` in [Carpio et al. 2013].
+    parameter, named :math:`alpha` in :cite:`CP13`.
 
     :arg error_indicator: the error indicator
     :arg hessian: the Hessian
@@ -209,7 +199,7 @@ def vertex_wise_anisotropic_metric(error_indicators, hessians, target_space=None
     field(s).
 
     The formulation used is based on that presented
-    in [Power et al. 2006].
+    in :cite:`PP06`.
 
     :arg error_indicators: (list of) error indicator(s)
     :arg hessians: (list of) Hessian(s)
@@ -449,8 +439,8 @@ def density_and_quotients(metric, reorder=False):
     and <em>anisotropy quotients</em>,
 
     .. math::
-        d = \sum_{i=1}^n h_i,\quad
-        r_i = h_i^n/d,\quad \forall i=1:n,
+        d = \sum_{i=1}^n h_i,\qquad
+        r_i = \frac{h_i^n}d,\qquad \forall i=1:n,
 
     where :math:`h_i := \frac1{\sqrt{\lambda_i}}`.
 
