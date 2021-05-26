@@ -25,11 +25,13 @@ def wrap_solver(solver):
 
     @wraps(solver)
     def wrapper(ic, t_start, t_end, dt, **kwargs):
-        init = ic.copy(deepcopy=True)
-        control = Control(init)
+        init = {key: value.copy(deepcopy=True) for key, value in ic.items()}
+        control = [Control(value) for key, value in init.items()]  # TODO: Check order
         out, J = solver(init, t_start, t_end, dt, **kwargs)
-        msg = "Solver should return the Function corresponding to the final solution"
-        assert isinstance(out, firedrake.Function), msg
+        msg = "Solver should return a dictionary of Functions" \
+              + "corresponding to the final solution"
+        for field in ic:
+            assert isinstance(out[field], firedrake.Function), msg
         return out, control
 
     return wrapper
@@ -78,12 +80,14 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
         :class:`Function`, a start time and an end time as
         arguments and returns the solution value at the final
         time
-    :arg initial_condition: a function which maps a
-        :class:`FunctionSpace` to a :class:`Function`
+    :arg initial_condition: a function which maps a list of
+        :class:`FunctionSpace` s to a list of
+        :class:`Function` s
     :arg qoi: a function which maps a :class:`Function` (and
         possibly a time level) to a UFL 1-form
-    :arg function_spaces: list of :class:`FunctionSpaces`
-        associated with each subinterval
+    :arg function_spaces: dictionary of lists of
+        :class:`FunctionSpace` s for each field, indexed
+        by subinterval
     :arg time_partition: :class:`TimePartition` object
         containing the subintervals
     :kwarg solver_kwargs: a dictionary providing parameters
@@ -97,13 +101,11 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     :return solution: an :class:`AttrDict` containing
         solution fields and their lagged versions.
     """
-    from collections.abc import Iterable
     import inspect
     nargs = len(inspect.getfullargspec(qoi).args)
     # assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
     assert nargs >= 1, "QoI should have at least one argument"  # FIXME: kwargs are counted as args
-    if not isinstance(function_spaces, Iterable):
-        function_spaces = [function_spaces]
+    fields = time_partition.fields
 
     # Solve forward to get checkpoints and evaluate QoI
     J, checkpoints = get_checkpoints(
@@ -117,9 +119,9 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
                 [
                     firedrake.Function(fs)
                     for j in range(time_partition.exports_per_subinterval[i]-1)
-                ] for i, fs in enumerate(function_spaces)
+                ] for i, fs in enumerate(function_spaces[field])
             ] for label in ('forward', 'forward_old', 'adjoint', 'adjoint_next')
-        }) for field in time_partition.fields
+        }) for field in fields
     })
 
     # Wrap solver and QoI
@@ -134,29 +136,30 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     tape.clear_tape()
 
     # Loop over subintervals in reverse
-    seed = None
+    seeds = None
     adj_proj = kwargs.get('adjoint_projection', True)  # TODO: Drop this kwarg?
     for i in reversed(range(time_partition.num_subintervals)):
 
         # Annotate tape on current subinterval
-        sol, control = wrapped_solver(checkpoints[i], *time_partition[i], **solver_kwargs)
+        sols, controls = wrapped_solver(checkpoints[i], *time_partition[i], **solver_kwargs)
 
         # Get seed vector for reverse mode propagation
         if i == time_partition.num_subintervals-1:
             if nargs == 1:
-                J = wrapped_qoi(sol)  # TODO: What about kwargs?
+                J = wrapped_qoi(sols)  # TODO: What about kwargs?
         else:
             with pyadjoint.stop_annotating():
-                sol.adj_value = project(seed, function_spaces[i], adjoint=adj_proj)
+                for field in fields:
+                    sols[field].adj_value = project(seeds[field], function_spaces[field][i], adjoint=adj_proj)
 
         # Solve adjoint problem
-        m = pyadjoint.enlisting.Enlist(control)
+        m = pyadjoint.enlisting.Enlist(controls)
         with pyadjoint.stop_annotating():
             with tape.marked_nodes(m):
                 tape.evaluate_adj(markings=True)
 
         # Get old solution dependency index
-        for field in time_partition.fields:
+        for field in fields:
             solve_blocks = time_partition.get_solve_blocks(field, subinterval=i)
             for dep_index, dep in enumerate(solve_blocks[0].get_dependencies()):
                 if hasattr(dep.output, 'function_space'):
@@ -175,8 +178,13 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
                 raise ValueError(f"Adjoint solution on subinterval {i} is zero")
 
         # Get adjoint action
-        seed = firedrake.Function(function_spaces[i], val=control.block_variable.adj_value)
-        assert norm(seed) > 0.0, f"Adjoint action on subinterval {i} is zero"
+        seeds = {
+            field: firedrake.Function(function_spaces[field][i], val=control.block_variable.adj_value)
+            for field, control in zip(fields, controls)
+        }
+        for field, seed in seeds.items():
+            if np.isclose(norm(seed), 0.0):
+                raise ValueError(f"Adjoint action for field {field} on subinterval {i} is zero")
         tape.clear_tape()
 
     return J, solutions
@@ -187,32 +195,46 @@ def get_checkpoints(solver, initial_condition, qoi, function_spaces, time_partit
     """
     Just solve forward to get checkpoints and evaluate the QoI.
 
-    :arg solver: a function which takes an initial condition :class:`Function`, a start time and
-        an end time as arguments and returns the solution value at the final time
-    :arg initial_condition: a function which maps a function space to a :class:`Function`
-    :arg qoi: a function which maps a :class:`Function` (and possibly a time level) to a UFL 1-form
-    :arg function_spaces: list of :class:`FunctionSpaces` associated with each subinterval
-    :arg time_partition: :class:`TimePartition` object containing the subintervals
-    :kwarg solver_kwargs: a dictionary providing parameters to the solver
+    :arg solver: a function which takes an initial condition
+        :class:`Function`, a start time and an end time as
+        arguments and returns the solution value at the final
+        time
+    :arg initial_condition: a function which maps a list of
+        :class:`FunctionSpace` s to a list of
+        :class:`Function` s
+    :arg qoi: a function which maps a :class:`Function` (and
+        possibly a time level) to a UFL 1-form
+    :arg function_spaces: dictionary of lists of
+        :class:`FunctionSpace` s for each field, indexed
+        by subinterval
+    :arg time_partition: :class:`TimePartition` object
+        containing the subintervals
+    :kwarg solver_kwargs: a dictionary providing parameters
+        to the solver
 
     :return J: quantity of interest value
-    :return checkpoints: forward solution data at the beginning of each subinterval
+    :return checkpoints: forward solution data at the beginning
+        of each subinterval
     """
     import inspect
     nargs = len(inspect.getfullargspec(qoi).args)
     # assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
     assert nargs >= 1, "QoI should have at least one argument"  # FIXME: kwargs are counted as args
+    fields = time_partition.fields
 
     # Solve forward to get checkpoints and evaluate QoI
     solver_kwargs = kwargs.get('solver_kwargs', {})
     if nargs > 1:
         solver_kwargs['qoi'] = lambda *args, **kwargs: firedrake.assemble(qoi(*args, **kwargs))
     J = 0
-    checkpoints = [initial_condition(function_spaces[0])]
+    checkpoints = [initial_condition(function_spaces)]
     for i in range(time_partition.num_subintervals):
-        sol, J = solver(checkpoints[i], *time_partition[i], J=J, **solver_kwargs)
+        sols, J = solver(checkpoints[i], *time_partition[i], J=J, **solver_kwargs)
         if i < time_partition.num_subintervals-1:
-            checkpoints.append(project(sol, function_spaces[i+1]))
+            checkpoints.append({
+                field: project(sols[field], function_spaces[field][i+1])
+                for field in fields
+            })
     if nargs == 1:
-        J = firedrake.assemble(qoi(sol))  # TODO: What about kwargs?
+        J = firedrake.assemble(qoi(sols))  # TODO: What about kwargs?
     return J, checkpoints
