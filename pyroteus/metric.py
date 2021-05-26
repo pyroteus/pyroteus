@@ -208,7 +208,7 @@ def vertex_wise_anisotropic_metric(error_indicators, hessians, target_space=None
     :kwarg average: should metric components be averaged
         or intersected?
     """
-    from collections import Iterable
+    from collections.abc import Iterable
     if not isinstance(error_indicators, Iterable):
         error_indicators = [error_indicators]
     if not isinstance(hessians, Iterable):
@@ -238,7 +238,7 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
     :kwarg a_max: maximum tolerated element anisotropy
         (default 1000).
     """
-    from collections import Iterable
+    from collections.abc import Iterable
     if a_max <= 0:
         raise ValueError(f"Max tolerated anisotropy {a_max} not valid")
     if isinstance(metrics, Function):

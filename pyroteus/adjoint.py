@@ -4,8 +4,7 @@ Driver functions for solving adjoint problems on multiple meshes.
 import firedrake
 from firedrake_adjoint import Control
 import pyadjoint
-from pyroteus.interpolation import mesh2mesh_project
-from pyroteus.time_partition import TimePartition
+from pyroteus.interpolation import project
 from pyroteus.utility import norm
 from functools import wraps
 
@@ -82,7 +81,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     :return J: quantity of interest value
     :return solution: a dictionary containing solution fields and their lagged versions
     """
-    from collections import Iterable
+    from collections.abc import Iterable
     import inspect
     nargs = len(inspect.getfullargspec(qoi).args)
     # assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
@@ -131,7 +130,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
                 J = wrapped_qoi(sol)  # TODO: What about kwargs?
         else:
             with pyadjoint.stop_annotating():
-                sol.adj_value = mesh2mesh_project(seed, function_spaces[i], adjoint=adj_proj)
+                sol.adj_value = project(seed, function_spaces[i], adjoint=adj_proj)
 
         # Solve adjoint problem
         m = pyadjoint.enlisting.Enlist(control)
@@ -193,7 +192,7 @@ def get_checkpoints(solver, initial_condition, qoi, function_spaces, time_partit
     for i in range(time_partition.num_subintervals):
         sol, J = solver(checkpoints[i], *time_partition[i], J=J, **solver_kwargs)
         if i < time_partition.num_subintervals-1:
-            checkpoints.append(mesh2mesh_project(sol, function_spaces[i+1]))
+            checkpoints.append(project(sol, function_spaces[i+1]))
     if nargs == 1:
         J = firedrake.assemble(qoi(sol))  # TODO: What about kwargs?
     return J, checkpoints

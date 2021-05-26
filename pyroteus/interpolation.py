@@ -30,21 +30,28 @@ def project(source, target_space, adjoint=False, **kwargs):
     :kwarg adjoint: apply the transposed projection
         operator?
     """
-    if not (isinstance(source, Function) and isinstance(target_space, FunctionSpace)):
-        raise NotImplementedError  # TODO
+    if not isinstance(source, firedrake.Function):
+        raise NotImplementedError("Can only currently project Functions")  # TODO
     source_space = source.function_space()
-    if source_space.ufl_domain() == target_space.ufl_domain():
+    if isinstance(target_space, firedrake.Function):
+        target = target_space
+        target_space = target.function_space()
+    else:
         target = Function(target_space)
-        target.project(source, **kwargs)
+    if source_space.ufl_domain() == target_space.ufl_domain():
+        if source_space == target_space:
+            target.assign(source)
+        else:
+            target.project(source, **kwargs)
         return target
     else:
-        return mesh2mesh_project(source, target_space, adjoint=adjoint, **kwargs)
+        return mesh2mesh_project(source, target, adjoint=adjoint, **kwargs)
 
 
-def mesh2mesh_project(source, target_space, adjoint=False, **kwargs):
+def mesh2mesh_project(source, target, adjoint=False, **kwargs):
     """
     Apply a mesh-to-mesh conservative projection to some
-    ``source``, mapping into a ``target_space``.
+    ``source``, mapping to a ``target``.
 
     This function extends to the case of mixed spaces.
 
@@ -52,50 +59,52 @@ def mesh2mesh_project(source, target_space, adjoint=False, **kwargs):
     ``project`` function.
 
     :arg source: the :class:`Function` to be projected
-    :arg target_space: the :class:`FunctionSpace` which we
-        seek to project into
+    :arg target: the :class:`Function` which we
+        seek to project onto
     :kwarg adjoint: apply the transposed projection
         operator?
     """
     if adjoint:
-        return mesh2mesh_project_adjoint(source, target_space)
+        return mesh2mesh_project_adjoint(source, target)
     source_space = source.function_space()
+    assert isinstance(target, firedrake.Function)
+    target_space = target.function_space()
     if source_space == target_space:
-        return source
+        target.assign(source)
     elif hasattr(target_space, 'num_sub_spaces'):
         assert hasattr(source_space, 'num_sub_spaces')
         assert target_space.num_sub_spaces() == source_space.num_sub_spaces()
-        target = Function(target_space)
         for s, t in zip(source.split(), target.split()):
             t.project(s, **kwargs)
-        return target
     else:
-        return project(source, target_space, **kwargs)
+        target.project(source, **kwargs)
+    return target
 
 
-def mesh2mesh_project_adjoint(target_b, source_space, **kwargs):
+def mesh2mesh_project_adjoint(target_b, source_b, **kwargs):
     """
     Apply the adjoint of a mesh-to-mesh conservative
-    projection to some seed ``target_b``, mapping into a
-    ``source_space``.
+    projection to some seed ``target_b``, mapping to
+    ``source_b``.
 
     The notation used here is in terms of the adjoint of
     ``mesh2mesh_project``. However, this function may also
     be interpreted as a projector in its own right,
-    mapping ``target_b`` into ``source_space``.
+    mapping ``target_b`` to ``source_b``.
 
     Extra keyword arguments are passed to Firedrake's
     ``project`` function.
 
     :arg target_b: seed :class:`Function` from the target
-        space
-    :arg source_space: the :class:`FunctionSpace` which
-        the forward projection maps from
+        space of the forward projection
+    :arg source_b: the :class:`Function` from the source
+        space of the forward projection
     """
     from firedrake.supermeshing import assemble_mixed_mass_matrix
 
     target_space = target_b.function_space()
-    source_b = Function(source_space)
+    assert isinstance(source_b, firedrake.Function)
+    source_space = source_b.function_space()
 
     # Get subspaces
     if source_space == target_space:
