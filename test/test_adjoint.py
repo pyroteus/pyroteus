@@ -36,12 +36,20 @@ def handle_exit_annotation():
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=["burgers", "solid_body_rotation", "rossby_wave"])
+@pytest.fixture(params=[
+    "burgers",
+    "solid_body_rotation",
+    "rossby_wave",
+    "migrating_trench",
+])
 def problem(request):
     return request.param
 
 
-@pytest.fixture(params=["end_time", "time_integrated"])
+@pytest.fixture(params=[
+    "end_time",
+    "time_integrated",
+])
 def qoi_type(request):
     return request.param
 
