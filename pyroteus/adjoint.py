@@ -220,7 +220,6 @@ def get_checkpoints(solver, initial_condition, qoi, function_spaces, time_partit
     nargs = len(inspect.getfullargspec(qoi).args)
     # assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
     assert nargs >= 1, "QoI should have at least one argument"  # FIXME: kwargs are counted as args
-    fields = time_partition.fields
 
     # Solve forward to get checkpoints and evaluate QoI
     solver_kwargs = kwargs.get('solver_kwargs', {})

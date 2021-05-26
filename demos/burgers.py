@@ -103,7 +103,7 @@ def end_time_qoi(sol):
 
 
 # Now that we have the above functions defined, we move onto the
-# concrete parts of the solver, which mimic the original demo. 
+# concrete parts of the solver, which mimic the original demo.
 # Function spaces are given as a dictionary, indexed by the
 # prognostic solution field names. ::
 
