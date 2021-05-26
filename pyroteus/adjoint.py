@@ -5,7 +5,7 @@ import firedrake
 from firedrake_adjoint import Control
 import pyadjoint
 from pyroteus.interpolation import project
-from pyroteus.utility import norm
+from pyroteus.utility import AttrDict, norm
 from functools import wraps
 
 
@@ -95,15 +95,17 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     )
 
     # Create arrays to hold exported foward and adjoint solutions
-    solutions = {
-        label: [[
-            firedrake.Function(fs)
-            for j in range(time_partition.exports_per_subinterval[i]-1)]
+    solutions = AttrDict({
+        label: [
+            [
+                firedrake.Function(fs)
+                for j in range(time_partition.exports_per_subinterval[i]-1)
+            ]
             for i, fs in enumerate(function_spaces)
         ]
         for label in ('forward', 'forward_old', 'adjoint', 'adjoint_next')
-    }
-    adj_sols = solutions['adjoint']
+    })
+    adj_sols = solutions.adjoint
 
     # Wrap solver and QoI
     wrapped_solver = wrap_solver(solver)
@@ -148,10 +150,10 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
 
         # Extract solution data
         for j, block in enumerate(solve_blocks[::time_partition.timesteps_per_export[i]]):
-            solutions['forward_old'][i][j].assign(block.get_dependencies()[dep_index].saved_output)
-            solutions['forward'][i][j].assign(block.get_outputs()[0].saved_output)
-            solutions['adjoint'][i][j].assign(block.adj_sol)
-            solutions['adjoint_next'][i][j].assign(solve_blocks[j+1].adj_sol)
+            solutions.forward_old[i][j].assign(block.get_dependencies()[dep_index].saved_output)
+            solutions.forward[i][j].assign(block.get_outputs()[0].saved_output)
+            solutions.adjoint[i][j].assign(block.adj_sol)
+            solutions.adjoint_next[i][j].assign(solve_blocks[j+1].adj_sol)
         assert norm(adj_sols[i][0]) > 0.0, f"Adjoint solution on subinterval {i} is zero"
 
         # Get adjoint action
