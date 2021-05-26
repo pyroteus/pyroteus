@@ -1,15 +1,22 @@
 """
-"Rossby equatorial soliton" test case, as described in [Huang et al.].
+'Rossby equatorial soliton' test case,
+as described in [Huang et al.].
 
-This was added as a Thetis 2D shallow water test by Joe Wallwork. It
-can be found at
+This was added as a Thetis 2D shallow
+water test by Joe Wallwork. It can be
+found at
     thetis/test/swe2d/test_rossby_wave.py
 
-[Huang et al.] H. Huang, C. Chen, G.W. Cowles, C.D. Winant,
-    R.C. Beardsley, K.S. Hedstrom and D.B. Haidvogel, "FVCOM
-    validation experiments: Comparisons with ROMS for three
-    idealized barotropic test problems", Journal of Geophysical
-    Research: Oceans, 113(C7). (2008), pp. 3-6.
+This test case is notable for Pyroteus
+because it uses Thetis for the solver
+backend.
+
+[Huang et al.] H. Huang, et al.,t push --set-upstream origin joe/coupled
+    'FVCOM validation experiments:
+    Comparisons with ROMS for three
+    idealized barotropic test problems',
+    Journal of Geophysical Research:
+    Oceans, 113(C7). (2008), pp. 3-6.
 """
 try:
     from thetis import *
@@ -20,31 +27,32 @@ import pyadjoint
 
 
 # Problem setup
-n = 24
+nx, ny = 48, 24
 lx, ly = 48, 24
-mesh = PeriodicRectangleMesh(2*n, n, lx, ly, direction='x')
+mesh = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x')
 x, y = SpatialCoordinate(mesh)
 W = mesh.coordinates.function_space()
 mesh = Mesh(interpolate(as_vector([x-lx/2, y-ly/2]), W))
+fields = ['uv-elev']
 U_2d = VectorFunctionSpace(mesh, "DG", 1, name="U_2d")
 H_2d = get_functionspace(mesh, "DG", 1, name="H_2d")
-function_space = MixedFunctionSpace([U_2d, H_2d])
-dt = 9.6/n
-end_time = 20.0
-dt_per_export = int(10.0/dt)
+function_space = {'uv-elev': MixedFunctionSpace([U_2d, H_2d])}
 solves_per_dt = [1]
+end_time = 20.0
+dt = 9.6/ny
+dt_per_export = int(10.0/dt)
 order = 1
 soliton_amplitude = 0.395
-fields = ['velocity_elevation']
 
 
 def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
     """
-    The same P1DG-P1DG discretisation is used as
-    in the Thetis 2D shallow water test. See the
-    file cited above for further details.
+    Solve the shallow water equations on
+    a subinterval (t_start, t_end), given
+    some initial conditions `ic` and a
+    timestep `dt`.
     """
-    mesh2d = ic.function_space().mesh()
+    mesh2d = ic['uv-elev'].function_space().mesh()
     P1_2d = FunctionSpace(mesh2d, "CG", 1)
     bathymetry2d = Function(P1_2d).assign(1.0)
 
@@ -60,7 +68,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
 
     # Setup problem
     options.timestepper_type = 'CrankNicolson'
-    options.timestep = 9.6/n
+    options.timestep = 9.6/ny
     options.simulation_export_time = 10.0
     options.simulation_end_time = t_end
     if qoi is not None and np.isclose(t_end, end_time):
@@ -80,12 +88,12 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
     }
 
     # Apply initial conditions
-    uv_a, elev_a = ic.split()
+    uv_a, elev_a = ic['uv-elev'].split()
     solver_obj.assign_initial_conditions(uv=uv_a, elev=elev_a)
 
     def update_forcings(t):
         if qoi is not None:
-            options.J += qoi(solver_obj.fields.solution_2d, t)
+            options.J += qoi({'uv-elev': solver_obj.fields.solution_2d}, t)
 
     # Correct counters and iterate
     i_export = int(t_start/dt/dt_per_export)
@@ -101,19 +109,19 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
 
     # Revert gravitational acceleration
     physical_constants['g_grav'].assign(g)
-    return solver_obj.fields.solution_2d, options.J
+    return {'uv-elev': solver_obj.fields.solution_2d}, options.J
 
 
+@pyadjoint.no_annotations
 def initial_condition(fs):
     """
     The initial condition is a modon with
     two peaks of equal size, equally spaced
     to the North and South.
     """
-    return asymptotic_expansion(fs, time=0.0)
+    return {'uv-elev': asymptotic_expansion(fs['uv-elev'][0], time=0.0)}
 
 
-@pyadjoint.no_annotations
 def asymptotic_expansion(fs, time=0.0):
     """
     The test case admits an asymptotic
@@ -215,19 +223,18 @@ def asymptotic_expansion(fs, time=0.0):
 
 def time_integrated_qoi(sol, t):
     """
-    Quantity of interest for the Rossby
-    wave propagation problem which computes
+    Quantity of interest which computes
     the time-integrated square L2 error of
     the advected Rossby soliton.
     """
-    q_a = asymptotic_expansion(sol.function_space(), t)
-    return inner(sol - q_a, sol - q_a)*dx
+    q = sol['uv-elev']
+    q_a = asymptotic_expansion(q.function_space(), t)
+    return inner(q - q_a, q - q_a)*dx
 
 
 def end_time_qoi(sol):
     """
-    Quantity of interest for the Rossby
-    wave propagation problem which computes
+    Quantity of interest which computes
     the square L2 error of the advected
     Rossby soliton.
     """
@@ -253,9 +260,9 @@ if __name__ == "__main__":
         step += 1
 
     def qoi(sol, t):
-        return assemble(time_integrated_qoi(sol, t))
+        return assemble(time_integrated_qoi({'uv-elev': sol}, t))
 
     # Plot finite element solution
-    ic = initial_condition(function_space)
+    ic = initial_condition({'uv-elev': function_space})
     sol, J = solver(ic, 0, end_time, dt, qoi=qoi, no_exports=False)
     print_output(f"Quantity of interest: {J:.4e}")

@@ -71,26 +71,28 @@ def test_adjoint_same_mesh(problem, qoi_type):
         timesteps_per_export=test_case.dt_per_export,
         solves_per_timestep=test_case.solves_per_dt,
     )
+    fields = time_partition.fields
 
     # Solve forward and adjoint without solve_adjoint
     print("\n--- Solving the adjoint problem on 1 subinterval using pyadjoint\n")
     solver_kwargs = {}
     if qoi_type == 'time_integrated':
         solver_kwargs['qoi'] = lambda *args: assemble(qoi(*args))
-    ic = test_case.initial_condition(fs)
+    ic = test_case.initial_condition({field: [fs[field]] for field in fields})
+    controls = [Control(value) for key, value in ic.items()]
     sol, J = test_case.solver(ic, 0.0, end_time, test_case.dt, **solver_kwargs)
     if qoi_type == 'end_time':
         J = assemble(qoi(sol))
-    pyadjoint.compute_gradient(J, Control(ic))  # FIXME: gradient w.r.t. mixed function not correct
+    pyadjoint.compute_gradient(J, controls)  # FIXME: gradient w.r.t. mixed function not correct
     J_expected = float(J)
     adj_sols_expected = {
         field: time_partition.get_solve_blocks(field)[0].adj_sol.copy(deepcopy=True)
-        for field in time_partition.fields
+        for field in fields
     }
 
     # Loop over having one or two subintervals
-    for spaces in ([fs], [fs, fs]):
-        N = len(spaces)
+    for N in range(1, 3):
+        spaces = {field: N*[fs[field]] for field in fields}
         print(f"\n--- Solving the adjoint problem on {N} subinterval"
               + f"{'' if N == 1 else 's'} using pyroteus\n")
 

@@ -1,14 +1,22 @@
 """
-Problem specification for a simple DG advection demo.
+Problem specification for a simple DG
+advection test case.
 
 Code here is based on that found at
     https://firedrakeproject.org/demos/DG-advection.py.html
 
-It it concerned with solid body rotation of a collection
-of shapes, as first considered in [LeVeque 1996].
+It it concerned with solid body
+rotation of a collection of shapes,
+as first considered in [LeVeque 1996].
 
-[LeVeque 1996] R. LeVeque, "High-resolution conservative
-    algorithms for advection in incompressible flow" (1996).
+The test case is notable for Pyroteus
+because more than one linear solve is
+required per timestep.
+
+[LeVeque 1996] R. LeVeque, 'High
+    -resolution conservative algorithms
+    for advection in incompressible
+    flow' (1996).
 """
 from firedrake import *
 from pyroteus.utility import rotate
@@ -20,21 +28,21 @@ mesh = UnitSquareMesh(40, 40, quadrilateral=True)
 coords = mesh.coordinates.copy(deepcopy=True)
 coords.interpolate(coords - as_vector([0.5, 0.5]))
 mesh = Mesh(coords)
-function_space = FunctionSpace(mesh, "DQ", 1)
+fields = ['tracer']
+function_space = {'tracer': FunctionSpace(mesh, "DQ", 1)}
+solves_per_dt = [3]
 end_time = 2*pi
 dt = pi/300
 dt_per_export = 75
-solves_per_dt = [3]
-fields = ['tracer_concentration']
 
 
 def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     """
-    Solve the tracer transport problem in DQ1 space
-    on an interval (t_start, t_end), given some
-    initial condition `ic` and timestep `dt`.
+    Solve an advection-diffusion equation on a
+    subinterval (t_start, t_end), given some
+    initial conditions `ic` and a timestep `dt`.
     """
-    V = ic.function_space()
+    V = ic['tracer'].function_space()
     mesh = V.mesh()
     x, y = SpatialCoordinate(mesh)
     W = VectorFunctionSpace(mesh, "CG", 1)
@@ -45,7 +53,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
 
     # Set initial condition
     q = Function(V)
-    q.assign(ic)
+    q.assign(ic['tracer'])
 
     # Set inflow condition value
     q_in = Constant(1.0)
@@ -85,9 +93,9 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
         solv3.solve()
         q.assign((1.0/3.0)*q + (2.0/3.0)*(q2 + dq))
         if qoi is not None:
-            J += qoi(q, t)
+            J += qoi({'tracer': q}, t)
         t += dt
-    return q, J
+    return {'tracer': q}, J
 
 
 @pyadjoint.no_annotations
@@ -97,11 +105,12 @@ def initial_condition(fs, coordinates=None):
     transport problem consisting of a
     bell, cone and slotted cylinder.
     """
+    init_fs = fs['tracer'][0]
     if coordinates is not None:
-        assert fs.mesh() == coordinates.function_space().mesh()
+        assert init_fs.mesh() == coordinates.function_space().mesh()
         x, y = coordinates
     else:
-        x, y = SpatialCoordinate(fs.mesh())
+        x, y = SpatialCoordinate(init_fs.mesh())
 
     bell_r0, bell_x0, bell_y0 = 0.15, -0.25, 0.0
     cone_r0, cone_x0, cone_y0 = 0.15, 0.0, -0.25
@@ -114,47 +123,47 @@ def initial_condition(fs, coordinates=None):
         sqrt(pow(x-cyl_x0, 2) + pow(y-cyl_y0, 2)) < cyl_r0, conditional(
             And(And(x > slot_left, x < slot_right), y < slot_top), 0.0, 1.0), 0.0)
 
-    return interpolate(1.0 + bell + cone + slot_cyl, fs)
+    return {'tracer': interpolate(1.0 + bell + cone + slot_cyl, init_fs)}
 
 
-def end_time_qoi(q):
+def time_integrated_qoi(sol, t):
     """
-    Quantity of interest for the
-    tracer transport problem which
-    computes square L2 error of the
-    advected slotted cylinder.
+    Quantity of interest which
+    integrates the square L2 error
+    of the advected slotted cylinder
+    in time.
     """
-    V = q.function_space()
-    q_exact = initial_condition(V)
-
-    x, y = SpatialCoordinate(V.mesh())
-    cyl_x, cyl_y, cyl_r = 0.0, 0.25, 0.15
-    ball = conditional((x - cyl_x)**2 + (y - cyl_y)**2 < cyl_r**2, 1.0, 0.0)
-
-    return ball*(q-q_exact)**2*dx
-
-
-def time_integrated_qoi(q, t):
-    """
-    Quantity of interest for the
-    tracer transport problem which
-    computes the time-integrated
-    square L2 error of the
-    advected slotted cylinder.
-    """
+    q = sol['tracer']
     V = q.function_space()
     mesh = V.mesh()
     x = SpatialCoordinate(mesh)
     W = VectorFunctionSpace(mesh, "CG", 1)
     theta = -2*pi*t/end_time
     X = interpolate(rotate(x, theta), W)
-    q_exact = initial_condition(V, X)
+    q_exact = initial_condition({'tracer': V}, X)
 
     cyl_x, cyl_y, cyl_r = 0.0, 0.25, 0.15
     cyl_x, cyl_y = interpolate(rotate(as_vector([cyl_x, cyl_y]), theta), W)
     ball = conditional((x[0] - cyl_x)**2 + (x[1] - cyl_y)**2 < cyl_r**2, 1.0, 0.0)
 
-    return ball*(q-q_exact)**2*dx
+    return ball*(q-q_exact['tracer'])**2*dx
+
+
+def end_time_qoi(sol):
+    """
+    Quantity of interest which
+    computes square L2 error of the
+    advected slotted cylinder.
+    """
+    q = sol['tracer']
+    V = q.function_space()
+    q_exact = initial_condition({'tracer': V})
+
+    x, y = SpatialCoordinate(V.mesh())
+    cyl_x, cyl_y, cyl_r = 0.0, 0.25, 0.15
+    ball = conditional((x - cyl_x)**2 + (y - cyl_y)**2 < cyl_r**2, 1.0, 0.0)
+
+    return ball*(q-q_exact['tracer'])**2*dx
 
 
 # ---------------------------
@@ -187,11 +196,11 @@ if __name__ == "__main__":
     def qoi(sol, t):
         if outfile.step % dt_per_export != 0:
             sol.rename("Finite element solution")
-            outfile.write(sol)
+            outfile.write(sol['tracer'])
             outfile.step += 1
         return assemble(time_integrated_qoi(sol, t))
 
-    ic = initial_condition(V)
+    ic = initial_condition({'tracer': V})
     sol, J = solver(ic, 0, end_time, dt, qoi=qoi)
-    outfile.write(sol)
+    outfile.write(sol['tracer'])
     print(f"Quantity of interest: {J:.4e}")

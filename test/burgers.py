@@ -1,5 +1,10 @@
 """
-Problem specification for a simple Burgers equation demo.
+Problem specification for a simple Burgers
+equation test case.
+
+The test case is notable for Pyroteus
+because the prognostic equation is
+nonlinear.
 
 Code here is based on that found at
     https://firedrakeproject.org/demos/burgers.py.html
@@ -11,27 +16,27 @@ import pyadjoint
 # Problem setup
 n = 32
 mesh = UnitSquareMesh(n, n, diagonal='left')
-function_space = VectorFunctionSpace(mesh, "CG", 2)
+fields = ['velocity']
+function_space = {'velocity': VectorFunctionSpace(mesh, "CG", 2)}
+solves_per_dt = [1]
 end_time = 0.5
 dt = 1/n
 dt_per_export = 2
-solves_per_dt = [1]
-fields = ['velocity']
 
 
 def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     """
-    Solve Burgers' equation in CG2 space on an
-    interval (t_start, t_end), given some initial
-    condition `ic` and timestep `dt`.
+    Solve Burgers' equation on a subinterval
+    (t_start, t_end), given some initial
+    conditions `ic` and a timestep `dt`.
     """
-    fs = ic.function_space()
+    fs = ic['velocity'].function_space()
     dtc = Constant(dt)
     nu = Constant(0.0001)
 
     # Set initial condition
     u_ = Function(fs)
-    u_.assign(ic)
+    u_.assign(ic['velocity'])
 
     # Setup variational problem
     v = TestFunction(fs)
@@ -45,10 +50,10 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     while t < t_end - 1.0e-05:
         solve(F == 0, u)
         if qoi is not None:
-            J += qoi(u, t)
+            J += qoi({'velocity': u}, t)
         u_.assign(u)
         t += dt
-    return u_, J
+    return {'velocity': u_}, J
 
 
 @pyadjoint.no_annotations
@@ -60,40 +65,43 @@ def initial_condition(fs):
     :arg fs: :class:`FunctionSpace` which
         the initial condition will live in
     """
-    x, y = SpatialCoordinate(fs.mesh())
-    return interpolate(as_vector([sin(pi*x), 0]), fs)
-
-
-def end_time_qoi(sol):
-    """
-    Quantity of interest for Burgers' equation
-    which computes the square L2 norm over the
-    right hand boundary segment at the final
-    time.
-
-    :arg sol: the solution :class:`Function`
-    """
-    return inner(sol, sol)*ds(2)
+    init_fs = fs['velocity'][0]
+    x, y = SpatialCoordinate(init_fs.mesh())
+    return {'velocity': interpolate(as_vector([sin(pi*x), 0]), init_fs)}
 
 
 def time_integrated_qoi(sol, t):
     """
-    Quantity of interest for Burgers' equation
-    which computes the integrand for a time
-    integral given by the square L2 norm over the
-    right hand boundary segment.
+    Quantity of interest which
+    integrates the square L2
+    norm over the right hand
+    boundary in time.
 
     :arg sol: the solution :class:`Function`
     :arg t: time level
     """
-    return inner(sol, sol)*ds(2)
+    u = sol['velocity']
+    return inner(u, u)*ds(2)
+
+
+def end_time_qoi(sol):
+    """
+    Quantity of interest which
+    evaluates the square L2 norm
+    over the right hand boundary
+    segment at the final time.
+
+    :arg sol: the solution :class:`Function`
+    """
+    u = sol['velocity']
+    return inner(u, u)*ds(2)
 
 
 if __name__ == "__main__":
     outfile = File('outputs/burgers/solution.pvd')
 
     def qoi(sol, t):
-        outfile.write(sol)
+        outfile.write(sol['velocity'])
         return assemble(time_integrated_qoi(sol, t))
 
     ic = initial_condition(function_space)
