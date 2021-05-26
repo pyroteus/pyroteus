@@ -92,10 +92,6 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
         containing the subintervals
     :kwarg solver_kwargs: a dictionary providing parameters
         to the solver
-    :kwarg adjoint_projection: if `False`, conservative
-        projection is applied when transferring data between
-        meshes in the adjoint solve, rather than the
-        corresponding adjoint operator
 
     :return J: quantity of interest value
     :return solution: an :class:`AttrDict` containing
@@ -137,7 +133,6 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
 
     # Loop over subintervals in reverse
     seeds = None
-    adj_proj = kwargs.get('adjoint_projection', True)  # TODO: Drop this kwarg?
     for i in reversed(range(time_partition.num_subintervals)):
 
         # Annotate tape on current subinterval
@@ -149,8 +144,8 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
                 J = wrapped_qoi(sols)  # TODO: What about kwargs?
         else:
             with pyadjoint.stop_annotating():
-                for field in fields:
-                    sols[field].adj_value = project(seeds[field], function_spaces[field][i], adjoint=adj_proj)
+                for field, fs in function_spaces.items():
+                    sols[field].adj_value = project(seeds[field], fs[i], adjoint=True)
 
         # Solve adjoint problem
         m = pyadjoint.enlisting.Enlist(controls)
@@ -158,8 +153,10 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
             with tape.marked_nodes(m):
                 tape.evaluate_adj(markings=True)
 
-        # Get old solution dependency index
+        # Loop over prognostic variables
         for field in fields:
+
+            # Get old solution dependency index
             solve_blocks = time_partition.get_solve_blocks(field, subinterval=i)
             for dep_index, dep in enumerate(solve_blocks[0].get_dependencies()):
                 if hasattr(dep.output, 'function_space'):
@@ -179,7 +176,8 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
 
         # Get adjoint action
         seeds = {
-            field: firedrake.Function(function_spaces[field][i], val=control.block_variable.adj_value)
+            field: firedrake.Function(function_spaces[field][i],
+                                      val=control.block_variable.adj_value)
             for field, control in zip(fields, controls)
         }
         for field, seed in seeds.items():
@@ -232,8 +230,8 @@ def get_checkpoints(solver, initial_condition, qoi, function_spaces, time_partit
         sols, J = solver(checkpoints[i], *time_partition[i], J=J, **solver_kwargs)
         if i < time_partition.num_subintervals-1:
             checkpoints.append({
-                field: project(sols[field], function_spaces[field][i+1])
-                for field in fields
+                field: project(sols[field], fs[i+1])
+                for field, fs in function_spaces.items()
             })
     if nargs == 1:
         J = firedrake.assemble(qoi(sols))  # TODO: What about kwargs?
