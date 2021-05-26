@@ -2,9 +2,6 @@
 
 .. only:: html
 
-    Pyroteus source code is hosted on  `Github
-    <https://github.com/jwallwork23/pyroteus/>`__.
-
 Pyroteus Goal-Oriented Mesh Adaptation Toolkit
 ==============================================
 
@@ -37,10 +34,12 @@ discretisation approach assumed throughout.
 
 .. rubric:: API documentation
 
-The classes and functions which comprise Pyroteus may be found on the
-:doc:`pyroteus` page. They are also listed alphabetically on the
-:ref:`index <genindex>` page. The index may be searched using the
-inbuilt :ref:`search engine <search>`.
+The classes and functions which comprise Pyroteus may be found
+on the :doc:`pyroteus` page. They are also listed alphabetically
+on the :ref:`index <genindex>` page. The index may be searched
+using the inbuilt :ref:`search engine <search>`. Pyroteus source
+code is hosted on  `Github
+<https://github.com/jwallwork23/pyroteus/>`__.
 
 Pyroteus contains a number of demos to illustrate the correct
 usage of its different functionalities. It is highly recommended
