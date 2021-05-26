@@ -182,3 +182,16 @@ def rotate(v, angle, origin=None):
     else:
         raise NotImplementedError
     return dot(R, v - origin) + origin
+
+
+class AttrDict(dict):
+    """
+    Dictionary that provides both self['key']
+    and self.key access to members.
+
+    **Disclaimer:: Copied from
+        http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python
+    """
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
