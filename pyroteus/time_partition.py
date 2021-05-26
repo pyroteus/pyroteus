@@ -1,3 +1,6 @@
+"""
+Partitioning for the temporal domain.
+"""
 from collections import Iterable
 import numpy as np
 

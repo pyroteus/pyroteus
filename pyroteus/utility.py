@@ -9,8 +9,8 @@ from collections import OrderedDict
 
 def Mesh(arg, **kwargs):
     """
-    Overload mesh constructor to endow the output
-    mesh with useful quantities.
+    Overload Firedrake's ``Mesh`` constructor to
+    endow the output mesh with useful quantities.
 
     The following quantities are computed by default:
         * cell size;
@@ -21,8 +21,8 @@ def Mesh(arg, **kwargs):
         * `compute_scaled_jacobian`.
 
     The argument and keyword arguments are passed to
-    the Firedrake `Mesh` constructor, modified so that
-    the argument could also be a mesh.
+    Firedrake's ``Mesh`` constructor, modified so
+    that the argument could also be a mesh.
     """
     ar = kwargs.pop('compute_aspect_ratio', False)
     sj = kwargs.pop('compute_scaled_jacobian', False)
@@ -83,8 +83,8 @@ def prod(arr):
 
 def assemble_mass_matrix(space, norm_type='L2'):
     """
-    Assemble the `norm_type` mass matrix associated
-    with some finite element `space`.
+    Assemble the ``norm_type`` mass matrix
+    associated with some finite element ``space``.
     """
     trial = TrialFunction(space)
     test = TestFunction(space)
@@ -99,12 +99,12 @@ def assemble_mass_matrix(space, norm_type='L2'):
 
 def norm(v, norm_type='L2', mesh=None):
     r"""
-    Overload Firedrake's `norm` function to allow
-    for :math:`\ell^p` norms.
+    Overload Firedrake's ``norm`` function to
+    allow for :math:`\ell^p` norms.
 
     Note that this version is case sensitive,
-    i.e. l2 and L2 will give different results in
-    general.
+    i.e. ``'l2'`` and ``'L2'`` will give
+    different results in general.
     """
     norm_codes = {'l1': 0, 'l2': 2, 'linf': 3}
     if norm_type in norm_codes:
@@ -118,12 +118,12 @@ def norm(v, norm_type='L2', mesh=None):
 
 def errornorm(u, uh, norm_type='L2', **kwargs):
     r"""
-    Overload Firedrake's `errornorm` function to allow
-    for :math:`\ell^p` norms.
+    Overload Firedrake's ``errornorm`` function
+    to allow for :math:`\ell^p` norms.
 
     Note that this version is case sensitive,
-    i.e. l2 and L2 will give different results in
-    general.
+    i.e. ``'l2'`` and ``'L2'`` will give
+    different results in general.
     """
     if len(u.ufl_shape) != len(uh.ufl_shape):
         raise RuntimeError("Mismatching rank between u and uh")
@@ -163,7 +163,7 @@ def errornorm(u, uh, norm_type='L2', **kwargs):
 def rotation_matrix_2d(angle):
     """
     Rotation matrix associated with some
-    `angle`, as a UFL matrix.
+    ``angle``, as a UFL matrix.
     """
     return as_matrix([[cos(angle), -sin(angle)],
                      [sin(angle), cos(angle)]])
@@ -171,8 +171,8 @@ def rotation_matrix_2d(angle):
 
 def rotate(v, angle, origin=None):
     """
-    Rotate a UFL :class:`as_vector` `v`
-    by `angle` about an `origin`.
+    Rotate a UFL :class:`as_vector` ``v``
+    by ``angle`` about an ``origin``.
     """
     dim = len(v)
     origin = origin or as_vector(np.zeros(dim))

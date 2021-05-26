@@ -54,8 +54,12 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Pyroteus'
-copyright = f'{datetime.datetime.now().year}, Joseph Wallwork et al.'
-author = u'Joseph Wallwork et al.'
+year = datetime.datetime.now().year
+if year == 2021:
+    copyright = f'{year}, Joseph G. Wallwork et al.'
+else:
+    copyright = f'2021-{year}, Joseph G. Wallwork et al.'
+author = u'Joseph G. Wallwork et al.'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -138,7 +142,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Pyroteus.tex', u'Pyroteus Documentation',
-     u'Joseph Wallwork et al.', 'manual'),
+     u'Joseph G. Wallwork et al.', 'manual'),
 ]
 
 

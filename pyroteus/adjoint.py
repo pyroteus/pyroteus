@@ -1,13 +1,16 @@
+"""
+Driver functions for solving adjoint problems on multiple meshes.
+"""
 import firedrake
 from firedrake_adjoint import Control
 import pyadjoint
 from pyroteus.interpolation import mesh2mesh_project
-from pyroteus.ts import TimePartition
+from pyroteus.time_partition import TimePartition
 from pyroteus.utility import norm
 from functools import wraps
 
 
-__all__ = ["solve_adjoint", "TimePartition"]
+__all__ = ["get_checkpoints", "solve_adjoint"]
 
 
 def wrap_solver(solver):
@@ -61,10 +64,10 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     the contents of which give values at all exported timesteps, indexed by subinterval and
     then export. For a given export timestep, the solution fields are:
 
-    * 'forward': the forward solution after taking the timestep;
-    * 'forward_old': the forward solution before taking the timestep;
-    * 'adjoint': the adjoint solution after taking the timestep;
-    * 'adjoint_next': the adjoint solution before taking the timestep (backwards).
+    * ``'forward'``: the forward solution after taking the timestep;
+    * ``'forward_old'``: the forward solution before taking the timestep;
+    * ``'adjoint'``: the adjoint solution after taking the timestep;
+    * ``'adjoint_next'``: the adjoint solution before taking the timestep (backwards).
 
     :arg solver: a function which takes an initial condition :class:`Function`, a start time
         and an end time as arguments and returns the solution value at the final time
@@ -116,7 +119,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
 
     # Loop over subintervals in reverse
     seed = None
-    adj_proj = kwargs.get('adjoint_projection', True)
+    adj_proj = kwargs.get('adjoint_projection', True)  # TODO: Drop this kwarg?
     for i in reversed(range(time_partition.num_subintervals)):
 
         # Annotate tape on current subinterval
