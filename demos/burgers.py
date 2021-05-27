@@ -31,7 +31,7 @@ from pyroteus_adjoint import *
 # :math:`\mathbf u`. Its name is recorded in a list of
 # fields. ::
 
-fields = ['velocity']
+fields = ['uv_2d']
 
 # Pyroteus requires a solver with four arguments: a dictionary
 # containing initial conditions for each prognostic solution,
@@ -45,13 +45,13 @@ fields = ['velocity']
 
 
 def solver(ic, t_start, t_end, dt, qoi=None, J=0):
-    function_space = ic['velocity'].function_space()
+    function_space = ic['uv_2d'].function_space()
     dtc = Constant(dt)
     nu = Constant(0.0001)
 
     # Set initial condition
     u_ = Function(function_space)
-    u_.assign(ic['velocity'])
+    u_.assign(ic['uv_2d'])
 
     # Setup variational problem
     v = TestFunction(function_space)
@@ -65,10 +65,10 @@ def solver(ic, t_start, t_end, dt, qoi=None, J=0):
     while t < t_end - 1.0e-05:
         solve(F == 0, u)
         if qoi is not None:
-            J += qoi({'velocity': u}, t)
+            J += qoi({'uv_2d': u}, t)
         u_.assign(u)
         t += dt
-    return {'velocity': u_}, J
+    return {'uv_2d': u_}, J
 
 
 # Pyroteus also requires a function for generating an initial
@@ -79,9 +79,9 @@ def solver(ic, t_start, t_end, dt, qoi=None, J=0):
 
 @no_annotations
 def initial_condition(function_space):
-    fs = function_space['velocity'][0]
+    fs = function_space['uv_2d'][0]
     x, y = SpatialCoordinate(fs.mesh())
-    return {'velocity': interpolate(as_vector([sin(pi*x), 0]), fs)}
+    return {'uv_2d': interpolate(as_vector([sin(pi*x), 0]), fs)}
 
 
 # In line with the
@@ -98,7 +98,7 @@ def initial_condition(function_space):
 
 
 def end_time_qoi(sol):
-    u = sol['velocity']
+    u = sol['uv_2d']
     return inner(u, u)*ds(2)
 
 
@@ -110,7 +110,7 @@ def end_time_qoi(sol):
 n = 32
 mesh = UnitSquareMesh(n, n)
 V = VectorFunctionSpace(mesh, "CG", 2)
-function_spaces = {'velocity': V}
+function_spaces = {'uv_2d': V}
 end_time = 0.5
 dt = 1/n
 
