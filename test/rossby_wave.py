@@ -33,10 +33,10 @@ mesh = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x')
 x, y = SpatialCoordinate(mesh)
 W = mesh.coordinates.function_space()
 mesh = Mesh(interpolate(as_vector([x-lx/2, y-ly/2]), W))
-fields = ['uv-elev']
+fields = ['solution_2d']
 U_2d = VectorFunctionSpace(mesh, "DG", 1, name="U_2d")
 H_2d = get_functionspace(mesh, "DG", 1, name="H_2d")
-function_space = {'uv-elev': MixedFunctionSpace([U_2d, H_2d])}
+function_space = {'solution_2d': MixedFunctionSpace([U_2d, H_2d])}
 solves_per_dt = [1]
 end_time = 20.0
 dt = 9.6/ny
@@ -52,7 +52,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
     some initial conditions `ic` and a
     timestep `dt`.
     """
-    mesh2d = ic['uv-elev'].function_space().mesh()
+    mesh2d = ic['solution_2d'].function_space().mesh()
     P1_2d = FunctionSpace(mesh2d, "CG", 1)
     bathymetry2d = Function(P1_2d).assign(1.0)
 
@@ -88,12 +88,12 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
     }
 
     # Apply initial conditions
-    uv_a, elev_a = ic['uv-elev'].split()
+    uv_a, elev_a = ic['solution_2d'].split()
     solver_obj.assign_initial_conditions(uv=uv_a, elev=elev_a)
 
     def update_forcings(t):
         if qoi is not None:
-            options.J += qoi({'uv-elev': solver_obj.fields.solution_2d}, t)
+            options.J += qoi({'solution_2d': solver_obj.fields.solution_2d}, t)
 
     # Correct counters and iterate
     i_export = int(t_start/dt/dt_per_export)
@@ -109,7 +109,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
 
     # Revert gravitational acceleration
     physical_constants['g_grav'].assign(g)
-    return {'uv-elev': solver_obj.fields.solution_2d}, options.J
+    return {'solution_2d': solver_obj.fields.solution_2d}, options.J
 
 
 @pyadjoint.no_annotations
@@ -119,7 +119,7 @@ def initial_condition(fs):
     two peaks of equal size, equally spaced
     to the North and South.
     """
-    return {'uv-elev': asymptotic_expansion(fs['uv-elev'][0], time=0.0)}
+    return {'solution_2d': asymptotic_expansion(fs['solution_2d'][0], time=0.0)}
 
 
 def asymptotic_expansion(fs, time=0.0):
@@ -227,7 +227,7 @@ def time_integrated_qoi(sol, t):
     the time-integrated square L2 error of
     the advected Rossby soliton.
     """
-    q = sol['uv-elev']
+    q = sol['solution_2d']
     q_a = asymptotic_expansion(q.function_space(), t)
     return inner(q - q_a, q - q_a)*dx
 
@@ -260,9 +260,9 @@ if __name__ == "__main__":
         step += 1
 
     def qoi(sol, t):
-        return assemble(time_integrated_qoi({'uv-elev': sol}, t))
+        return assemble(time_integrated_qoi({'solution_2d': sol}, t))
 
     # Plot finite element solution
-    ic = initial_condition({'uv-elev': function_space})
+    ic = initial_condition({'solution_2d': function_space})
     sol, J = solver(ic, 0, end_time, dt, qoi=qoi, no_exports=False)
     print_output(f"Quantity of interest: {J:.4e}")

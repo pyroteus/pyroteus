@@ -28,8 +28,8 @@ mesh = UnitSquareMesh(40, 40, quadrilateral=True)
 coords = mesh.coordinates.copy(deepcopy=True)
 coords.interpolate(coords - as_vector([0.5, 0.5]))
 mesh = Mesh(coords)
-fields = ['tracer']
-function_space = {'tracer': FunctionSpace(mesh, "DQ", 1)}
+fields = ['tracer_2d']
+function_space = {'tracer_2d': FunctionSpace(mesh, "DQ", 1)}
 solves_per_dt = [3]
 end_time = 2*pi
 dt = pi/300
@@ -42,7 +42,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     subinterval (t_start, t_end), given some
     initial conditions `ic` and a timestep `dt`.
     """
-    V = ic['tracer'].function_space()
+    V = ic['tracer_2d'].function_space()
     mesh = V.mesh()
     x, y = SpatialCoordinate(mesh)
     W = VectorFunctionSpace(mesh, "CG", 1)
@@ -53,7 +53,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
 
     # Set initial condition
     q = Function(V)
-    q.assign(ic['tracer'])
+    q.assign(ic['tracer_2d'])
 
     # Set inflow condition value
     q_in = Constant(1.0)
@@ -93,9 +93,9 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
         solv3.solve()
         q.assign((1.0/3.0)*q + (2.0/3.0)*(q2 + dq))
         if qoi is not None:
-            J += qoi({'tracer': q}, t)
+            J += qoi({'tracer_2d': q}, t)
         t += dt
-    return {'tracer': q}, J
+    return {'tracer_2d': q}, J
 
 
 @pyadjoint.no_annotations
@@ -105,7 +105,7 @@ def initial_condition(fs, coordinates=None):
     transport problem consisting of a
     bell, cone and slotted cylinder.
     """
-    init_fs = fs['tracer'][0]
+    init_fs = fs['tracer_2d'][0]
     if coordinates is not None:
         assert init_fs.mesh() == coordinates.function_space().mesh()
         x, y = coordinates
@@ -123,7 +123,7 @@ def initial_condition(fs, coordinates=None):
         sqrt(pow(x-cyl_x0, 2) + pow(y-cyl_y0, 2)) < cyl_r0, conditional(
             And(And(x > slot_left, x < slot_right), y < slot_top), 0.0, 1.0), 0.0)
 
-    return {'tracer': interpolate(1.0 + bell + cone + slot_cyl, init_fs)}
+    return {'tracer_2d': interpolate(1.0 + bell + cone + slot_cyl, init_fs)}
 
 
 def time_integrated_qoi(sol, t):
@@ -133,20 +133,20 @@ def time_integrated_qoi(sol, t):
     of the advected slotted cylinder
     in time.
     """
-    q = sol['tracer']
+    q = sol['tracer_2d']
     V = q.function_space()
     mesh = V.mesh()
     x = SpatialCoordinate(mesh)
     W = VectorFunctionSpace(mesh, "CG", 1)
     theta = -2*pi*t/end_time
     X = interpolate(rotate(x, theta), W)
-    q_exact = initial_condition({'tracer': V}, X)
+    q_exact = initial_condition({'tracer_2d': V}, X)
 
     cyl_x, cyl_y, cyl_r = 0.0, 0.25, 0.15
     cyl_x, cyl_y = interpolate(rotate(as_vector([cyl_x, cyl_y]), theta), W)
     ball = conditional((x[0] - cyl_x)**2 + (x[1] - cyl_y)**2 < cyl_r**2, 1.0, 0.0)
 
-    return ball*(q-q_exact['tracer'])**2*dx
+    return ball*(q-q_exact['tracer_2d'])**2*dx
 
 
 def end_time_qoi(sol):
@@ -155,15 +155,15 @@ def end_time_qoi(sol):
     computes square L2 error of the
     advected slotted cylinder.
     """
-    q = sol['tracer']
+    q = sol['tracer_2d']
     V = q.function_space()
-    q_exact = initial_condition({'tracer': V})
+    q_exact = initial_condition({'tracer_2d': V})
 
     x, y = SpatialCoordinate(V.mesh())
     cyl_x, cyl_y, cyl_r = 0.0, 0.25, 0.15
     ball = conditional((x - cyl_x)**2 + (y - cyl_y)**2 < cyl_r**2, 1.0, 0.0)
 
-    return ball*(q-q_exact['tracer'])**2*dx
+    return ball*(q-q_exact['tracer_2d'])**2*dx
 
 
 # ---------------------------
@@ -196,11 +196,11 @@ if __name__ == "__main__":
     def qoi(sol, t):
         if outfile.step % dt_per_export != 0:
             sol.rename("Finite element solution")
-            outfile.write(sol['tracer'])
+            outfile.write(sol['tracer_2d'])
             outfile.step += 1
         return assemble(time_integrated_qoi(sol, t))
 
-    ic = initial_condition({'tracer': V})
+    ic = initial_condition({'tracer_2d': V})
     sol, J = solver(ic, 0, end_time, dt, qoi=qoi)
-    outfile.write(sol['tracer'])
+    outfile.write(sol['tracer_2d'])
     print(f"Quantity of interest: {J:.4e}")

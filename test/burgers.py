@@ -16,8 +16,8 @@ import pyadjoint
 # Problem setup
 n = 32
 mesh = UnitSquareMesh(n, n, diagonal='left')
-fields = ['velocity']
-function_space = {'velocity': VectorFunctionSpace(mesh, "CG", 2)}
+fields = ['uv_2d']
+function_space = {'uv_2d': VectorFunctionSpace(mesh, "CG", 2)}
 solves_per_dt = [1]
 end_time = 0.5
 dt = 1/n
@@ -30,13 +30,13 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     (t_start, t_end), given some initial
     conditions `ic` and a timestep `dt`.
     """
-    fs = ic['velocity'].function_space()
+    fs = ic['uv_2d'].function_space()
     dtc = Constant(dt)
     nu = Constant(0.0001)
 
     # Set initial condition
     u_ = Function(fs)
-    u_.assign(ic['velocity'])
+    u_.assign(ic['uv_2d'])
 
     # Setup variational problem
     v = TestFunction(fs)
@@ -50,10 +50,10 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     while t < t_end - 1.0e-05:
         solve(F == 0, u)
         if qoi is not None:
-            J += qoi({'velocity': u}, t)
+            J += qoi({'uv_2d': u}, t)
         u_.assign(u)
         t += dt
-    return {'velocity': u_}, J
+    return {'uv_2d': u_}, J
 
 
 @pyadjoint.no_annotations
@@ -65,9 +65,9 @@ def initial_condition(fs):
     :arg fs: :class:`FunctionSpace` which
         the initial condition will live in
     """
-    init_fs = fs['velocity'][0]
+    init_fs = fs['uv_2d'][0]
     x, y = SpatialCoordinate(init_fs.mesh())
-    return {'velocity': interpolate(as_vector([sin(pi*x), 0]), init_fs)}
+    return {'uv_2d': interpolate(as_vector([sin(pi*x), 0]), init_fs)}
 
 
 def time_integrated_qoi(sol, t):
@@ -80,7 +80,7 @@ def time_integrated_qoi(sol, t):
     :arg sol: the solution :class:`Function`
     :arg t: time level
     """
-    u = sol['velocity']
+    u = sol['uv_2d']
     return inner(u, u)*ds(2)
 
 
@@ -93,7 +93,7 @@ def end_time_qoi(sol):
 
     :arg sol: the solution :class:`Function`
     """
-    u = sol['velocity']
+    u = sol['uv_2d']
     return inner(u, u)*ds(2)
 
 
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     outfile = File('outputs/burgers/solution.pvd')
 
     def qoi(sol, t):
-        outfile.write(sol['velocity'])
+        outfile.write(sol['uv_2d'])
         return assemble(time_integrated_qoi(sol, t))
 
     ic = initial_condition(function_space)

@@ -31,14 +31,14 @@ lx, ly = 16, 1.1
 nx, ny = lx*5, 5
 mesh = RectangleMesh(nx, ny, lx, ly)
 x, y = SpatialCoordinate(mesh)
-fields = ['uv-elev', 'sediment', 'bed']
+fields = ['solution_2d', 'sediment_2d', 'bathymetry_2d']
 P1_2d = get_functionspace(mesh, "CG", 1)
 U_2d = VectorFunctionSpace(mesh, "DG", 1, name="U_2d")
 H_2d = get_functionspace(mesh, "DG", 1, name="H_2d")
 function_space = {
-    'uv-elev': MixedFunctionSpace([U_2d, H_2d]),
-    'sediment': H_2d,
-    'bed': P1_2d,
+    'solution_2d': MixedFunctionSpace([U_2d, H_2d]),
+    'sediment_2d': H_2d,
+    'bathymetry_2d': P1_2d,
 }
 solves_per_dt = [1, 1, 1]
 morfac = 300
@@ -55,7 +55,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
     given some initial conditions `ic` and
     a timestep `dt`.
     """
-    bathymetry2d = ic['bed']
+    bathymetry2d = ic['bathymetry_2d']
     mesh2d = bathymetry2d.function_space().mesh()
 
     # Setup solver and stash QoI
@@ -85,6 +85,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
     options.horizontal_viscosity = Constant(1.0e-06)
     options.horizontal_diffusivity = Constant(0.15)
     options.nikuradse_bed_roughness = Constant(3*options.sediment_model_options.average_sediment_size)
+    options.output_directory = 'outputs/migrating_trench'
     model_options.setdefault('no_exports', True)
     options.update(model_options)
 
@@ -93,18 +94,18 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
         1: {'flux': Constant(-0.22)},
         2: {'elev': Constant(0.397)},
     }
-    solver_obj.bnd_functions['sediment'] = {
+    solver_obj.bnd_functions['sediment_2d'] = {
         1: {'flux': Constant(-0.22), 'equilibrium': None},
         2: {'elev': Constant(0.397)},
     }
 
     # Apply initial conditions
-    uv, elev = ic['uv-elev'].split()
-    solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=ic['sediment'])
+    uv, elev = ic['solution_2d'].split()
+    solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=ic['sediment_2d'])
     solutions = {
-        'uv-elev': solver_obj.fields.solution_2d,
-        'sediment': solver_obj.fields.sediment_2d,
-        'bed': solver_obj.fields.bathymetry_2d,
+        'solution_2d': solver_obj.fields.solution_2d,
+        'sediment_2d': solver_obj.fields.sediment_2d,
+        'bathymetry_2d': solver_obj.fields.bathymetry_2d,
     }
 
     def update_forcings(t):
@@ -133,9 +134,9 @@ def initial_condition(fs):
     and velocity and elevation are given
     constant values.
     """
-    q_init = Function(fs['uv-elev'][0])
-    sediment_init = Function(fs['sediment'][0])
-    bed_init = Function(fs['bed'][0])
+    q_init = Function(fs['solution_2d'][0])
+    sediment_init = Function(fs['sediment_2d'][0])
+    bed_init = Function(fs['bathymetry_2d'][0])
 
     uv_init, elev_init = q_init.split()
     uv_init.interpolate(as_vector([0.51, 0.0]))
@@ -166,9 +167,9 @@ def initial_condition(fs):
     )
 
     return {
-        'uv-elev': q_init,
-        'sediment': sediment_init,
-        'bed': bed_init,
+        'solution_2d': q_init,
+        'sediment_2d': sediment_init,
+        'bathymetry_2d': bed_init,
     }
 
 
@@ -177,7 +178,7 @@ def time_integrated_qoi(sol, t):
     Quantity of interest which integrates
     sediment over the domain.
     """
-    s = sol['sediment']
+    s = sol['sediment_2d']
     return s*dx
 
 

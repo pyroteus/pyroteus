@@ -18,11 +18,11 @@ from pyroteus_adjoint import *
 
 from burgers import solver, initial_condition, end_time_qoi
 
-fields = ['velocity']
+fields = ['uv_2d']
 n = 32
 mesh = UnitSquareMesh(n, n, diagonal='left')
 V = VectorFunctionSpace(mesh, "CG", 2)
-function_spaces = {'velocity': [V, V]}
+function_spaces = {'uv_2d': [V, V]}
 end_time = 0.5
 dt = 1/n
 
