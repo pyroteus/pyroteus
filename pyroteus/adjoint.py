@@ -50,7 +50,7 @@ def wrap_qoi(qoi):
     @wraps(qoi)
     def wrapper(*args, **kwargs):
         j = firedrake.assemble(qoi(*args, **kwargs))
-        j.adj_value = 1.0
+        j.block_variable.adj_value = 1.0
         return j
 
     return wrapper
@@ -147,7 +147,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
         else:
             with pyadjoint.stop_annotating():
                 for field, fs in function_spaces.items():
-                    sols[field].adj_value = project(seeds[field], fs[i], adjoint=True)
+                    sols[field].block_variable.adj_value = project(seeds[field], fs[i], adjoint=True)
 
         # Solve adjoint problem
         m = pyadjoint.enlisting.Enlist(controls)
