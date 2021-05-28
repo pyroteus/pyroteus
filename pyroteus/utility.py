@@ -73,6 +73,19 @@ def Mesh(arg, **kwargs):
     return mesh
 
 
+class File(firedrake.output.File):
+    """
+    Overload Firedrake's ``File`` class so that
+    it uses ``adaptive`` mode by default. Whilst
+    this means that the mesh topology is
+    recomputed at every export, it removes any
+    need for the user to reset it manually.
+    """
+    def __init__(*args, **kwargs):
+        kwargs.setdefault('adaptive', True)
+        super(File, self).__init__(*args, **kwargs)
+
+
 def prod(arr):
     """
     Take the product over elements in an array.
