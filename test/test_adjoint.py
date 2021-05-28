@@ -130,5 +130,6 @@ def test_adjoint_same_mesh(problem, qoi_type):
 # def test_adjoint_same_mesh_parallel(problem, qoi_type):
 #     test_adjoint_same_mesh(problem, qoi_type)
 
+
 if __name__ == "__main__":
     test_adjoint_same_mesh("migrating_trench", "end_time")
