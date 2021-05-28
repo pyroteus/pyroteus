@@ -35,6 +35,9 @@ class TimePartition(object):
             (non)linear solves per timestep
             corresponding to the fields (defaults
             to 1 for each)
+        :kwarg subinterals: user-provided sequence
+            of subintervals, which need not be of
+            uniform length (defaults to None)
         """
         if isinstance(fields, str):
             fields = [fields]
@@ -53,15 +56,20 @@ class TimePartition(object):
         self.print("solves_per_timestep")
         self.interval = (start_time, end_time)
         self.print("interval")
-        self.subinterval_time = (end_time - start_time)/num_subintervals
-        self.print("subinterval_time")
-        # TODO: Allow non-uniform subintervals by passing a subintervals=None kwarg
 
         # Get subintervals
-        self.subintervals = [
-            (start_time + i*self.subinterval_time, start_time + (i+1)*self.subinterval_time)
-            for i in range(num_subintervals)
-        ]
+        self.subintervals = kwargs.get('subintervals')
+        if self.subintervals is None:
+            subinterval_time = (end_time - start_time)/num_subintervals
+            self.subintervals = [
+                (start_time + i*subinterval_time, start_time + (i+1)*subinterval_time)
+                for i in range(num_subintervals)
+            ]
+        assert len(self.subintervals) == num_subintervals
+        assert np.isclose(self.subintervals[0][0], start_time)
+        for i in range(1, num_subintervals):
+            assert np.isclose(self.subinterval[i][0], self.subinterval[i-1][1])
+        assert np.isclose(self.subintervals[-1][1], end_time)
         self.print("subintervals")
 
         # Get timestep on each subinterval
