@@ -68,7 +68,7 @@ class TimePartition(object):
         assert len(self.subintervals) == num_subintervals
         assert np.isclose(self.subintervals[0][0], start_time)
         for i in range(1, num_subintervals):
-            assert np.isclose(self.subinterval[i][0], self.subinterval[i-1][1])
+            assert np.isclose(self.subintervals[i][0], self.subintervals[i-1][1])
         assert np.isclose(self.subintervals[-1][1], end_time)
         self.print("subintervals")
 
@@ -160,5 +160,5 @@ class TimePartition(object):
             for block in get_working_tape().get_blocks()
             if issubclass(block.__class__, GenericSolveBlock)
             and not issubclass(block.__class__, ProjectBlock)
-            and block.adj_sol is not None  # FIXME: Why are they all None for new Firedrake?
+            and block.adj_sol is not None
         ][offset - self.timesteps_per_subinterval[subinterval]*stride::stride]
