@@ -88,9 +88,9 @@ def test_adjoint_same_mesh(problem, qoi_type):
         solver_kwargs['qoi'] = lambda *args: assemble(qoi(*args))
     ic = test_case.initial_condition({field: [fs[field]] for field in fields})
     controls = [Control(value) for key, value in ic.items()]
-    sol, J = test_case.solver(ic, 0.0, end_time, test_case.dt, **solver_kwargs)
+    sols, J = test_case.solver(ic, 0.0, end_time, test_case.dt, **solver_kwargs)
     if qoi_type == 'end_time':
-        J = assemble(qoi(sol))
+        J = assemble(qoi(sols))
     pyadjoint.compute_gradient(J, controls)  # FIXME: gradient w.r.t. mixed function not correct
     J_expected = float(J)
     adj_sols_expected = {
@@ -129,3 +129,6 @@ def test_adjoint_same_mesh(problem, qoi_type):
 # @pytest.mark.parallel
 # def test_adjoint_same_mesh_parallel(problem, qoi_type):
 #     test_adjoint_same_mesh(problem, qoi_type)
+
+if __name__ == "__main__":
+    test_adjoint_same_mesh("migrating_trench", "end_time")
