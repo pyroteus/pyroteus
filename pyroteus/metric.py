@@ -249,10 +249,17 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
         h_max = [Constant(h_max)]*len(metrics)
     for metric, hmin, hmax in zip(metrics, h_min, h_max):
         fs = metric.function_space()
-        P1 = FunctionSpace(fs.mesh(), "CG", 1)
+        mesh = fs.mesh()
+
+        # Convert and validate h_min and h_max
+        P1 = FunctionSpace(mesh, "CG", 1)
         hmin = project(hmin, P1)
+        hmin.interpolate(abs(hmin))
         hmax = project(hmax, P1)
-        # TODO: Validate input
+        hmax.interpolate(abs(hmax))
+        assert np.isclose(assemble(conditional(hmax < hmin, 1, 0)*dx(domain=mesh)), 0.0)
+
+        # Enforce constraints
         dim = fs.mesh().topological_dimension()
         kernel = kernels.eigen_kernel(kernels.postproc_metric, dim, a_max)
         op2.par_loop(kernel, fs.node_set,
