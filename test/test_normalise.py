@@ -6,14 +6,28 @@ from sensors import *
 import pytest
 
 
-def unit_mesh(name, mesh):
+def unit_mesh(sensor, mesh, target, degree, num_iterations=3):
     """
-    Given some sensor function,
+    Obtain a quasi-unit mesh with respect to the
+    Hessian of a given ``sensor`` function, subject
+    to a target metric complexity ``target`` under
+    ``degree`` for :math:`L^p` normalisation,
+    starting from some input ``mesh``.
+
+    :kwarg num_iterations: how many times should
+        mesh adaptation be applied?
     """
-    if name == 'bowl':
-        return mesh
-    else:
+    try:
+        from firedrake import adapt
+    except ImportError:
         pytest.xfail("Need mesh adaptation capability")
+    for i in range(num_iterations):
+        f = sensor(*mesh.coordinates)
+        H = recover_hessian(f, mesh=mesh)
+        M = hessian_metric(H)
+        space_normalise(M, target, degree)
+        mesh = adapt(mesh, M)
+    return mesh
 
 
 # ---------------------------
@@ -43,7 +57,7 @@ def test_space_normalise(sensor, degree, target=1000.0):
 
     # Get a unit mesh for the sensor
     f = sensor(*mesh.coordinates)
-    mesh = unit_mesh(sensor.__name__, mesh)
+    mesh = unit_mesh(sensor, mesh, target, degree)
 
     # Construct a space-normalised Hessian metric
     f = sensor(*mesh.coordinates)
@@ -51,8 +65,11 @@ def test_space_normalise(sensor, degree, target=1000.0):
     M = hessian_metric(H)
     space_normalise(M, target, degree)
 
-    # Check that the target metric complexity is attained
-    assert np.isclose(metric_complexity(M), target)
+    # Check that the target metric complexity is (approximately) attained
+    if degree == 'inf':
+        assert np.isclose(metric_complexity(M), target)
+    else:
+        assert abs(metric_complexity(M) - target) < 0.1*target
 
 
 # FIXME
