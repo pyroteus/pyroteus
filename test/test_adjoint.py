@@ -39,6 +39,7 @@ def handle_exit_annotation():
 @pytest.fixture(params=[
     "burgers",
     "solid_body_rotation",
+    "solid_body_rotation_split",
     "rossby_wave",
     "migrating_trench",
 ])
