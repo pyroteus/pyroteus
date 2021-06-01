@@ -38,6 +38,24 @@ def wrap_solver(solver):
     return wrapper
 
 
+def count_qoi_args(qoi):
+    """
+    Determine whether the QoI contains
+    a time integral based on its
+    argument count.
+    """
+    num_kwargs = 0 if qoi.__defaults__ is None else len(qoi.__defaults__)
+    if num_kwargs > 0:
+        print("WARNING: QoI has kwargs which will be unused")
+    num_args = qoi.__code__.co_argcount - num_kwargs
+    if num_args == 1:
+        return 'end_time'
+    elif num_args == 2:
+        return 'time_integrated'
+    else:
+        raise ValueError(f"QoI should have 1 or 2 args, not {num_args}")
+
+
 def wrap_qoi(qoi):
     """
     Wrapper for contributions to a quantity of interest which sets
@@ -53,7 +71,7 @@ def wrap_qoi(qoi):
         j.block_variable.adj_value = 1.0
         return j
 
-    return wrapper
+    return wrapper, count_qoi_args(qoi)
 
 
 def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partition, **kwargs):
@@ -98,10 +116,6 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     :return solution: an :class:`AttrDict` containing
         solution fields and their lagged versions.
     """
-    import inspect
-    nargs = len(inspect.getfullargspec(qoi).args)
-    # assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
-    assert nargs >= 1, "QoI should have at least one argument"  # FIXME: kwargs are counted as args
     fields = time_partition.fields
 
     # Solve forward to get checkpoints and evaluate QoI
@@ -123,9 +137,9 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
 
     # Wrap solver and QoI
     wrapped_solver = wrap_solver(solver)
-    wrapped_qoi = wrap_qoi(qoi)
+    wrapped_qoi, qoi_type = wrap_qoi(qoi)
     solver_kwargs = kwargs.get('solver_kwargs', {})
-    if nargs > 1:
+    if qoi_type == 'time_integrated':
         solver_kwargs['qoi'] = wrapped_qoi
     solver_kwargs['fields'] = fields
 
@@ -142,8 +156,8 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
 
         # Get seed vector for reverse mode propagation
         if i == time_partition.num_subintervals-1:
-            if nargs == 1:
-                J = wrapped_qoi(sols)  # TODO: What about kwargs?
+            if qoi_type == 'end_time':
+                J = wrapped_qoi(sols)  # NOTE: any kwargs will use the default
         else:
             with pyadjoint.stop_annotating():
                 for field, fs in function_spaces.items():
@@ -216,14 +230,11 @@ def get_checkpoints(solver, initial_condition, qoi, function_spaces, time_partit
     :return checkpoints: forward solution data at the beginning
         of each subinterval
     """
-    import inspect
-    nargs = len(inspect.getfullargspec(qoi).args)
-    # assert nargs in (1, 2), f"QoI has more arguments than expected ({nargs})"
-    assert nargs >= 1, "QoI should have at least one argument"  # FIXME: kwargs are counted as args
+    qoi_type = count_qoi_args(qoi)
 
     # Solve forward to get checkpoints and evaluate QoI
     solver_kwargs = kwargs.get('solver_kwargs', {})
-    if nargs > 1:
+    if qoi_type == 'time_integrated':
         solver_kwargs['qoi'] = lambda *args, **kwargs: firedrake.assemble(qoi(*args, **kwargs))
     J = 0
     checkpoints = [initial_condition(function_spaces)]
@@ -234,6 +245,6 @@ def get_checkpoints(solver, initial_condition, qoi, function_spaces, time_partit
                 field: project(sols[field], fs[i+1])
                 for field, fs in function_spaces.items()
             })
-    if nargs == 1:
-        J = firedrake.assemble(qoi(sols))  # TODO: What about kwargs?
+    if qoi_type == 'end_time':
+        J = firedrake.assemble(qoi(sols))  # NOTE: any kwargs will use the default
     return J, checkpoints
