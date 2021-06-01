@@ -149,6 +149,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
 
     # Loop over subintervals in reverse
     seeds = None
+    warned = False
     for i in reversed(range(time_partition.num_subintervals)):
 
         # Annotate tape on current subinterval
@@ -174,16 +175,23 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
 
             # Get old solution dependency index
             solve_blocks = time_partition.get_solve_blocks(field, subinterval=i)
-            for dep_index, dep in enumerate(solve_blocks[0].get_dependencies()):
-                if hasattr(dep.output, 'function_space'):
-                    if dep.output.function_space() == solve_blocks[0].function_space:
-                        break
-            # FIXME: What if other dependencies are in the prognostic space?
+            forward_old_index = [
+                dep_index
+                for dep_index, dep in enumerate(solve_blocks[0].get_dependencies())
+                if hasattr(dep.output, 'function_space')
+                and dep.output.function_space() == solve_blocks[0].function_space
+            ]
+            if not warned and len(forward_old_index) != 1:
+                print("WARNING: Solve block has dependencies in the prognostic space other than the PDE solution"
+                      + f" at the previous timestep. (Dependency indices {forward_old_index}). Naively assuming"
+                      + " the first one to be the right one.")  # FIXME
+                warned = True
+            forward_old_index = forward_old_index[0]
 
             # Extract solution data
             sols = solutions[field]
             for j, block in enumerate(solve_blocks[::time_partition.timesteps_per_export[i]]):
-                sols.forward_old[i][j].assign(block.get_dependencies()[dep_index].saved_output)
+                sols.forward_old[i][j].assign(block.get_dependencies()[forward_old_index].saved_output)
                 sols.forward[i][j].assign(block.get_outputs()[0].saved_output)
                 sols.adjoint[i][j].assign(block.adj_sol)
                 sols.adjoint_next[i][j].assign(solve_blocks[j+1].adj_sol)

@@ -76,7 +76,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
     test_case = importlib.import_module(problem)
     fs = test_case.function_space
     end_time = test_case.end_time
-    if "solid_body_rotation" in problem and qoi_type == "time_integrated":
+    if "solid_body_rotation" in problem:
         end_time /= 4  # Reduce testing time
     qoi = test_case.end_time_qoi if qoi_type == 'end_time' else test_case.time_integrated_qoi
     assert count_qoi_args(qoi) == qoi_type, "Inconsistent QoI type"
