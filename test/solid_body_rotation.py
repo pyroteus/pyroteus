@@ -31,18 +31,19 @@ mesh = Mesh(coords)
 fields = ['tracer_2d']
 function_space = {'tracer_2d': FunctionSpace(mesh, "DQ", 1)}
 solves_per_dt = [3]
-end_time = 2*pi
+full_rotation = 2*pi
+end_time = full_rotation
 dt = pi/300
 dt_per_export = 75
 
 
-def solver(ic, t_start, t_end, dt, J=0, qoi=None):
+def solver(ic, t_start, t_end, dt, J=0, qoi=None, label='tracer_2d'):
     """
     Solve an advection-diffusion equation on a
     subinterval (t_start, t_end), given some
     initial conditions `ic` and a timestep `dt`.
     """
-    V = ic['tracer_2d'].function_space()
+    V = ic[label].function_space()
     mesh = V.mesh()
     x, y = SpatialCoordinate(mesh)
     W = VectorFunctionSpace(mesh, "CG", 1)
@@ -53,7 +54,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
 
     # Set initial condition
     q = Function(V)
-    q.assign(ic['tracer_2d'])
+    q.assign(ic[label])
 
     # Set inflow condition value
     q_in = Constant(1.0)
@@ -93,9 +94,27 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
         solv3.solve()
         q.assign((1.0/3.0)*q + (2.0/3.0)*(q2 + dq))
         if qoi is not None:
-            J += qoi({'tracer_2d': q}, t)
+            J += qoi({label: q}, t)
         t += dt
-    return {'tracer_2d': q}, J
+    return {label: q}, J
+
+
+def bell_initial_condition(x, y, fs):
+    bell_r0, bell_x0, bell_y0 = 0.15, -0.25, 0.0
+    return 0.25*(1 + cos(pi*min_value(sqrt(pow(x-bell_x0, 2) + pow(y-bell_y0, 2))/bell_r0, 1.0)))
+
+
+def cone_initial_condition(x, y, fs):
+    cone_r0, cone_x0, cone_y0 = 0.15, 0.0, -0.25
+    return 1.0 - min_value(sqrt(pow(x-cone_x0, 2) + pow(y-cone_y0, 2))/cone_r0, 1.0)
+
+
+def slot_cyl_initial_condition(x, y, fs):
+    cyl_r0, cyl_x0, cyl_y0 = 0.15, 0.0, 0.25
+    slot_left, slot_right, slot_top = -0.025, 0.025, 0.35
+    return conditional(
+        sqrt(pow(x-cyl_x0, 2) + pow(y-cyl_y0, 2)) < cyl_r0, conditional(
+            And(And(x > slot_left, x < slot_right), y < slot_top), 0.0, 1.0), 0.0)
 
 
 @pyadjoint.no_annotations
@@ -111,59 +130,52 @@ def initial_condition(fs, coordinates=None):
         x, y = coordinates
     else:
         x, y = SpatialCoordinate(init_fs.mesh())
-
-    bell_r0, bell_x0, bell_y0 = 0.15, -0.25, 0.0
-    cone_r0, cone_x0, cone_y0 = 0.15, 0.0, -0.25
-    cyl_r0, cyl_x0, cyl_y0 = 0.15, 0.0, 0.25
-    slot_left, slot_right, slot_top = -0.025, 0.025, 0.35
-
-    bell = 0.25*(1 + cos(pi*min_value(sqrt(pow(x-bell_x0, 2) + pow(y-bell_y0, 2))/bell_r0, 1.0)))
-    cone = 1.0 - min_value(sqrt(pow(x-cone_x0, 2) + pow(y-cone_y0, 2))/cone_r0, 1.0)
-    slot_cyl = conditional(
-        sqrt(pow(x-cyl_x0, 2) + pow(y-cyl_y0, 2)) < cyl_r0, conditional(
-            And(And(x > slot_left, x < slot_right), y < slot_top), 0.0, 1.0), 0.0)
-
+    bell = bell_initial_condition(x, y, init_fs)
+    cone = cone_initial_condition(x, y, init_fs)
+    slot_cyl = slot_cyl_initial_condition(x, y, init_fs)
     return {'tracer_2d': interpolate(1.0 + bell + cone + slot_cyl, init_fs)}
 
 
-def time_integrated_qoi(sol, t):
+def time_integrated_qoi(sol, t, label='tracer_2d', exact=initial_condition):
     """
     Quantity of interest which
     integrates the square L2 error
     of the advected slotted cylinder
-    in time.
+    (or a specified shape) in time.
     """
-    q = sol['tracer_2d']
+    q = sol[label]
     V = q.function_space()
     mesh = V.mesh()
     x = SpatialCoordinate(mesh)
     W = VectorFunctionSpace(mesh, "CG", 1)
-    theta = -2*pi*t/end_time
+    theta = -2*pi*t/full_rotation
     X = interpolate(rotate(x, theta), W)
-    q_exact = initial_condition({'tracer_2d': V}, X)
+    q_exact = exact({label: V}, X)
+    r0 = 0.15
+    if label in ('tracer_2d', 'slot_cyl'):
+        x0, y0 = 0.0, 0.25
+    elif label == 'bell_2d':
+        x0, y0 = -0.25, 0.0
+    elif label == 'cone_2d':
+        x0, y0 = 0.0, -0.25
+    else:
+        raise ValueError(f"Tracer field {label} not recognised")
+    x0, y0 = interpolate(rotate(as_vector([x0, y0]), theta), W)
+    ball = conditional((x[0] - x0)**2 + (x[1] - y0)**2 < r0**2, 1.0, 0.0)
 
-    cyl_x, cyl_y, cyl_r = 0.0, 0.25, 0.15
-    cyl_x, cyl_y = interpolate(rotate(as_vector([cyl_x, cyl_y]), theta), W)
-    ball = conditional((x[0] - cyl_x)**2 + (x[1] - cyl_y)**2 < cyl_r**2, 1.0, 0.0)
-
-    return ball*(q-q_exact['tracer_2d'])**2*dx
+    return ball*(q-q_exact[label])**2*dx
 
 
+# def end_time_qoi(sol, label='tracer_2d', exact=initial_condition):  # TODO: kwargs for end_time
 def end_time_qoi(sol):
     """
     Quantity of interest which
     computes square L2 error of the
-    advected slotted cylinder.
+    advected slotted cylinder (or
+    specified shape).
     """
-    q = sol['tracer_2d']
-    V = q.function_space()
-    q_exact = initial_condition({'tracer_2d': V})
-
-    x, y = SpatialCoordinate(V.mesh())
-    cyl_x, cyl_y, cyl_r = 0.0, 0.25, 0.15
-    ball = conditional((x - cyl_x)**2 + (y - cyl_y)**2 < cyl_r**2, 1.0, 0.0)
-
-    return ball*(q-q_exact['tracer_2d'])**2*dx
+    # return time_integrated_qoi(sol, end_time, label=label, exact=exact)
+    return time_integrated_qoi(sol, end_time)
 
 
 # ---------------------------
