@@ -142,7 +142,7 @@ rows = P.exports_per_subinterval[0] - 1
 cols = P.num_subintervals
 fig, axes = plt.subplots(rows, cols, figsize=(6*cols, 24//cols))
 levels = np.linspace(0, 0.8, 9)
-for i, adj_sols_step in enumerate(solutions.velocity.adjoint):
+for i, adj_sols_step in enumerate(solutions.uv_2d.adjoint):
     ax = axes[0]
     ax.set_title(f"Mesh {i+1}")
     for j, adj_sol in enumerate(adj_sols_step):
