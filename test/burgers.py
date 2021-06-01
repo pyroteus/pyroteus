@@ -98,12 +98,15 @@ def end_time_qoi(sol):
 
 
 if __name__ == "__main__":
-    outfile = File('outputs/burgers/solution.pvd')
+    from pyroteus_adjoint import solve_adjoint, TimePartition
 
-    def qoi(sol, t):
-        outfile.write(sol['uv_2d'])
-        return assemble(time_integrated_qoi(sol, t))
-
-    ic = initial_condition(function_space)
-    sol, J = solver(ic, 0, end_time, dt, qoi=qoi)
+    # Solve adjoint problem
+    time_partition = TimePartition(end_time, 1, dt, fields, timesteps_per_export=dt_per_export)
+    J, sols = solve_adjoint(solver, initial_condition, end_time_qoi, function_space, time_partition)
     print(f"Quantity of interest: {J:.4e}")
+
+    # Plot lagged forward solution
+    outfile = File('outputs/burgers/solution_old.pvd')
+    for sol_old in sols.uv_2d.forward_old[0]:
+        sol_old.rename("solution_old")
+        outfile.write(sol_old)
