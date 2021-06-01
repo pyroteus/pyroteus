@@ -122,6 +122,8 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
     J, checkpoints = get_checkpoints(
         solver, initial_condition, qoi, function_spaces, time_partition, **kwargs,
     )
+    if np.isclose(float(J), 0.0):
+        print("WARNING: Zero QoI. Is it implemented as intended?")
 
     # Create arrays to hold exported foward and adjoint solutions
     solutions = AttrDict({
@@ -159,6 +161,8 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
         if i == time_partition.num_subintervals-1:
             if qoi_type == 'end_time':
                 J = wrapped_qoi(sols)  # NOTE: any kwargs will use the default
+                if np.isclose(float(J), 0.0):
+                    print("WARNING: Zero QoI. Is it implemented as intended?")
         else:
             with pyadjoint.stop_annotating():
                 for field, fs in function_spaces.items():
@@ -196,7 +200,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
                 sols.adjoint[i][j].assign(block.adj_sol)
                 sols.adjoint_next[i][j].assign(solve_blocks[j+1].adj_sol)
             if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
-                raise ValueError(f"Adjoint solution on subinterval {i} is zero")
+                print(f"WARNING: Adjoint solution for field {field} on subinterval {i} is zero.")
 
         # Get adjoint action
         seeds = {
@@ -206,7 +210,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
         }
         for field, seed in seeds.items():
             if np.isclose(norm(seed), 0.0):
-                raise ValueError(f"Adjoint action for field {field} on subinterval {i} is zero")
+                print(f"WARNING: Adjoint action for field {field} on subinterval {i} is zero.")
         tape.clear_tape()
 
     return J, solutions
