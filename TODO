@@ -1,0 +1,41 @@
+Functionality
+=============
+
+* Mmg as mesh adaptation backend.
+* Enrichment methods
+  - Test global enrichment
+  - Local enrichment + test
+  - Zienkiewicz-Zhu superconvergent recovery + test
+* Linear interpolation
+
+
+Testing
+=======
+
+* Fix migrating trench adjoint test
+* Gray-Scott model as an example with subintervals of different lengths and timesteps
+
+
+Documentation
+=============
+
+* Create GitHub organisation
+* Create github.io repo
+* Hook up website
+* Metric-based manual
+* Error estimation manual
+* Adaptation manual
+* Installation/setup instructions
+
+
+Demos
+=====
+
+* Adjoint
+  - ...
+
+* Metric-based
+  - ...
+
+* Goal-based
+  - ...
