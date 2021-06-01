@@ -128,7 +128,8 @@ def test_adjoint_same_mesh(problem, qoi_type):
             adj_sol_expected = adj_sols_expected[field]
             adj_sol_computed = solutions[field].adjoint[0][0]
             err = errornorm(adj_sol_expected, adj_sol_computed)/norm(adj_sol_expected)
-            assert np.isclose(err, 0.0), f"Non-zero adjoint error ({err})"
+            assert np.isclose(err, 0.0), "Adjoint solutions at initial time do not match." \
+                                         + f"(Error {err:.4e}.)"
 
 
 @pytest.mark.parallel
