@@ -120,9 +120,9 @@ def slot_cyl_initial_condition(x, y, fs):
 @pyadjoint.no_annotations
 def initial_condition(fs, coordinates=None):
     """
-    Initial condition for tracer
-    transport problem consisting of a
-    bell, cone and slotted cylinder.
+    Initial condition consisting of
+    the sum of a bell, cone and
+    slotted cylinder.
     """
     init_fs = fs['tracer_2d'][0]
     if coordinates is not None:
@@ -136,13 +136,16 @@ def initial_condition(fs, coordinates=None):
     return {'tracer_2d': interpolate(1.0 + bell + cone + slot_cyl, init_fs)}
 
 
-def time_integrated_qoi(sol, t, label='tracer_2d', exact=initial_condition):
+def time_integrated_qoi(sol, t, exact=initial_condition):
     """
     Quantity of interest which
     integrates the square L2 error
     of the advected slotted cylinder
     (or a specified shape) in time.
     """
+    labels = list(sol.keys())
+    assert len(labels) == 1
+    label = labels[0]
     q = sol[label]
     V = q.function_space()
     mesh = V.mesh()
@@ -152,7 +155,7 @@ def time_integrated_qoi(sol, t, label='tracer_2d', exact=initial_condition):
     X = interpolate(rotate(x, theta), W)
     q_exact = exact({label: V}, X)
     r0 = 0.15
-    if label in ('tracer_2d', 'slot_cyl'):
+    if label in ('tracer_2d', 'slot_cyl_2d'):
         x0, y0 = 0.0, 0.25
     elif label == 'bell_2d':
         x0, y0 = -0.25, 0.0
@@ -162,20 +165,21 @@ def time_integrated_qoi(sol, t, label='tracer_2d', exact=initial_condition):
         raise ValueError(f"Tracer field {label} not recognised")
     x0, y0 = interpolate(rotate(as_vector([x0, y0]), theta), W)
     ball = conditional((x[0] - x0)**2 + (x[1] - y0)**2 < r0**2, 1.0, 0.0)
-
     return ball*(q-q_exact[label])**2*dx
 
 
-# def end_time_qoi(sol, label='tracer_2d', exact=initial_condition):  # TODO: kwargs for end_time
-def end_time_qoi(sol):
+def end_time_qoi(sol, exact=initial_condition):
     """
     Quantity of interest which
     computes square L2 error of the
     advected slotted cylinder (or
-    specified shape).
+    specified shape) at the
+    simulation end time.
     """
-    # return time_integrated_qoi(sol, end_time, label=label, exact=exact)
-    return time_integrated_qoi(sol, end_time)
+    ret = 0
+    for key, value in sol.items():
+        ret += time_integrated_qoi({key: value}, end_time, exact=exact)
+    return ret
 
 
 # ---------------------------
