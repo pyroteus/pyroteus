@@ -79,7 +79,7 @@ class File(firedrake.output.File):
     recomputed at every export, it removes any
     need for the user to reset it manually.
     """
-    def __init__(*args, **kwargs):
+    def __init__(self, *args, **kwargs):
         kwargs.setdefault('adaptive', True)
         super(File, self).__init__(*args, **kwargs)
 

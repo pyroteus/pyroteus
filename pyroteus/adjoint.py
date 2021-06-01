@@ -186,9 +186,10 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
                 and dep.output.function_space() == solve_blocks[0].function_space
             ]
             if not warned and len(forward_old_index) != 1:
-                print("WARNING: Solve block has dependencies in the prognostic space other than the PDE solution"
-                      + f" at the previous timestep. (Dependency indices {forward_old_index}). Naively assuming"
-                      + " the first one to be the right one.")  # FIXME
+                print("WARNING: Solve block has dependencies in the prognostic space other than\n"
+                      + "  the PDE solution at the previous timestep.\n"
+                      + f"  (Dependency indices {forward_old_index}).\n"
+                      + "  Naively assuming the first one to be the right one.")  # FIXME
                 warned = True
             forward_old_index = forward_old_index[0]
 
