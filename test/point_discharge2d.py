@@ -179,6 +179,9 @@ def dwr_indicator(base_fs, **kwargs):
     J, sols = global_enrichment(solver, initial_condition, end_time_qoi, base_fs, P, **kwargs)
     c_star = sols.tracer_2d.adjoint[0][0]
 
+    # Do not annotate error estimation
+    pyadjoint.pause_annotation()
+
     # Transfer to enriched space
     fs = c_star.function_space()
     ch = project(base_sols.tracer_2d.forward[0][0], fs)       # TODO: Prolong
@@ -201,15 +204,28 @@ def dwr_indicator(base_fs, **kwargs):
     adjoint_error = adjoint_error + tau*dot(u, grad(adjoint_error))
 
     # Evaluate error indicator and transfer to base space
-    F = p0test*S*adjoint_error*dx \
-        - p0test*dot(u, grad(ch))*adjoint_error*dx \
-        - p0test*inner(D*grad(ch), grad(adjoint_error))*dx \
-        + p0test*dot(grad(ch), n)*adjoint_error*ds(2)
-    # NOTE: No integration by parts has been applied
-
-    # Transfer back to the base space
-    error_indicator = project(assemble(F), P0_base)
+    error_indicator = Function(P0_base)
+    if kwargs.get('integrate_by_parts', True):
+        R = assemble(p0test*(S - dot(u, grad(ch)) + div(D*grad(ch)))*dx)
+        flux = p0test*dot(grad(ch), n)
+        flux_terms = - flux('+')*dS - flux('-')*dS - flux*ds(1) - flux*ds(3) - flux*ds(4)
+        mass_term = TrialFunction(P0)*p0test*dx
+        r = Function(P0)
+        sp = {'snes_type': 'ksponly', 'ksp_type': 'preonly', 'pc_type': 'jacobi'}
+        solve(mass_term == flux_terms, r, solver_parameters=sp)
+        error_indicator.project(interpolate(abs((R + r)*adjoint_error), P0))
+        # error_indicator.project(abs((R + r)*adjoint_error))
+    else:
+        F = p0test*S*adjoint_error*dx \
+            - p0test*dot(u, grad(ch))*adjoint_error*dx \
+            - p0test*inner(D*grad(ch), grad(adjoint_error))*dx \
+            + p0test*dot(grad(ch), n)*adjoint_error*ds(2)
+        error_indicator.project(assemble(F))
     error_indicator.interpolate(abs(error_indicator))
+
+    # Resume annotation
+    pyadjoint.continue_annotation()
+
     return error_indicator, Jh, J
 
 
@@ -220,14 +236,19 @@ if __name__ == "__main__":
     from pyroteus.time_partition import TimePartition  # noqa
     from pyroteus.utility import File
 
+    # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('enrichment_method')
-    method = parser.parse_args().enrichment_method
+    parser.add_argument('-num_meshes')
+    parser.add_argument('-integrate_by_parts')
+    args = parser.parse_args()
+    method = args.enrichment_method
     assert method in ('h', 'p', 'hp')
+    ibp = bool(args.integrate_by_parts or False)
 
     # Setup function space
     outfile = File(f"outputs/point_discharge2d/error_indicator_{method}_{n}.pvd")
-    for n in range(5):
+    for n in range(int(args.num_meshes or 5)):
         mesh = RectangleMesh(100*2**n, 20*2**n, 50, 10)
         function_space = {'tracer_2d': FunctionSpace(mesh, "CG", 1)}
 
@@ -237,7 +258,8 @@ if __name__ == "__main__":
             File("outputs/point_discharge2d/analytical.pvd").write(c)
 
         # Plot error indicator
-        eta, Jh, J = dwr_indicator(function_space, enrichment_method=method, warn=False)
+        eta, Jh, J = dwr_indicator(function_space, enrichment_method=method, warn=False,
+                                   integrate_by_parts=ibp)
         outfile.write(eta)
 
         # Compute effectivity index
