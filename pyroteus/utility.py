@@ -83,6 +83,20 @@ class File(firedrake.output.File):
         kwargs.setdefault('adaptive', True)
         super(File, self).__init__(*args, **kwargs)
 
+    def _write_vtu(self, *functions):
+        """
+        Overload the Firedrake functionality
+        under the blind assumption that the
+        same list of functions are outputted
+        each time (albeit on different meshes).
+        """
+        if self._fnames is not None:
+            assert len(self._fnames) == len(functions), "Writing different set of functions"
+            for name, f in zip(self._fnames, functions):
+                if f.name() != name:
+                    f.rename(name)
+        return super(File, self)._write_vtu(*functions)
+
 
 def prod(arr):
     """
