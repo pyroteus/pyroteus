@@ -153,12 +153,17 @@ class TimePartition(object):
         from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
         from pyadjoint import get_working_tape
 
-        offset = sum(self.solves_per_timestep[:self.fields.index(field) + 1])
-        stride = sum(self.solves_per_timestep)
-        return [
+        solve_blocks = [
             block
             for block in get_working_tape().get_blocks()
             if issubclass(block.__class__, GenericSolveBlock)
             and not issubclass(block.__class__, ProjectBlock)
             and block.adj_sol is not None
-        ][offset - self.timesteps_per_subinterval[subinterval]*stride::stride]
+        ]
+        if self.debug:
+            print("Solve blocks before slicing:")
+            for i, block in enumerate(solve_blocks):
+                print(i, type(block))
+        offset = sum(self.solves_per_timestep[:self.fields.index(field) + 1])
+        stride = sum(self.solves_per_timestep)
+        return solve_blocks[offset - self.timesteps_per_subinterval[subinterval]*stride::stride]
