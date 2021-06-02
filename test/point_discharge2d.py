@@ -23,9 +23,9 @@ import pyadjoint
 n = 0
 mesh = RectangleMesh(100*2**n, 20*2**n, 50, 10)
 fields = ['tracer_2d']
-function_space = {'tracer_2d': FunctionSpace(mesh, "CG", 1)}
+function_space = {'tracer_2d': [FunctionSpace(mesh, "CG", 1)]}
 solves_per_dt = [1]
-end_time = 18.0
+end_time = 20.0
 dt = 20.0
 dt_per_export = 1
 src_x, src_y, src_r = 2.0, 5.0, 0.05606388
@@ -46,9 +46,9 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     """
     Solve an advection-diffusion equation
     with a point source. Note that none of
-    the arguments are used, except ``ic``,
-    which solely used to provide the
-    :class:`FunctionSpace`.
+    the arguments are used, except ``ic``.
+    It is important that the solution is
+    dependent on this input.
     """
     if qoi is not None:
         raise ValueError("Time integrated QoIs don't make sense for steady-state problems")
@@ -59,6 +59,10 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     h = CellSize(fs.mesh())
     S = source(fs.mesh())
 
+    # Ensure dependence on initial condition
+    c = Function(fs)
+    c.assign(ic['tracer_2d'])
+
     # Stabilisation parameter
     unorm = sqrt(dot(u, u))
     tau = 0.5*h/unorm
@@ -67,11 +71,10 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     # Setup variational problem
     psi = TestFunction(fs)
     psi = psi + tau*dot(u, grad(psi))
-    c = TrialFunction(fs)
-    a = dot(u, grad(c))*psi*dx \
-        + inner(D*grad(c), grad(psi))*dx \
-        - dot(grad(c), n)*psi*ds(2)
-    L = S*psi*dx
+    F = S*psi*dx \
+        - dot(u, grad(c))*psi*dx \
+        - inner(D*grad(c), grad(psi))*dx \
+        + dot(grad(c), n)*psi*ds(2)
     bc = DirichletBC(fs, 0, 1)
 
     # Solve
@@ -81,9 +84,8 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
         'pc_type': 'lu',
         'pc_factor_mat_solver_type': 'mumps',
     }
-    ch = Function(fs)
-    solve(a == L, ch, bcs=bc, solver_parameters=sp)
-    return {'tracer_2d': ch}, J
+    solve(F == 0, c, bcs=bc, solver_parameters=sp)
+    return {'tracer_2d': c}, J
 
 
 @pyadjoint.no_annotations
@@ -93,7 +95,7 @@ def initial_condition(fs):
     acts merely to pass over the
     :class:`FunctionSpace`.
     """
-    return {'tracer_2d': Function(fs['tracer_2d'])}
+    return {'tracer_2d': Function(fs['tracer_2d'][0])}
 
 
 def end_time_qoi(sol):
@@ -153,11 +155,84 @@ def analytical_solution(mesh):
     return 0.5/(pi*D)*exp(Pe*(x - src_x))*bessk0(Pe*r)
 
 
+def dwr_indicator(base_fs, **kwargs):
+    """
+    Compute DWR indicator for a given ``mesh``
+    using global enrichment.
+
+    Keyword arguments are passed to
+    ``global_enrichment``.
+    """
+    from pyroteus.adjoint import solve_adjoint         # noqa
+    from pyroteus.enrichment import global_enrichment
+    from pyroteus.time_partition import TimePartition  # noqa
+
+    # Construct enriched space
+    P = TimePartition(end_time, 1, dt, ['tracer_2d'])
+    P0_base = FunctionSpace(base_fs['tracer_2d'].mesh(), "DG", 0)
+
+    # Solve in base space
+    Jh, base_sols = solve_adjoint(solver, initial_condition, end_time_qoi, base_fs, P)
+
+    # Solve in enriched space
+    J, sols = global_enrichment(solver, initial_condition, end_time_qoi, base_fs, P, **kwargs)
+    c_star = sols.tracer_2d.adjoint[0][0]
+
+    # Transfer to enriched space
+    fs = c_star.function_space()
+    ch = project(base_sols.tracer_2d.forward[0][0], fs)       # TODO: Prolong
+    ch_star = project(base_sols.tracer_2d.adjoint[0][0], fs)  # TODO: Prolong
+    adjoint_error = c_star - ch_star
+    P0 = FunctionSpace(fs.mesh(), "DG", 0)
+    p0test = TestFunction(P0)
+
+    # Physical parameters
+    u = Constant(as_vector([1.0, 0.0]))
+    D = Constant(0.1)
+    n = FacetNormal(fs.mesh())
+    h = CellSize(fs.mesh())
+    S = source(fs.mesh())
+
+    # Stabilisation parameter
+    unorm = sqrt(dot(u, u))
+    tau = 0.5*h/unorm
+    tau = min_value(tau, unorm*h/(6*D))
+    adjoint_error = adjoint_error + tau*dot(u, grad(adjoint_error))
+
+    # Evaluate error indicator and transfer to base space
+    F = p0test*S*adjoint_error*dx \
+        - p0test*dot(u, grad(ch))*adjoint_error*dx \
+        - p0test*inner(D*grad(ch), grad(adjoint_error))*dx \
+        + p0test*dot(grad(ch), n)*adjoint_error*ds(2)
+    # NOTE: No integration by parts has been applied
+
+    # Transfer back to the base space
+    error_indicator = project(assemble(F), P0_base)
+    error_indicator.interpolate(abs(error_indicator))
+    return error_indicator, Jh, J
+
+
 if __name__ == "__main__":
-    n = 4
+    from pyroteus.adjoint import solve_adjoint         # noqa
+    from pyroteus.enrichment import effectivity_index
+    from pyroteus.time_partition import TimePartition  # noqa
+
+    # Setup function space
+    n = 0
     mesh = RectangleMesh(100*2**n, 20*2**n, 50, 10)
     function_space = {'tracer_2d': FunctionSpace(mesh, "CG", 1)}
+
+    # Plot analytical solution
     c = interpolate(analytical_solution(mesh), function_space['tracer_2d'])
     File("outputs/point_discharge2d/analytical.pvd").write(c)
-    sols, J = solver(initial_condition(function_space), 0, end_time, dt)
-    File("outputs/point_discharge2d/finite_element.pvd").write(sols['tracer_2d'])
+
+    # Plot error indicator
+    method = 'p'
+    eta, Jh, J = dwr_indicator(function_space, enrichment_method=method)
+    print(f"Exact QoI  = {J}")
+    print(f"Approx QoI = {Jh}")
+    File(f"outputs/point_discharge2d/error_indicator_{method}.pvd").write(eta)
+
+    # Compute effectivity index
+    Je = assemble(end_time_qoi({'tracer_2d': c})) - Jh
+    print(f"Effectivity index = {effectivity_index(eta, Je)}")
