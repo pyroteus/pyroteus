@@ -151,7 +151,8 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
 
     # Loop over subintervals in reverse
     seeds = None
-    warned = False
+    warn = kwargs.get('warn', True)
+    warned = not warn
     for i in reversed(range(time_partition.num_subintervals)):
 
         # Annotate tape on current subinterval
@@ -175,31 +176,42 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
                 tape.evaluate_adj(markings=True)
 
         # Loop over prognostic variables
+        steady = False
         for field in fields:
 
-            # Get old solution dependency index
+            # Get solve blocks
             solve_blocks = time_partition.get_solve_blocks(field, subinterval=i)
-            forward_old_index = [
+            num_solve_blocks = len(solve_blocks)
+            assert num_solve_blocks > 0, "Looks like no solves were written to tape!" \
+                                         + " Does the solution depend on the initial condition?"
+
+            # Detect whether we have a steady problem
+            steady = time_partition.num_subintervals == 1 and num_solve_blocks == 1
+            if steady and 'adjoint_next' in sols:
+                sols.pop('adjoint_next')
+
+            # Get lagged forward solution dependency index
+            fwd_old_idx = [
                 dep_index
                 for dep_index, dep in enumerate(solve_blocks[0].get_dependencies())
                 if hasattr(dep.output, 'function_space')
                 and dep.output.function_space() == solve_blocks[0].function_space
             ]
-            if not warned and len(forward_old_index) != 1:
-                print("WARNING: Solve block has dependencies in the prognostic space other than\n"
-                      + "  the PDE solution at the previous timestep.\n"
-                      + f"  (Dependency indices {forward_old_index}).\n"
-                      + "  Naively assuming the first one to be the right one.")  # FIXME
-                warned = True
-            forward_old_index = forward_old_index[0]
+            if not warned and len(fwd_old_idx) != 1:
+                print("WARNING: Solve block has dependencies in the prognostic space other\n"
+                      + "  than the PDE solution at the previous timestep. (Dep indices"
+                      + f" {fwd_old_idx}).\n  Naively assuming the first to be the right one.")
+                warned = True  # FIXME
+            fwd_old_idx = fwd_old_idx[0]
 
             # Extract solution data
             sols = solutions[field]
             for j, block in enumerate(solve_blocks[::time_partition.timesteps_per_export[i]]):
-                sols.forward_old[i][j].assign(block.get_dependencies()[forward_old_index].saved_output)
                 sols.forward[i][j].assign(block.get_outputs()[0].saved_output)
                 sols.adjoint[i][j].assign(block.adj_sol)
-                sols.adjoint_next[i][j].assign(solve_blocks[j+1].adj_sol)
+                sols.forward_old[i][j].assign(block._dependencies[fwd_old_idx].saved_output)
+                if not steady:
+                    sols.adjoint_next[i][j].assign(solve_blocks[j+1].adj_sol)
             if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
                 print(f"WARNING: Adjoint solution for field {field} on subinterval {i} is zero.")
 
@@ -210,8 +222,10 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
             for field, control in zip(fields, controls)
         }
         for field, seed in seeds.items():
-            if np.isclose(norm(seed), 0.0):
+            if np.isclose(norm(seed), 0.0) and warn:
                 print(f"WARNING: Adjoint action for field {field} on subinterval {i} is zero.")
+                if steady:
+                    print("  You seem to have a steady-state problem. Presumably it is linear?")
         tape.clear_tape()
 
     return J, solutions
