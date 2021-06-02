@@ -80,6 +80,7 @@ def solver(ic, t_start, t_end, dt, J=0, qoi=None):
     # Solve
     sp = {
         'mat_type': 'aij',
+        'snes_type': 'ksponly',
         'ksp_type': 'preonly',
         'pc_type': 'lu',
         'pc_factor_mat_solver_type': 'mumps',
@@ -161,7 +162,7 @@ def dwr_indicator(base_fs, **kwargs):
     using global enrichment.
 
     Keyword arguments are passed to
-    ``global_enrichment``.
+    ``global_enrichment`` and ``solve_adjoint``.
     """
     from pyroteus.adjoint import solve_adjoint         # noqa
     from pyroteus.enrichment import global_enrichment
@@ -172,7 +173,7 @@ def dwr_indicator(base_fs, **kwargs):
     P0_base = FunctionSpace(base_fs['tracer_2d'].mesh(), "DG", 0)
 
     # Solve in base space
-    Jh, base_sols = solve_adjoint(solver, initial_condition, end_time_qoi, base_fs, P)
+    Jh, base_sols = solve_adjoint(solver, initial_condition, end_time_qoi, base_fs, P, **kwargs)
 
     # Solve in enriched space
     J, sols = global_enrichment(solver, initial_condition, end_time_qoi, base_fs, P, **kwargs)
@@ -213,26 +214,33 @@ def dwr_indicator(base_fs, **kwargs):
 
 
 if __name__ == "__main__":
+    import argparse
     from pyroteus.adjoint import solve_adjoint         # noqa
     from pyroteus.enrichment import effectivity_index
     from pyroteus.time_partition import TimePartition  # noqa
+    from pyroteus.utility import File
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('enrichment_method')
+    method = parser.parse_args().enrichment_method
+    assert method in ('h', 'p', 'hp')
 
     # Setup function space
-    n = 0
-    mesh = RectangleMesh(100*2**n, 20*2**n, 50, 10)
-    function_space = {'tracer_2d': FunctionSpace(mesh, "CG", 1)}
+    outfile = File(f"outputs/point_discharge2d/error_indicator_{method}_{n}.pvd")
+    for n in range(5):
+        mesh = RectangleMesh(100*2**n, 20*2**n, 50, 10)
+        function_space = {'tracer_2d': FunctionSpace(mesh, "CG", 1)}
 
-    # Plot analytical solution
-    c = interpolate(analytical_solution(mesh), function_space['tracer_2d'])
-    File("outputs/point_discharge2d/analytical.pvd").write(c)
+        # Plot analytical solution
+        c = interpolate(analytical_solution(mesh), function_space['tracer_2d'])
+        if n == 4:
+            File("outputs/point_discharge2d/analytical.pvd").write(c)
 
-    # Plot error indicator
-    method = 'p'
-    eta, Jh, J = dwr_indicator(function_space, enrichment_method=method)
-    print(f"Exact QoI  = {J}")
-    print(f"Approx QoI = {Jh}")
-    File(f"outputs/point_discharge2d/error_indicator_{method}.pvd").write(eta)
+        # Plot error indicator
+        eta, Jh, J = dwr_indicator(function_space, enrichment_method=method, warn=False)
+        outfile.write(eta)
 
-    # Compute effectivity index
-    Je = assemble(end_time_qoi({'tracer_2d': c})) - Jh
-    print(f"Effectivity index = {effectivity_index(eta, Je)}")
+        # Compute effectivity index
+        Je = assemble(end_time_qoi({'tracer_2d': c})) - Jh
+        I_eff = effectivity_index(eta, Je)
+        print(f"{J:11.4e}  {Jh:11.4e}  {I_eff:11.4e}")
