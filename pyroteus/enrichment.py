@@ -5,7 +5,7 @@ from .utility import *
 __all__ = ["global_enrichment"]
 
 
-def global_enrichment(solver, initial_condition, function_spaces, time_partition, **kwargs):
+def global_enrichment(solver, initial_condition, qoi, function_spaces, time_partition, **kwargs):
     """
     Solve the forward and adjoint problems
     associated with some ``solver`` in a
@@ -23,8 +23,12 @@ def global_enrichment(solver, initial_condition, function_spaces, time_partition
 
     :kwarg solve_adjoint: optional adjoint solver
         which should have the same calling
-        sequence as that found in .adjoint
+        sequence as that found in pyroteus.adjoint
     """
+    label = list(function_spaces.keys())
+    if len(label) != 1:
+        raise NotImplementedError("Have not yet considered enrichment of coupled problems")  # TODO
+    label = label[0]
     solve_adjoint = kwargs.pop('solve_adjoint', None)
     if solve_adjoint is None:
         from .adjoint import solve_adjoint
@@ -34,12 +38,12 @@ def global_enrichment(solver, initial_condition, function_spaces, time_partition
     num_enrichments_p = kwargs.pop('num_enrichments_p', 1)
 
     # Check consistency of FunctionSpaces
-    element = function_spaces[0].ufl_element()
-    for fs in function_spaces:
+    element = function_spaces[label][0].ufl_element()
+    for fs in function_spaces[label]:
         assert element == fs.ufl_element(), "Finite elements are not identical"
 
     # Apply h-refinement
-    meshes = [fs.mesh() for fs in function_spaces]
+    meshes = [fs.mesh() for fs in function_spaces[label]]
     if 'h' in enrichment_method:
         assert num_enrichments_h > 0
         meshes = [MeshHierarchy(mesh, num_enrichments_h)[-1] for mesh in meshes]
@@ -50,7 +54,27 @@ def global_enrichment(solver, initial_condition, function_spaces, time_partition
         element = element.reconstruct(degree=element.degree() + num_enrichments_p)
 
     # Construct enriched space
-    enriched_spaces = [FunctionSpace(mesh, element) for mesh in meshes]
+    enriched_spaces = {label: [FunctionSpace(mesh, element) for mesh in meshes]}
 
     # Solve adjoint in higher order space
-    return solve_adjoint(solver, initial_condition, enriched_spaces, time_partition, **kwargs)
+    return solve_adjoint(solver, initial_condition, qoi, enriched_spaces, time_partition, **kwargs)
+
+
+def effectivity_index(error_indicator, Je):
+    """
+    Overestimation factor of some error estimator
+    for the QoI error.
+
+    Note that this is only typically used for simple
+    steady-state problems with analytical solutions.
+
+    :arg error_indicator: a :class:`Function`
+        which localises contributions to an error
+        estimator to individual elements
+    :arg Je: error in quantity of interest
+    """
+    assert isinstance(error_indicator, Function), "Error indicator must return a Function"
+    el = error_indicator.ufl_element()
+    assert (el.family(), el.degree()) == ('Discontinuous Lagrange', 0), "Error indicator must be P0"
+    eta = error_indicator.vector().gather().sum()
+    return np.abs(eta/Je)
