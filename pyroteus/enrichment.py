@@ -59,7 +59,7 @@ def global_enrichment(solver, initial_condition, qoi, function_spaces, time_part
 
 
 def effectivity_index(error_indicator, Je):
-    """
+    r"""
     Overestimation factor of some error estimator
     for the QoI error.
 

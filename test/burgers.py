@@ -106,7 +106,11 @@ if __name__ == "__main__":
     print(f"Quantity of interest: {J:.4e}")
 
     # Plot lagged forward solution
-    outfile = File('outputs/burgers/solution_old.pvd')
+    outfile = File('outputs/burgers/forward_old.pvd')
     for sol_old in sols.uv_2d.forward_old[0]:
-        sol_old.rename("solution_old")
+        sol_old.rename("forward_old")
         outfile.write(sol_old)
+    outfile = File('outputs/burgers/adjoint_next.pvd')
+    for adj_sol_next in sols.uv_2d.adjoint_next[0]:
+        adj_sol_next.rename("adjoint_next")
+        outfile.write(adj_sol_next)
