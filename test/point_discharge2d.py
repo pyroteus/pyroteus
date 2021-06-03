@@ -14,6 +14,13 @@ computed.
     software release 7.0 user manual."
     Paris: R&D, Electricite de France,
     p. 134 (2014).
+
+[Flannery et al. 1992] B.P. Flannery,
+    W.H. Press, S.A. Teukolsky, W.
+    Vetterling, "Numerical recipes in
+    C", Press Syndicate of the
+    University of Cambridge, New York
+    (1992).
 """
 from firedrake import *
 import pyadjoint
@@ -116,7 +123,9 @@ def end_time_qoi(sol):
 
 def bessi0(x):
     """
-    Modified Bessel function of the first kind. Code taken from [3].
+    Modified Bessel function of the
+    first kind. Code taken from
+    [Flannery et al. 1992].
     """
     ax = abs(x)
     y1 = x/3.75
@@ -132,7 +141,9 @@ def bessi0(x):
 
 def bessk0(x):
     """
-    Modified Bessel function of the second kind. Code taken from [3].
+    Modified Bessel function of the
+    second kind. Code taken from
+    [Flannery et al. 1992].
     """
     y1 = x*x/4.0
     expr1 = -ln(x/2.0)*bessi0(x) + (-0.57721566 + y1*(0.42278420 + y1*(
