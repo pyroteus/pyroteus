@@ -117,6 +117,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
         solution fields and their lagged versions.
     """
     fields = time_partition.fields
+    num_subintervals = time_partition.num_subintervals
 
     # Solve forward to get checkpoints and evaluate QoI
     J, checkpoints = get_checkpoints(
@@ -159,7 +160,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
         sols, controls = wrapped_solver(checkpoints[i], *time_partition[i], **solver_kwargs)
 
         # Get seed vector for reverse mode propagation
-        if i == time_partition.num_subintervals-1:
+        if i == num_subintervals-1:
             if qoi_type == 'end_time':
                 J = wrapped_qoi(sols)  # NOTE: any kwargs will use the default
                 if np.isclose(float(J), 0.0):
@@ -177,7 +178,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
 
         # Loop over prognostic variables
         steady = False
-        for field in fields:
+        for field, fs in function_spaces.items():
 
             # Get solve blocks
             solve_blocks = time_partition.get_solve_blocks(field, subinterval=i)
@@ -186,7 +187,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
                                          + " Does the solution depend on the initial condition?"
 
             # Detect whether we have a steady problem
-            steady = time_partition.num_subintervals == 1 and num_solve_blocks == 1
+            steady = num_subintervals == 1 and num_solve_blocks == 1
             if steady and 'adjoint_next' in sols:
                 sols.pop('adjoint_next')
 
@@ -195,7 +196,7 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
                 dep_index
                 for dep_index, dep in enumerate(solve_blocks[0].get_dependencies())
                 if hasattr(dep.output, 'function_space')
-                and dep.output.function_space() == solve_blocks[0].function_space
+                and dep.output.function_space() == solve_blocks[0].function_space == fs[i]
             ]
             if not warned and len(fwd_old_idx) != 1:
                 print("WARNING: Solve block has dependencies in the prognostic space other\n"
@@ -206,12 +207,22 @@ def solve_adjoint(solver, initial_condition, qoi, function_spaces, time_partitio
 
             # Extract solution data
             sols = solutions[field]
-            for j, block in enumerate(solve_blocks[::time_partition.timesteps_per_export[i]]):
+            stride = time_partition.timesteps_per_export[i]
+            for j, block in enumerate(solve_blocks[::stride]):
                 sols.forward[i][j].assign(block.get_outputs()[0].saved_output)
                 sols.adjoint[i][j].assign(block.adj_sol)
                 sols.forward_old[i][j].assign(block._dependencies[fwd_old_idx].saved_output)
                 if not steady:
-                    sols.adjoint_next[i][j].assign(solve_blocks[j+1].adj_sol)
+                    if j*stride+1 < num_solve_blocks:
+                        sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
+                    elif j*stride+1 == num_solve_blocks:
+                        if i+1 < num_subintervals:
+                            sols.adjoint_next[i][j].assign(
+                                project(sols.adjoint_next[i+1][0], fs[i], adjoint=True)
+                            )
+                    else:
+                        raise IndexError(f"Cannot extract solve block {j*stride+1} "
+                                         + f"> {num_solve_blocks}")
             if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
                 print(f"WARNING: Adjoint solution for field {field} on subinterval {i} is zero.")
 
