@@ -25,36 +25,34 @@ def global_enrichment(solver, initial_condition, qoi, function_spaces, time_part
         which should have the same calling
         sequence as that found in pyroteus.adjoint
     """
-    label = list(function_spaces.keys())
-    if len(label) != 1:
-        raise NotImplementedError("Have not yet considered enrichment of coupled problems")  # TODO
-    label = label[0]
-    solve_adjoint = kwargs.pop('solve_adjoint', None)
-    if solve_adjoint is None:
-        from .adjoint import solve_adjoint
-    enrichment_method = kwargs.pop('enrichment_method', 'p')
-    assert enrichment_method in ('h', 'p', 'hp')
-    num_enrichments_h = kwargs.pop('num_enrichments_h', 1)
-    num_enrichments_p = kwargs.pop('num_enrichments_p', 1)
+    enriched_spaces = {}
+    for label, function_space in function_spaces.items():
+        solve_adjoint = kwargs.pop('solve_adjoint', None)
+        if solve_adjoint is None:
+            from .adjoint import solve_adjoint
+        enrichment_method = kwargs.pop('enrichment_method', 'p')
+        assert enrichment_method in ('h', 'p', 'hp')
+        num_enrichments_h = kwargs.pop('num_enrichments_h', 1)
+        num_enrichments_p = kwargs.pop('num_enrichments_p', 1)
 
-    # Check consistency of FunctionSpaces
-    element = function_spaces[label][0].ufl_element()
-    for fs in function_spaces[label]:
-        assert element == fs.ufl_element(), "Finite elements are not identical"
+        # Check consistency of FunctionSpaces
+        element = function_space[0].ufl_element()
+        for fs in function_space:
+            assert element == fs.ufl_element(), "Finite elements are not identical"
 
-    # Apply h-refinement
-    meshes = [fs.mesh() for fs in function_spaces[label]]
-    if 'h' in enrichment_method:
-        assert num_enrichments_h > 0
-        meshes = [MeshHierarchy(mesh, num_enrichments_h)[-1] for mesh in meshes]
+        # Apply h-refinement
+        meshes = [fs.mesh() for fs in function_space]
+        if 'h' in enrichment_method:
+            assert num_enrichments_h > 0
+            meshes = [MeshHierarchy(mesh, num_enrichments_h)[-1] for mesh in meshes]
 
-    # Apply p-refinement
-    if 'p' in enrichment_method:
-        assert num_enrichments_p > 0
-        element = element.reconstruct(degree=element.degree() + num_enrichments_p)
+        # Apply p-refinement
+        if 'p' in enrichment_method:
+            assert num_enrichments_p > 0
+            element = element.reconstruct(degree=element.degree() + num_enrichments_p)
 
-    # Construct enriched space
-    enriched_spaces = {label: [FunctionSpace(mesh, element) for mesh in meshes]}
+        # Construct enriched space
+        enriched_spaces[label] = [FunctionSpace(mesh, element) for mesh in meshes]
 
     # Solve adjoint in higher order space
     return solve_adjoint(solver, initial_condition, qoi, enriched_spaces, time_partition, **kwargs)
@@ -68,9 +66,10 @@ def effectivity_index(error_indicator, Je):
     Note that this is only typically used for simple
     steady-state problems with analytical solutions.
 
-    :arg error_indicator: a :class:`Function`
-        which localises contributions to an error
-        estimator to individual elements
+    :arg error_indicator: a :math:`\mathbb P0`
+        :class:`Function` which localises
+        contributions to an error estimator to
+        individual elements
     :arg Je: error in quantity of interest
     """
     assert isinstance(error_indicator, Function), "Error indicator must return a Function"
