@@ -142,7 +142,7 @@ class TimePartition(object):
         :return: subinterval bounds and timestep
             associated with that index
         """
-        return *self.subintervals[i], self.timesteps[i]
+        return self.subintervals[i][0], self.subintervals[i][1], self.timesteps[i]
 
     def get_solve_blocks(self, field, subinterval=0):
         """
@@ -160,10 +160,18 @@ class TimePartition(object):
             and not issubclass(block.__class__, ProjectBlock)
             and block.adj_sol is not None
         ]
+        stride = sum(self.solves_per_timestep)
+        offset = sum(self.solves_per_timestep[:self.fields.index(field) + 1])
+        offset -= self.timesteps_per_subinterval[subinterval]*stride
         if self.debug:
             print("Solve blocks before slicing:")
             for i, block in enumerate(solve_blocks):
-                print(i, type(block))
-        offset = sum(self.solves_per_timestep[:self.fields.index(field) + 1])
-        stride = sum(self.solves_per_timestep)
-        return solve_blocks[offset - self.timesteps_per_subinterval[subinterval]*stride::stride]
+                print(f"{i:4d}: {type(block)}")
+            print(f"Offset = {offset}")
+            print(f"Stride = {stride}")
+        solve_blocks = solve_blocks[offset::stride]
+        if self.debug:
+            print("Solve blocks after slicing:")
+            for i, block in enumerate(solve_blocks):
+                print(f"{i:4d}: {type(block)}")
+        return solve_blocks
