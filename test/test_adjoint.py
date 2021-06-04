@@ -74,7 +74,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
     # Setup
     print(f"\n--- Setting up {problem} test case with {qoi_type} QoI\n")
     test_case = importlib.import_module(problem)
-    fs = test_case.function_space
+    function_spaces = test_case.function_space
     end_time = test_case.end_time
     if "solid_body_rotation" in problem:
         end_time /= 4  # Reduce testing time
@@ -92,21 +92,31 @@ def test_adjoint_same_mesh(problem, qoi_type):
     solver_kwargs = {}
     if qoi_type == 'time_integrated':
         solver_kwargs['qoi'] = lambda *args: assemble(qoi(*args))
-    ic = test_case.initial_condition({field: [fs[field]] for field in fields})
+    ic = test_case.initial_condition({field: [function_spaces[field]] for field in fields})
     controls = [Control(value) for key, value in ic.items()]
     sols, J = test_case.solver(ic, 0.0, end_time, test_case.dt, **solver_kwargs)
     if qoi_type == 'end_time':
         J = assemble(qoi(sols))
     pyadjoint.compute_gradient(J, controls)  # FIXME: gradient w.r.t. mixed function not correct
     J_expected = float(J)
-    adj_sols_expected = {
-        field: time_partition.get_solve_blocks(field)[0].adj_sol.copy(deepcopy=True)
-        for field in fields
-    }
+
+    adj_sols_expected = {}
+    adj_values_expected = {}
+    for field, fs in function_spaces.items():
+        solve_blocks = time_partition.get_solve_blocks(field)
+        fwd_old_idx = [
+            dep_index
+            for dep_index, dep in enumerate(solve_blocks[0]._dependencies)
+            if hasattr(dep.output, 'function_space')
+            and dep.output.function_space() == solve_blocks[0].function_space == fs
+        ]
+        fwd_old_idx = fwd_old_idx[0]
+        adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
+        adj_values_expected[field] = Function(fs, val=solve_blocks[0]._dependencies[fwd_old_idx].adj_value)
 
     # Loop over having one or two subintervals
     for N in range(1, 3):
-        spaces = {field: N*[fs[field]] for field in fields}
+        spaces = {field: N*[function_spaces[field]] for field in fields}
         print(f"\n--- Solving the adjoint problem on {N} subinterval"
               + f"{'' if N == 1 else 's'} using pyroteus\n")
 
@@ -116,8 +126,9 @@ def test_adjoint_same_mesh(problem, qoi_type):
             timesteps_per_export=test_case.dt_per_export,
             solves_per_timestep=test_case.solves_per_dt,
         )
-        J, solutions = solve_adjoint(
+        J, solutions, adj_values = solve_adjoint(
             test_case.solver, test_case.initial_condition, qoi, spaces, time_partition,
+            get_adj_values=True,
         )
 
         # Check quantities of interest match
@@ -129,7 +140,15 @@ def test_adjoint_same_mesh(problem, qoi_type):
             adj_sol_computed = solutions[field].adjoint[0][0]
             err = errornorm(adj_sol_expected, adj_sol_computed)/norm(adj_sol_expected)
             assert np.isclose(err, 0.0), "Adjoint solutions at initial time do not match." \
-                                         + f"(Error {err:.4e}.)"
+                                         + f" (Error {err:.4e}.)"
+
+        # Check adjoint actions at initial time match
+        for field in time_partition.fields:
+            adj_value_expected = adj_values_expected[field]
+            adj_value_computed = adj_values[field][0][0]
+            err = errornorm(adj_value_expected, adj_value_computed)/norm(adj_value_expected)
+            assert np.isclose(err, 0.0), "Adjoint values at initial time do not match." \
+                                         + f" (Error {err:.4e}.)"
 
 
 @pytest.mark.parallel
