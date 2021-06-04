@@ -102,7 +102,7 @@ if __name__ == "__main__":
 
     # Solve adjoint problem
     time_partition = TimePartition(end_time, 1, dt, fields, timesteps_per_export=dt_per_export)
-    J, sols = solve_adjoint(solver, initial_condition, end_time_qoi, function_space, time_partition)
+    J, sols, adj_values = solve_adjoint(solver, initial_condition, end_time_qoi, function_space, time_partition, get_adj_values=True)
     print(f"Quantity of interest: {J:.4e}")
 
     # Plot lagged forward solution
@@ -114,3 +114,7 @@ if __name__ == "__main__":
     for adj_sol_next in sols.uv_2d.adjoint_next[0]:
         adj_sol_next.rename("adjoint_next")
         outfile.write(adj_sol_next)
+    outfile = File('outputs/burgers/adj_values.pvd')
+    for adj_value in adj_values.uv_2d[0]:
+        adj_value.rename("adj_value")
+        outfile.write(adj_value)
