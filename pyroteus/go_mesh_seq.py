@@ -1,7 +1,9 @@
-from .utility import *
+import firedrake
+from firedrake_adjoint import Control, no_annotations
+from .interpolation import project
 from .mesh_seq import MeshSeq
-from pyadjoint import no_annotations
 from collections import Iterable
+from functools import wraps
 
 
 __all__ = ["GoalOrientedMeshSeq"]
@@ -26,7 +28,8 @@ class GoalOrientedMeshSeq(MeshSeq):
             integrated quantity of interest, respectively
         """
         super(GoalOrientedMeshSeq, self).__init__(
-            time_partition, initial_meshes, get_function_spaces, get_initial_condition, get_solver,
+            time_partition, initial_meshes, get_function_spaces,
+            get_initial_condition, get_solver,
         )
         self.get_qoi = get_qoi
         self.qoi_type = None
@@ -60,6 +63,8 @@ class GoalOrientedMeshSeq(MeshSeq):
         extracting checkpoints corresponding to
         the starting fields on each subinterval.
 
+        The QoI is also evaluated.
+
         :kwarg solver_kwargs: additional keyword
             arguments which will be passed to
             the solver
@@ -69,7 +74,7 @@ class GoalOrientedMeshSeq(MeshSeq):
         qoi = self.qoi
         assert self.qoi_type in ('end_time', 'time_integrated')
         if self.qoi_type = 'time_integrated':
-            solver_kwargs['qoi'] = lambda *args, **kwargs: assemble(qoi(*args, **kwargs))
+            solver_kwargs['qoi'] = lambda *args, **kwargs: firedrake.assemble(qoi(*args, **kwargs))
         self.J = 0
 
         # Solve forward
@@ -88,8 +93,42 @@ class GoalOrientedMeshSeq(MeshSeq):
 
         # Account for end time QoI
         if self.qoi_type == 'end_time':
-            self.J = assemble(qoi(sols))  # NOTE: any kwargs will use the default
+            self.J = firedrake.assemble(qoi(sols))  # NOTE: any kwargs will use the default
         return checkpoints
+
+    @property
+    def wrapped_solver(self):
+        """
+        Wrapper for a solver which records a
+        :class:`Control` for each component of
+        its initial condition.
+        """
+        solver = self.solver
+
+        @wraps(solver)
+        def wrapper(self, ic, t_start, t_end, dt, **kwargs):
+            init = {field: ic[field].copy(deepcopy=True) for field in self.fields}
+            self.controls = [Control(init[field]) for field in self.fields]
+            return solver(self, init, t_start, t_end, dt, **kwargs)
+
+        return wrapper
+
+    @property
+    def wrapped_qoi(self):
+        """
+        Wrapper for contributions to a QoI which
+        sets the corresponding ``adj_value`` to
+        unity.
+        """
+        qoi = self.qoi
+
+        @wraps(qoi)
+        def wrapper(*args, **kwargs):
+            j = firedrake.assemble(qoi(*args, **kwargs))
+            j.block_variable.adj_value = 1.0
+            return j
+
+        return wrapper
 
     def solve_adjoint(self, **kwargs):
         from .adjoint import solve_adjoint

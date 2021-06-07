@@ -1,4 +1,4 @@
-from .utility import *
+from .utility import Mesh
 from .interpolation import project
 from collections import Iterable
 
@@ -81,6 +81,15 @@ class MeshSeq(object):
         return self.get_solver()
 
     def get_checkpoints(self, solver_kwargs={}):
+        """
+        Solve forward on the sequence of meshes,
+        extracting checkpoints corresponding to
+        the starting fields on each subinterval.
+
+        :kwarg solver_kwargs: additional keyword
+            arguments which will be passed to
+            the solver
+        """
         solver = self.solver
         checkpoints = [self.initial_condition]
         for i in range(len(self)):
