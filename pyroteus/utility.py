@@ -137,6 +137,9 @@ def norm(v, norm_type='L2', mesh=None):
             return vv.norm(norm_codes[norm_type])
     elif norm_type[0] == 'l':
         raise NotImplementedError("lp norm of order {:s} not supported.".format(norm_type[1:]))
+    elif norm_type == 'Linf':
+        with v.dat.vec_ro as vv:
+            return vv.max()[1]
     else:
         return firedrake.norm(v, norm_type=norm_type, mesh=mesh)
 
