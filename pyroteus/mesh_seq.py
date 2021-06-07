@@ -1,9 +1,9 @@
 from .utility import *
-from pyadjoint import no_annotations
+from .interpolation import project
 from collections import Iterable
 
 
-__all__ = ["MeshSeq", "GoalOrientedMeshSeq"]
+__all__ = ["MeshSeq"]
 
 
 class MeshSeq(object):
@@ -28,8 +28,8 @@ class MeshSeq(object):
             argument is a :class:`MeshSeq`, which specifies
             initial conditions on the first mesh
         :arg get_solver: a function, whose only argument is
-            a :class:`MeshSeq`, which integrates initial
-            data over a subinterval
+            a :class:`MeshSeq`, which returns a function
+            that integrates initial data over a subinterval
         """
         self.time_partition = time_partition
         self.fields = time_partition.fields
@@ -43,7 +43,7 @@ class MeshSeq(object):
         self.get_solver = get_solver
 
     def __len__(self):
-        return len(self.time_partition)
+        return len(self.meshes)
 
     def __getitem__(self, i):
         return self.meshes[i]
@@ -52,44 +52,45 @@ class MeshSeq(object):
         self.meshes[i] = mesh
 
     @property
+    def _function_spaces_consistent(self):
+        consistent = len(self.time_partition) == len(self) == len(self._fs)
+        consistent &= all(
+            mesh == fs.mesh()
+            for mesh, fs in zip(self.meshes, self._fs[field])
+            for field in self.fields
+        )
+        return consistent
+
+    @property
     def function_spaces(self):
-        if self._fs is None or not all(mesh == fs.mesh() for mesh, fs in zip(self.meshes, self._fs)):
+        if self._fs is None or not self._function_spaces_consistent:
             self._fs = self.get_function_spaces()
+        assert self._function_spaces_consistent, "Meshes and function spaces are inconsistent"
         return self._fs
 
     @property
-    @no_annotations
     def initial_condition(self):
-        return self.get_initial_condition()
+        ic = self.get_initial_condition()
+        assert issubclass(ic.__class__, dict), "`get_initial_condition` should return a dict"
+        assert set(self.fields).issubclass(set(ic.keys())), "missing fields in initial condition"
+        assert set(ic.keys()).issubclass(set(self.fields)), "more initial conditions than fields"
+        return ic
 
     @property
     def solver(self):
         return self.get_solver()
 
-
-class GoalOrientedMeshSeq(MeshSeq):
-    """
-    An extension of :class:`MeshSeq` to account for
-    goal-oriented problems.
-    """
-    def __init__(self, time_partition, initial_meshes, get_function_spaces,
-                 get_initial_condition, get_solver, get_qoi):
-        """
-        :arg get_qoi: a function, whose only argument is
-            a :class:`GoalOrientedMeshSeq`, which returns
-            a function of either one or two variables,
-            corresponding to either an end time or time
-            integrated quantity of interest, respectively
-        """
-        super(GoalOrientedMeshSeq, self).__init__(
-            time_partition, initial_meshes, get_function_spaces, get_initial_condition, get_solver,
-        )
-        self.get_qoi = get_qoi
-
-    @property
-    def qoi(self):
-        return self.get_qoi()
-
-    def solve_adjoint(self, **kwargs):  # TODO: base solver on self
-        from .adjoint import solve_adjoint
-        solve_adjoint(self.solver, self.initial_condition, self.qoi, self.function_spaces, self.time_partition, **kwargs)
+    def get_checkpoints(self, solver_kwargs={}):
+        solver = self.solver
+        checkpoints = [self.initial_condition]
+        for i in range(len(self)):
+            sols = solver(self, checkpoints[i], *self.time_partition[i], **solver_kwargs)
+            assert issubclass(sols.__class__, dict), "solver should return a dict"
+            assert set(self.fields).issubclass(set(sols.keys())), "missing fields from solver"
+            assert set(sols.keys()).issubclass(set(self.fields)), "more solver outputs than fields"
+            if i < len(self)-1:
+                checkpoints.append({
+                    field: project(sols[field], fs[i+1])
+                    for field, fs in self._fs.items()
+                })
+        return checkpoints
