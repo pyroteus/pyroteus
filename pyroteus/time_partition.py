@@ -136,6 +136,9 @@ class TimePartition(object):
         if self.debug:
             print(f"TimePartition: {label:25s} {val}")
 
+    def __len__(self):
+        return self.num_subintervals
+
     def __getitem__(self, i):
         """
         :arg i: index
