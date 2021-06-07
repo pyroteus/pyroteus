@@ -13,7 +13,7 @@ class MeshSeq(object):
     temporal domain.
     """
     def __init__(self, time_partition, initial_meshes, get_function_spaces,
-                 get_initial_condition, get_solver):
+                 get_initial_condition, get_solver, warnings=True):
         """
         :arg time_partition: the :class:`TimePartition` which
             partitions the temporal domain
@@ -30,6 +30,7 @@ class MeshSeq(object):
         :arg get_solver: a function, whose only argument is
             a :class:`MeshSeq`, which returns a function
             that integrates initial data over a subinterval
+        :kwarg warnings: print warnings?
         """
         self.time_partition = time_partition
         self.fields = time_partition.fields
@@ -41,6 +42,7 @@ class MeshSeq(object):
         self.get_function_spaces = get_function_spaces
         self.get_initial_condition = get_initial_condition
         self.get_solver = get_solver
+        self.warn = warnings
 
     def __len__(self):
         return len(self.meshes)
@@ -54,11 +56,11 @@ class MeshSeq(object):
     @property
     def _function_spaces_consistent(self):
         consistent = len(self.time_partition) == len(self) == len(self._fs)
-        consistent &= all(
-            mesh == fs.mesh()
-            for mesh, fs in zip(self.meshes, self._fs[field])
-            for field in self.fields
-        )
+        for field in self.fields:
+            consistent &= all(
+                mesh == fs.mesh()
+                for mesh, fs in zip(self.meshes, self._fs[field])
+            )
         return consistent
 
     @property
