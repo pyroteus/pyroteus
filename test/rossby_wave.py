@@ -23,7 +23,6 @@ try:
 except ImportError:
     import pytest
     pytest.xfail("Thetis is not installed")
-import pyadjoint
 
 
 # Problem setup
@@ -34,9 +33,6 @@ x, y = SpatialCoordinate(mesh)
 W = mesh.coordinates.function_space()
 mesh = Mesh(interpolate(as_vector([x-lx/2, y-ly/2]), W))
 fields = ['solution_2d']
-U_2d = VectorFunctionSpace(mesh, "DG", 1, name="U_2d")
-H_2d = get_functionspace(mesh, "DG", 1, name="H_2d")
-function_space = {'solution_2d': MixedFunctionSpace([U_2d, H_2d])}
 solves_per_dt = [1]
 end_time = 20.0
 dt = 9.6/ny
@@ -45,81 +41,97 @@ order = 1
 soliton_amplitude = 0.395
 
 
-def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
+def get_function_spaces(self):
     """
-    Solve the shallow water equations on
-    a subinterval (t_start, t_end), given
-    some initial conditions `ic` and a
-    timestep `dt`.
+    Equal order P1DG-P1DG element pair
     """
-    mesh2d = ic['solution_2d'].function_space().mesh()
-    P1_2d = FunctionSpace(mesh2d, "CG", 1)
-    bathymetry2d = Function(P1_2d).assign(1.0)
-
-    # Stash default gravitational acceleration
-    g = physical_constants['g_grav'].values()[0]
-    physical_constants['g_grav'].assign(1.0)
-
-    # Setup solver and stash QoI
-    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
-    options = solver_obj.options
-    options._isfrozen = False
-    options.J = J
-
-    # Setup problem
-    options.timestepper_type = 'CrankNicolson'
-    options.timestep = 9.6/ny
-    options.simulation_export_time = 10.0
-    options.simulation_end_time = t_end
-    if qoi is not None and np.isclose(t_end, end_time):
-        options.simulation_end_time += 0.5*dt
-    options.use_grad_div_viscosity_term = False
-    options.use_grad_depth_viscosity_term = False
-    options.horizontal_viscosity = None
-    options.output_directory = 'outputs/rossby_wave'
-    solver_obj.create_function_spaces()
-    options.coriolis_frequency = SpatialCoordinate(mesh2d)[1]
-    model_options.setdefault('no_exports', True)
-    options.update(model_options)
-
-    # Apply no-slip boundary conditions
-    solver_obj.bnd_functions['shallow_water'] = {
-        'on_boundary': {'uv': Constant(as_vector([0, 0]))}
+    return {
+        'solution_2d': [
+            MixedFunctionSpace([
+                VectorFunctionSpace(mesh, "DG", 1, name="U_2d"),
+                get_functionspace(mesh, "DG", 1, name="H_2d"),
+            ]) for mesh in self.meshes
+        ]
     }
 
-    # Apply initial conditions
-    uv_a, elev_a = ic['solution_2d'].split()
-    solver_obj.assign_initial_conditions(uv=uv_a, elev=elev_a)
 
-    def update_forcings(t):
-        if qoi is not None:
-            options.J += qoi({'solution_2d': solver_obj.fields.solution_2d}, t)
+def get_solver(self):
+    """
+    Solve the nonlinear shallow water
+    equations using Crank-Nicolson
+    timestepping.
+    """
 
-    # Correct counters and iterate
-    i_export = int(t_start/dt/dt_per_export)
-    solver_obj.simulation_time = t_start
-    solver_obj.i_export = i_export
-    solver_obj.next_export_t = t_start
-    solver_obj.iteration = int(t_start/dt)
-    solver_obj.export_initial_state = np.isclose(t_start, 0.0)
-    if not options.no_exports and len(options.fields_to_export) > 0:
-        for e in solver_obj.exporters['vtk'].exporters:
-            solver_obj.exporters['vtk'].exporters[e].set_next_export_ix(i_export)
-    solver_obj.iterate(update_forcings=update_forcings)
+    def solver(ic, t_start, t_end, dt, **model_options):
+        mesh2d = ic['solution_2d'].function_space().mesh()
+        P1_2d = FunctionSpace(mesh2d, "CG", 1)
+        bathymetry2d = Function(P1_2d).assign(1.0)
 
-    # Revert gravitational acceleration
-    physical_constants['g_grav'].assign(g)
-    return {'solution_2d': solver_obj.fields.solution_2d}, options.J
+        # Stash default gravitational acceleration
+        g = physical_constants['g_grav'].values()[0]
+        physical_constants['g_grav'].assign(1.0)
+
+        # Setup problem
+        solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
+        options = solver_obj.options
+        options.timestepper_type = 'CrankNicolson'
+        options.timestep = 9.6/ny
+        options.element_family = 'dg-dg'
+        options.simulation_export_time = 10.0
+        options.simulation_end_time = t_end
+        if self.qoi_type == 'time_integrated' and np.isclose(t_end, end_time):
+            options.simulation_end_time += 0.5*dt
+        options.use_grad_div_viscosity_term = False
+        options.use_grad_depth_viscosity_term = False
+        options.horizontal_viscosity = None
+        options.output_directory = 'outputs/rossby_wave'
+        solver_obj.create_function_spaces()
+        options.coriolis_frequency = SpatialCoordinate(mesh2d)[1]
+        model_options.setdefault('no_exports', True)
+        options.update(model_options)
+
+        # Apply no-slip boundary conditions
+        solver_obj.bnd_functions['shallow_water'] = {
+            'on_boundary': {'uv': Constant(as_vector([0, 0]))}
+        }
+
+        # Apply initial conditions
+        uv_a, elev_a = ic['solution_2d'].split()
+        solver_obj.assign_initial_conditions(uv=uv_a, elev=elev_a)
+
+        # Setup QoI
+        qoi = self.qoi
+
+        def update_forcings(t):
+            if self.qoi_type == 'time_integrated':
+                self.J += qoi({'solution_2d': solver_obj.fields.solution_2d}, t)
+
+        # Correct counters and iterate
+        i_export = int(t_start/dt/dt_per_export)
+        solver_obj.simulation_time = t_start
+        solver_obj.i_export = i_export
+        solver_obj.next_export_t = t_start
+        solver_obj.iteration = int(t_start/dt)
+        solver_obj.export_initial_state = np.isclose(t_start, 0.0)
+        if not options.no_exports and len(options.fields_to_export) > 0:
+            for e in solver_obj.exporters['vtk'].exporters:
+                solver_obj.exporters['vtk'].exporters[e].set_next_export_ix(i_export)
+        solver_obj.iterate(update_forcings=update_forcings)
+
+        # Revert gravitational acceleration
+        physical_constants['g_grav'].assign(g)
+        return {'solution_2d': solver_obj.fields.solution_2d}
+
+    return solver
 
 
-@pyadjoint.no_annotations
-def initial_condition(fs):
+def get_initial_condition(self):
     """
     The initial condition is a modon with
     two peaks of equal size, equally spaced
     to the North and South.
     """
-    return {'solution_2d': asymptotic_expansion(fs['solution_2d'][0], time=0.0)}
+    return {'solution_2d': asymptotic_expansion(self.function_spaces['solution_2d'][0], time=0.0)}
 
 
 def asymptotic_expansion(fs, time=0.0):
@@ -221,48 +233,22 @@ def asymptotic_expansion(fs, time=0.0):
     return q_a
 
 
-def time_integrated_qoi(sol, t):
-    """
-    Quantity of interest which computes
-    the time-integrated square L2 error of
-    the advected Rossby soliton.
-    """
-    q = sol['solution_2d']
-    q_a = asymptotic_expansion(q.function_space(), t)
-    return inner(q - q_a, q - q_a)*dx
-
-
-def end_time_qoi(sol):
+def get_qoi(self):
     """
     Quantity of interest which computes
     the square L2 error of the advected
     Rossby soliton.
     """
-    return time_integrated_qoi(sol, end_time)
 
+    def time_integrated_qoi(sol, t):
+        q = sol['solution_2d']
+        q_a = asymptotic_expansion(q.function_space(), t)
+        return inner(q - q_a, q - q_a)*dx
 
-if __name__ == "__main__":
+    def end_time_qoi(sol):
+        return time_integrated_qoi(sol, end_time)
 
-    # Plot analytical solution
-    outfile = File("outputs/rossby_wave/analytical.pvd")
-    V = function_space
-    solution = Function(V, name="Analytical solution")
-    u_a, eta_a = solution.split()
-    u_a.rename("Analytical velocity solution")
-    eta_a.rename("Analytical elevation solution")
-    t = 0.0
-    step = 0
-    while t < end_time + 0.5*dt:
-        if step % dt_per_export == 0:
-            solution.assign(asymptotic_expansion(V, t))
-            outfile.write(u_a, eta_a)
-        t += dt
-        step += 1
-
-    def qoi(sol, t):
-        return assemble(time_integrated_qoi({'solution_2d': sol}, t))
-
-    # Plot finite element solution
-    ic = initial_condition({'solution_2d': function_space})
-    sol, J = solver(ic, 0, end_time, dt, qoi=qoi, no_exports=False)
-    print_output(f"Quantity of interest: {J:.4e}")
+    if self.qoi_type == 'end_time':
+        return end_time_qoi
+    else:
+        return time_integrated_qoi
