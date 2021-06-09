@@ -53,8 +53,8 @@ class MeshSeq(object):
     def __setitem__(self, i, mesh):
         self.meshes[i] = mesh
 
-    def get_function_spaces(self):
-        return self._get_function_spaces(self)
+    def get_function_spaces(self, mesh):
+        return self._get_function_spaces(mesh)
 
     def get_initial_condition(self):
         return self._get_initial_condition(self)
@@ -76,7 +76,13 @@ class MeshSeq(object):
     @property
     def function_spaces(self):
         if self._fs is None or not self._function_spaces_consistent:
-            self._fs = self.get_function_spaces()
+            self._fs = [self.get_function_spaces(mesh) for mesh in self.meshes]
+            self._fs = {
+                field: [
+                    self._fs[i][field]
+                    for i in range(len(self))
+                ] for field in self.fields
+            }
         assert self._function_spaces_consistent, "Meshes and function spaces are inconsistent"
         return self._fs
 

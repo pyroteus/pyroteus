@@ -39,7 +39,7 @@ dt_per_export = 6
 morfac = 300
 
 
-def get_function_space(self):
+def get_function_space(mesh):
     """
     An equal order P1DG-P1DG element pair
     is used for the shallow water equations.
@@ -47,20 +47,15 @@ def get_function_space(self):
     the Exner equation is solved in P1 space.
     """
     return {
-        'solution_2d': [
+        'solution_2d':
             MixedFunctionSpace([
                 VectorFunctionSpace(mesh, "DG", 1, name="U_2d"),
                 get_functionspace(mesh, "DG", 1, name="H_2d"),
-            ]) for mesh in self.meshes
-        ],
-        'sediment_2d': [
-            get_functionspace(mesh, "DG", 1, name="H_2d")
-            for mesh in self.meshes
-        ],
+            ]),
+        'sediment_2d':
+            get_functionspace(mesh, "DG", 1, name="H_2d"),
         'bathymetry_2d': [
-            get_functionspace(mesh, "CG", 1)
-            for mesh in self.meshes
-        ],
+            get_functionspace(mesh, "CG", 1),
     }
 
 

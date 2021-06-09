@@ -36,17 +36,12 @@ fields = ['uv_2d']
 # First, we specify how to build :class:`FunctionSpace`s. ::
 # Function spaces are given as a dictionary, indexed by the
 # prognostic solution field names. The function spaces
-# should be built upon the meshes contained inside a
+# will be built upon the meshes contained inside a
 # :class:`GoalOrientedMeshSeq` object. ::
 
 
-def get_function_spaces(go_mesh_seq):
-    return {
-        'uv_2d': [
-            VectorFunctionSpace(mesh, "CG", 2)
-            for mesh in go_mesh_seq.meshes
-        ]
-    }
+def get_function_spaces(mesh):
+    return {'uv_2d': VectorFunctionSpace(mesh, "CG", 2)}
 
 
 # Pyroteus requires a solver with four arguments: a dictionary
@@ -56,6 +51,7 @@ def get_function_spaces(go_mesh_seq):
 # The dictionary usage may seem cumbersome when applied to
 # such a simple problem, but it comes in handy when solving
 # adjoint problems associated with coupled systems of equations. ::
+
 
 def get_solver(go_mesh_seq):
 

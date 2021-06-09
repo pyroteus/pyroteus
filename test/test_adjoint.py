@@ -126,7 +126,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
             time_partition, test_case.mesh, test_case.get_function_spaces, test_case.get_initial_condition,
             test_case.get_solver, test_case.get_qoi, qoi_type=qoi_type,
         )
-        solutions, adj_values = go_mesh_seq.solve_adjoint(get_adj_values=True)
+        solutions = go_mesh_seq.solve_adjoint(get_adj_values=True)
 
         # Check quantities of interest match
         assert np.isclose(J_expected, go_mesh_seq.J), f"QoIs do not match ({J_expected} vs. {go_mesh_seq.J})"
@@ -142,7 +142,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
         # Check adjoint actions at initial time match
         for field in time_partition.fields:
             adj_value_expected = adj_values_expected[field]
-            adj_value_computed = adj_values[field][0][0]
+            adj_value_computed = solutions[field].adj_value[0][0]
             err = errornorm(adj_value_expected, adj_value_computed)/norm(adj_value_expected)
             assert np.isclose(err, 0.0), "Adjoint values at initial time do not match." \
                                          + f" (Error {err:.4e}.)"
