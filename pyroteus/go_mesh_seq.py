@@ -50,9 +50,9 @@ class GoalOrientedMeshSeq(MeshSeq):
     @property
     def qoi(self):
         qoi = self.get_qoi()
+
+        # Count number of arguments
         num_kwargs = 0 if qoi.__defaults__ is None else len(qoi.__defaults__)
-        if num_kwargs > 0:
-            print("WARNING: QoI has kwargs which will be unused")
         num_args = qoi.__code__.co_argcount - num_kwargs
         if num_args == 1:
             self.qoi_type = 'end_time'
@@ -60,6 +60,8 @@ class GoalOrientedMeshSeq(MeshSeq):
             self.qoi_type = 'time_integrated'
         else:
             raise ValueError(f"QoI should have 1 or 2 args, not {num_args}")
+
+        # Wrap as appropriate
         if pyadjoint.tape.annotate_tape():
 
             @wraps(qoi)
@@ -102,7 +104,7 @@ class GoalOrientedMeshSeq(MeshSeq):
 
         # Account for end time QoI
         if self.qoi_type == 'end_time':
-            self.J = self.qoi(sols)  # NOTE: any kwargs will use the default
+            self.J = self.qoi(sols, **solver_kwargs.get('qoi_kwargs', {}))
         return checkpoints
 
     def solve_adjoint(self, solver_kwargs={}, get_adj_values=False):
@@ -127,7 +129,8 @@ class GoalOrientedMeshSeq(MeshSeq):
             the timestep (backwards).
 
         :kwarg solver_kwargs: a dictionary providing parameters
-            to the solver
+            to the solver. Any keyword arguments for the QoI
+            should be included as a subdict with label 'qoi_kwargs'
         :kwarg get_adj_values: additionally output adjoint
             actions at exported timesteps
 
@@ -141,6 +144,8 @@ class GoalOrientedMeshSeq(MeshSeq):
         checkpoints = self.get_checkpoints(solver_kwargs=solver_kwargs)
         if self.warn and np.isclose(float(self.J), 0.0):
             print("WARNING: Zero QoI. Is it implemented as intended?")
+        J_chk = self.J
+        self.J = 0
 
         # Create arrays to hold exported forward and adjoint solutions
         labels = ('forward', 'forward_old', 'adjoint')
@@ -194,7 +199,7 @@ class GoalOrientedMeshSeq(MeshSeq):
             # Get seed vector for reverse propagation
             if i == num_subintervals-1:
                 if self.qoi_type == 'end_time':
-                    self.J = self.qoi(sols)  # NOTE: any kwargs will use the default
+                    self.J = self.qoi(sols, **solver_kwargs.get('qoi_kwargs', {}))
                     if self.warn and np.isclose(float(self.J), 0.0):
                         print("WARNING: Zero QoI. Is it implemented as intended?")
             else:
@@ -273,6 +278,11 @@ class GoalOrientedMeshSeq(MeshSeq):
                     if steady:
                         print("  You seem to have a steady-state problem. Presumably it is linear?")
             tape.clear_tape()
+
+        # Check the QoI value agrees with that due to the checkpointing run
+        if self.qoi_type == 'time_integrated':
+            assert np.isclose(J_chk, self.J), "QoI values computed during checkpointing and annotated" \
+                                              + f"run do not match ({J_chk} vs. {self.J})"
 
         # Process return values
         ret = (solutions,)
