@@ -38,7 +38,7 @@ go_mesh_seq = GoalOrientedMeshSeq(
     P, meshes, get_function_spaces, get_initial_condition,
     get_solver, get_qoi, qoi_type='end_time',
 )
-solutions = go_mesh_seq.solve_adjoint()[0]
+solutions = go_mesh_seq.solve_adjoint()
 
 # Solution plotting is much the same, but with some minor tweaks to
 # get the two subintervals side by side. ::

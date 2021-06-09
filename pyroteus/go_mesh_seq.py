@@ -151,6 +151,8 @@ class GoalOrientedMeshSeq(MeshSeq):
         labels = ('forward', 'forward_old', 'adjoint')
         if not self.steady:
             labels += ('adjoint_next',)
+        if get_adj_values:
+            labels += ('adj_value',)
         solutions = AttrDict({
             field: AttrDict({
                 label: [
@@ -161,19 +163,6 @@ class GoalOrientedMeshSeq(MeshSeq):
                 ] for label in labels
             }) for field in self.fields
         })
-
-        # Create arrays to hold adjoint actions
-        if get_adj_values:
-            adj_values = AttrDict({
-                field: [
-                    [
-                        firedrake.Function(fs)
-                        for j in range(self.time_partition.exports_per_subinterval[i]-1)
-                    ] for i, fs in enumerate(function_spaces[field])
-                ] for field in self.fields
-            })
-        else:
-            adj_values = None
 
         # Wrap solver to extract controls
         solver = self.solver
@@ -247,8 +236,8 @@ class GoalOrientedMeshSeq(MeshSeq):
                 for j, block in enumerate(solve_blocks[::stride]):
                     sols.forward[i][j].assign(block._outputs[0].saved_output)
                     sols.adjoint[i][j].assign(block.adj_sol)
-                    if adj_values is not None:
-                        adj_values[field][i][j].assign(block._dependencies[fwd_old_idx].adj_value.function)
+                    if get_adj_values:
+                        sols.adj_value[i][j].assign(block._dependencies[fwd_old_idx].adj_value.function)
                     sols.forward_old[i][j].assign(block._dependencies[fwd_old_idx].saved_output)
                     if not steady:
                         if j*stride+1 < num_solve_blocks:
@@ -263,7 +252,7 @@ class GoalOrientedMeshSeq(MeshSeq):
                                              + f"> {num_solve_blocks}")
                 if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
                     print(f"WARNING: Adjoint solution for field {field} on subinterval {i} is zero.")
-                if self.warn and adj_values is not None and np.isclose(norm(adj_values[field][i][0]), 0.0):
+                if self.warn and get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
                     print(f"WARNING: Adjoint action for field {field} on subinterval {i} is zero.")
 
             # Get adjoint action
@@ -283,9 +272,4 @@ class GoalOrientedMeshSeq(MeshSeq):
         if self.qoi_type == 'time_integrated':
             assert np.isclose(J_chk, self.J), "QoI values computed during checkpointing and annotated" \
                                               + f"run do not match ({J_chk} vs. {self.J})"
-
-        # Process return values
-        ret = (solutions,)
-        if adj_values is not None:
-            ret += (adj_values,)
-        return ret
+        return solutions

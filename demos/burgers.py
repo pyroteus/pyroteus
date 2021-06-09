@@ -150,7 +150,7 @@ go_mesh_seq = GoalOrientedMeshSeq(
     P, mesh, get_function_spaces, get_initial_condition,
     get_solver, get_qoi, qoi_type='end_time',
 )
-solutions = go_mesh_seq.solve_adjoint()[0]
+solutions = go_mesh_seq.solve_adjoint()
 
 # Finally, we plot the adjoint solution at each exported timestep by
 # looping over ``solutions['adjoint']``. ::
