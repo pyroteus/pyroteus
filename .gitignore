@@ -9,6 +9,7 @@ pyroteus.egg-info/
 
 # Specific files
 docs/source/pyroteus.rst
+pyroteus/adjoint.py
 
 # File extensions
 *.jpg
