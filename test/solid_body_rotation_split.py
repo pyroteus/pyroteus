@@ -21,43 +21,39 @@ import solid_body_rotation as sbr
 
 
 fields = ['bell_2d', 'cone_2d', 'slot_cyl_2d']
-DQ = FunctionSpace(mesh, "DQ", 1)
-function_space = {
-    'bell_2d': DQ,
-    'cone_2d': DQ,
-    'slot_cyl_2d': DQ,
-}
 solves_per_dt = [3, 3, 3]
 
 
-def solver(*args, qoi=None, J=0):
+def get_solver(self):
     """
-    Apply the same solver from the original
-    version to each tracer field simultaneously
-    on a subinterval (t_start, t_end), given
-    some initial conditions `ic` and a
-    timestep `dt`.
+    The same solver as in the original version,
+    but with the tracer fields solved for
+    sequentially.
     """
-    sols = {}
-    for label in fields:
-        sol, j = sbr.solver(*args, J=0, qoi=qoi, label=label)
-        sols.update(sol)
-        J += j
-    return sols, J
+    solver_ = sbr.get_solver(self)
+
+    def solver(*args):
+        ret = {}
+        for field in self.fields:
+            ret.update(solver_(*args, field=field))
+        return ret
+
+    return solver
 
 
-@pyadjoint.no_annotations
-def initial_condition(fs, coordinates=None):
+def get_initial_condition(self, coordinates=None):
     """
-    Initial conditions consisting of a
-    bell, cone and slotted cylinder.
+    The same initial conditions as in the
+    original version, but with the three
+    shapes treated as separate tracer fields.
     """
+    fs = self.function_spaces
     if coordinates is not None:
         for key, value in fs.items():
             assert value[0].mesh() == coordinates.function_space().mesh()
         x, y = coordinates
     else:
-        x, y = SpatialCoordinate(fs[list(fs.keys())[0]][0].mesh())
+        x, y = SpatialCoordinate(self.meshes[0])
     init = {
         'bell_2d': bell_initial_condition,
         'cone_2d': cone_initial_condition,
@@ -69,20 +65,10 @@ def initial_condition(fs, coordinates=None):
     }
 
 
-def time_integrated_qoi(q, t):
+def get_qoi(self):
     """
-    Quantity of interest which
-    integrates the square L2 error
-    of a specified shape in time.
+    Unlike in the original version, the QoI
+    is the squared L2 error for each shape,
+    rather than just the slotted cylinder.
     """
-    return sbr.time_integrated_qoi(q, t, exact=initial_condition)
-
-
-def end_time_qoi(q):
-    """
-    Quantity of interest which
-    computes square L2 error of a
-    specified shape at the
-    simulation end time.
-    """
-    return sbr.end_time_qoi(q, exact=initial_condition)
+    return sbr.get_qoi(self, exact=get_initial_condition)

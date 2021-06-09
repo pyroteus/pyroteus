@@ -23,7 +23,6 @@ try:
 except ImportError:
     import pytest
     pytest.xfail("Thetis is not installed")
-import pyadjoint
 
 
 # Problem setup
@@ -32,14 +31,6 @@ nx, ny = lx*5, 5
 mesh = RectangleMesh(nx, ny, lx, ly)
 x, y = SpatialCoordinate(mesh)
 fields = ['solution_2d', 'sediment_2d', 'bathymetry_2d']
-P1_2d = get_functionspace(mesh, "CG", 1)
-U_2d = VectorFunctionSpace(mesh, "DG", 1, name="U_2d")
-H_2d = get_functionspace(mesh, "DG", 1, name="H_2d")
-function_space = {
-    'solution_2d': MixedFunctionSpace([U_2d, H_2d]),
-    'sediment_2d': H_2d,
-    'bathymetry_2d': P1_2d,
-}
 solves_per_dt = [1, 1, 1]
 morfac = 300
 end_time = 1.5*3600/morfac  # TODO: reduce?
@@ -48,92 +39,122 @@ dt_per_export = 6
 morfac = 300
 
 
-def solver(ic, t_start, t_end, dt, J=0, qoi=None, **model_options):
+def get_function_space(self):
     """
-    Solve the coupled hydro-morphodynamics
-    system on a subinterval (t_start, t_end),
-    given some initial conditions `ic` and
-    a timestep `dt`.
+    An equal order P1DG-P1DG element pair
+    is used for the shallow water equations.
+    P1DG is also used for sediment, but
+    the Exner equation is solved in P1 space.
     """
-    bathymetry2d = ic['bathymetry_2d']
-    mesh2d = bathymetry2d.function_space().mesh()
-
-    # Setup solver and stash QoI
-    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
-    options = solver_obj.options
-    options._isfrozen = False
-    options.J = J
-
-    # Setup sediment model
-    options.sediment_model_options.solve_suspended_sediment = True
-    options.sediment_model_options.use_bedload = True
-    options.sediment_model_options.solve_exner = True
-    options.sediment_model_options.use_sediment_conservative_form = True
-    options.sediment_model_options.average_sediment_size = Constant(1.6e-04)
-    options.sediment_model_options.bed_reference_height = Constant(0.025)
-    options.sediment_model_options.morphological_acceleration_factor = Constant(morfac)
-
-    # Setup problem
-    options.timestepper_type = 'CrankNicolson'
-    options.timestepper_options.implicitness_theta = 1.0
-    options.norm_smoother = Constant(0.1)
-    options.timestep = dt
-    options.simulation_export_time = 6*0.3
-    options.simulation_end_time = t_end
-    # if qoi is not None and np.isclose(t_end, end_time):
-    #     options.simulation_end_time += 0.5*dt
-    options.horizontal_viscosity = Constant(1.0e-06)
-    options.horizontal_diffusivity = Constant(0.15)
-    options.nikuradse_bed_roughness = Constant(3*options.sediment_model_options.average_sediment_size)
-    options.output_directory = 'outputs/migrating_trench'
-    model_options.setdefault('no_exports', True)
-    options.update(model_options)
-
-    # Apply boundary conditions
-    solver_obj.bnd_functions['shallow_water'] = {
-        1: {'flux': Constant(-0.22)},
-        2: {'elev': Constant(0.397)},
-    }
-    solver_obj.bnd_functions['sediment_2d'] = {
-        1: {'flux': Constant(-0.22), 'equilibrium': None},
-        2: {'elev': Constant(0.397)},
+    return {
+        'solution_2d': [
+            MixedFunctionSpace([
+                VectorFunctionSpace(mesh, "DG", 1, name="U_2d"),
+                get_functionspace(mesh, "DG", 1, name="H_2d"),
+            ]) for mesh in self.meshes
+        ],
+        'sediment_2d': [
+            get_functionspace(mesh, "DG", 1, name="H_2d")
+            for mesh in self.meshes
+        ],
+        'bathymetry_2d': [
+            get_functionspace(mesh, "CG", 1)
+            for mesh in self.meshes
+        ],
     }
 
-    # Apply initial conditions
-    uv, elev = ic['solution_2d'].split()
-    solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=ic['sediment_2d'])
-    solutions = {
-        'solution_2d': solver_obj.fields.solution_2d,
-        'sediment_2d': solver_obj.fields.sediment_2d,
-        'bathymetry_2d': solver_obj.fields.bathymetry_2d,
-    }
 
-    def update_forcings(t):
-        if qoi is not None:
-            options.J += qoi(solutions, t)
+def get_solver(self):
 
-    # Correct counters and iterate
-    i_export = int(t_start/dt/dt_per_export)
-    solver_obj.simulation_time = t_start
-    solver_obj.i_export = i_export
-    solver_obj.next_export_t = t_start
-    solver_obj.iteration = int(t_start/dt)
-    solver_obj.export_initial_state = np.isclose(t_start, 0.0)
-    if not options.no_exports and len(options.fields_to_export) > 0:
-        for e in solver_obj.exporters['vtk'].exporters:
-            solver_obj.exporters['vtk'].exporters[e].set_next_export_ix(i_export)
-    solver_obj.iterate(update_forcings=update_forcings)
-    return solutions, options.J
+    def solver(ic, t_start, t_end, dt, **model_options):
+        """
+        Solve the coupled hydro-morphodynamics
+        system on a subinterval (t_start, t_end),
+        given some initial conditions `ic` and
+        a timestep `dt`.
+        """
+        bathymetry2d = ic['bathymetry_2d']
+        mesh2d = bathymetry2d.function_space().mesh()
+
+        # Setup solver
+        solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
+        options = solver_obj.options
+
+        # Setup sediment model
+        options.sediment_model_options.solve_suspended_sediment = True
+        options.sediment_model_options.use_bedload = True
+        options.sediment_model_options.solve_exner = True
+        options.sediment_model_options.use_sediment_conservative_form = True
+        options.sediment_model_options.average_sediment_size = Constant(1.6e-04)
+        options.sediment_model_options.bed_reference_height = Constant(0.025)
+        options.sediment_model_options.morphological_acceleration_factor = Constant(morfac)
+
+        # Setup problem
+        options.timestepper_type = 'CrankNicolson'
+        options.timestepper_options.implicitness_theta = 1.0
+        options.norm_smoother = Constant(0.1)
+        options.timestep = dt
+        options.simulation_export_time = 6*0.3
+        options.simulation_end_time = t_end
+        if self.qoi_type == 'time_integrated' and np.isclose(t_end, end_time):
+            options.simulation_end_time += 0.5*dt
+        options.horizontal_viscosity = Constant(1.0e-06)
+        options.horizontal_diffusivity = Constant(0.15)
+        options.nikuradse_bed_roughness = Constant(3*options.sediment_model_options.average_sediment_size)
+        options.output_directory = 'outputs/migrating_trench'
+        model_options.setdefault('no_exports', True)
+        options.update(model_options)
+
+        # Apply boundary conditions
+        solver_obj.bnd_functions['shallow_water'] = {
+            1: {'flux': Constant(-0.22)},
+            2: {'elev': Constant(0.397)},
+        }
+        solver_obj.bnd_functions['sediment_2d'] = {
+            1: {'flux': Constant(-0.22), 'equilibrium': None},
+            2: {'elev': Constant(0.397)},
+        }
+
+        # Apply initial conditions
+        uv, elev = ic['solution_2d'].split()
+        solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=ic['sediment_2d'])
+        solutions = {
+            'solution_2d': solver_obj.fields.solution_2d,
+            'sediment_2d': solver_obj.fields.sediment_2d,
+            'bathymetry_2d': solver_obj.fields.bathymetry_2d,
+        }
+
+        # Setup QoI
+        qoi = self.qoi
+
+        def update_forcings(t):
+            if self.qoi_type == 'time_integrated':
+                self.J += qoi(solutions, t)
+
+        # Correct counters and iterate
+        i_export = int(t_start/dt/dt_per_export)
+        solver_obj.simulation_time = t_start
+        solver_obj.i_export = i_export
+        solver_obj.next_export_t = t_start
+        solver_obj.iteration = int(t_start/dt)
+        solver_obj.export_initial_state = np.isclose(t_start, 0.0)
+        if not options.no_exports and len(options.fields_to_export) > 0:
+            for e in solver_obj.exporters['vtk'].exporters:
+                solver_obj.exporters['vtk'].exporters[e].set_next_export_ix(i_export)
+        solver_obj.iterate(update_forcings=update_forcings)
+        return solutions
+
+    return solver
 
 
-@pyadjoint.no_annotations
-def initial_condition(fs):
+def get_initial_condition(self):
     """
     The initial bed is given by the trench
     profile, sediment is initialised to zero
     and velocity and elevation are given
     constant values.
     """
+    fs = self.function_spaces
     q_init = Function(fs['solution_2d'][0])
     sediment_init = Function(fs['sediment_2d'][0])
     bed_init = Function(fs['bathymetry_2d'][0])
@@ -173,19 +194,20 @@ def initial_condition(fs):
     }
 
 
-def time_integrated_qoi(sol, t):
+def get_qoi(self):
     """
     Quantity of interest which integrates
     sediment over the domain.
     """
-    s = sol['sediment_2d']
-    return s*dx
 
+    def time_integrated_qoi(sol, t):
+        s = sol['sediment_2d']
+        return s*dx
 
-def end_time_qoi(sol):
-    """
-    Quantity of interest which integrates
-    sediment over the domain at the final
-    time.
-    """
-    return time_integrated_qoi(sol, end_time)
+    def end_time_qoi(sol):
+        return time_integrated_qoi(sol, end_time)
+
+    if self.qoi_type == 'end_time':
+        return end_time_qoi
+    else:
+        return time_integrated_qoi
