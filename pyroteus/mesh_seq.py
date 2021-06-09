@@ -64,7 +64,8 @@ class MeshSeq(object):
 
     @property
     def _function_spaces_consistent(self):
-        consistent = len(self.time_partition) == len(self) == len(self._fs)
+        consistent = len(self.time_partition) == len(self)
+        consistent &= all(len(self) == len(self._fs[field]) for field in self.fields)
         for field in self.fields:
             consistent &= all(
                 mesh == fs.mesh()

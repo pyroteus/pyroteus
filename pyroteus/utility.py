@@ -35,9 +35,6 @@ def Mesh(arg, **kwargs):
     P1 = FunctionSpace(mesh, "CG", 1)
     dim = mesh.topological_dimension()
 
-    # Cell size
-    mesh.delta_x = interpolate(CellSize(mesh), P0)
-
     # Facet area
     boundary_markers = sorted(mesh.exterior_facets.unique_markers)
     one = Function(P1).assign(1.0)
@@ -56,6 +53,9 @@ def Mesh(arg, **kwargs):
         a = sqrt(dot(edge1, edge1))
         b = sqrt(dot(edge2, edge2))
         c = sqrt(dot(edge3, edge3))
+
+        # Cell size
+        mesh.delta_x = interpolate(CellSize(mesh), P0)
 
         # Aspect ratio
         if ar:
