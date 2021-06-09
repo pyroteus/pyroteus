@@ -29,15 +29,18 @@ class GoalOrientedMeshSeq(MeshSeq):
             corresponding to either an end time or time
             integrated quantity of interest, respectively
         """
+        self.qoi_type = kwargs.pop('qoi_type')
+        self.steady = kwargs.pop('steady', False)
         super(GoalOrientedMeshSeq, self).__init__(
             time_partition, initial_meshes, get_function_spaces,
             get_initial_condition, get_solver, **kwargs
         )
-        self.get_qoi = get_qoi
-        self.qoi_type = None
+        self._get_qoi = get_qoi
         self.J = 0
         self.controls = None
-        self.steady = kwargs.get('steady', False)
+
+    def get_qoi(self):
+        return self._get_qoi(self)
 
     @property
     @pyadjoint.no_annotations
@@ -57,7 +60,17 @@ class GoalOrientedMeshSeq(MeshSeq):
             self.qoi_type = 'time_integrated'
         else:
             raise ValueError(f"QoI should have 1 or 2 args, not {num_args}")
-        return qoi
+        if pyadjoint.tape.annotate_tape():
+
+            @wraps(qoi)
+            def wrapper(*args, **kwargs):
+                j = firedrake.assemble(qoi(*args, **kwargs))
+                j.block_variable.adj_value = 1.0
+                return j
+
+            return wrapper
+        else:
+            return lambda *args, **kwargs: firedrake.assemble(qoi(*args, **kwargs))
 
     @pyadjoint.no_annotations
     def get_checkpoints(self, solver_kwargs={}):
@@ -72,22 +85,15 @@ class GoalOrientedMeshSeq(MeshSeq):
             arguments which will be passed to
             the solver
         """
-
-        # Prepare QoI
-        qoi = self.qoi
-        assert self.qoi_type in ('end_time', 'time_integrated')
-        if self.qoi_type == 'time_integrated':
-            solver_kwargs['qoi'] = lambda *args, **kwargs: firedrake.assemble(qoi(*args, **kwargs))
         self.J = 0
 
         # Solve forward
         checkpoints = [self.initial_condition]
-        solver = self.solver
         for i in range(len(self)):
-            sols = solver(self, checkpoints[i], *self.time_partition[i], **solver_kwargs)
+            sols = self.solver(checkpoints[i], *self.time_partition[i], **solver_kwargs)
             assert issubclass(sols.__class__, dict), "solver should return a dict"
-            assert set(self.fields).issubclass(set(sols.keys())), "missing fields from solver"
-            assert set(sols.keys()).issubclass(set(self.fields)), "more solver outputs than fields"
+            assert set(self.fields).issubset(set(sols.keys())), "missing fields from solver"
+            assert set(sols.keys()).issubset(set(self.fields)), "more solver outputs than fields"
             if i < len(self)-1:
                 checkpoints.append({
                     field: project(sols[field], fs[i+1])
@@ -96,42 +102,8 @@ class GoalOrientedMeshSeq(MeshSeq):
 
         # Account for end time QoI
         if self.qoi_type == 'end_time':
-            self.J = firedrake.assemble(qoi(sols))  # NOTE: any kwargs will use the default
+            self.J = self.qoi(sols)  # NOTE: any kwargs will use the default
         return checkpoints
-
-    @property
-    def wrapped_solver(self):
-        """
-        Wrapper for a solver which records a
-        :class:`Control` for each component of
-        its initial condition.
-        """
-        solver = self.solver
-
-        @wraps(solver)
-        def wrapper(self, ic, t_start, t_end, dt, **kwargs):
-            init = {field: ic[field].copy(deepcopy=True) for field in self.fields}
-            self.controls = [Control(init[field]) for field in self.fields]
-            return solver(self, init, t_start, t_end, dt, **kwargs)
-
-        return wrapper
-
-    @property
-    def wrapped_qoi(self):
-        """
-        Wrapper for contributions to a QoI which
-        sets the corresponding ``adj_value`` to
-        unity.
-        """
-        qoi = self.qoi
-
-        @wraps(qoi)
-        def wrapper(*args, **kwargs):
-            j = firedrake.assemble(qoi(*args, **kwargs))
-            j.block_variable.adj_value = 1.0
-            return j
-
-        return wrapper
 
     def solve_adjoint(self, solver_kwargs={}, get_adj_values=False):
         """
@@ -198,12 +170,14 @@ class GoalOrientedMeshSeq(MeshSeq):
         else:
             adj_values = None
 
-        # Wrap solver and QoI
-        wrapped_solver = self.wrapped_solver
-        wrapped_qoi = self.wrapped_qoi
-        if self.qoi_type == 'time_integrated':
-            solver_kwargs['qoi'] = wrapped_qoi
-        assert hasattr(self, 'controls')
+        # Wrap solver to extract controls
+        solver = self.solver
+
+        @wraps(solver)
+        def wrapped_solver(ic, t_start, t_end, dt, **kwargs):
+            init = {field: ic[field].copy(deepcopy=True) for field in self.fields}
+            self.controls = [Control(init[field]) for field in self.fields]
+            return solver(init, t_start, t_end, dt, **kwargs)
 
         # Clear tape
         tape = pyadjoint.get_working_tape()
@@ -220,7 +194,7 @@ class GoalOrientedMeshSeq(MeshSeq):
             # Get seed vector for reverse propagation
             if i == num_subintervals-1:
                 if self.qoi_type == 'end_time':
-                    self.J = wrapped_qoi(sols)  # NOTE: any kwargs will use the default
+                    self.J = self.qoi(sols)  # NOTE: any kwargs will use the default
                     if self.warn and np.isclose(float(self.J), 0.0):
                         print("WARNING: Zero QoI. Is it implemented as intended?")
             else:
