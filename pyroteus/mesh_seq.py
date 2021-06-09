@@ -39,9 +39,9 @@ class MeshSeq(object):
         if not isinstance(self.meshes, Iterable):
             self.meshes = [Mesh(initial_meshes) for subinterval in self.subintervals]
         self._fs = None
-        self.get_function_spaces = get_function_spaces
-        self.get_initial_condition = get_initial_condition
-        self.get_solver = get_solver
+        self._get_function_spaces = get_function_spaces
+        self._get_initial_condition = get_initial_condition
+        self._get_solver = get_solver
         self.warn = warnings
 
     def __len__(self):
@@ -52,6 +52,15 @@ class MeshSeq(object):
 
     def __setitem__(self, i, mesh):
         self.meshes[i] = mesh
+
+    def get_function_spaces(self):
+        return self._get_function_spaces(self)
+
+    def get_initial_condition(self):
+        return self._get_initial_condition(self)
+
+    def get_solver(self):
+        return self._get_solver(self)
 
     @property
     def _function_spaces_consistent(self):
@@ -74,8 +83,8 @@ class MeshSeq(object):
     def initial_condition(self):
         ic = self.get_initial_condition()
         assert issubclass(ic.__class__, dict), "`get_initial_condition` should return a dict"
-        assert set(self.fields).issubclass(set(ic.keys())), "missing fields in initial condition"
-        assert set(ic.keys()).issubclass(set(self.fields)), "more initial conditions than fields"
+        assert set(self.fields).issubset(set(ic.keys())), "missing fields in initial condition"
+        assert set(ic.keys()).issubset(set(self.fields)), "more initial conditions than fields"
         return ic
 
     @property
