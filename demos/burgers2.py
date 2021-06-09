@@ -16,13 +16,14 @@ from pyroteus_adjoint import *
 # velocity space (which actually coincide). They are represented
 # in a list. ::
 
-from burgers import solver, initial_condition, end_time_qoi
+from burgers import get_solver, get_initial_condition, get_qoi, get_function_spaces
 
 fields = ['uv_2d']
 n = 32
-mesh = UnitSquareMesh(n, n, diagonal='left')
-V = VectorFunctionSpace(mesh, "CG", 2)
-function_spaces = {'uv_2d': [V, V]}
+meshes = [
+    UnitSquareMesh(n, n, diagonal='left'),
+    UnitSquareMesh(n, n, diagonal='left')
+]
 end_time = 0.5
 dt = 1/n
 
@@ -33,7 +34,11 @@ dt = 1/n
 
 num_subintervals = 2
 P = TimePartition(end_time, num_subintervals, dt, fields, timesteps_per_export=2, debug=True)
-J, solutions = solve_adjoint(solver, initial_condition, end_time_qoi, function_spaces, P)
+go_mesh_seq = GoalOrientedMeshSeq(
+    P, meshes, get_function_spaces, get_initial_condition,
+    get_solver, get_qoi, qoi_type='end_time',
+)
+solutions = go_mesh_seq.solve_adjoint()[0]
 
 # Solution plotting is much the same, but with some minor tweaks to
 # get the two subintervals side by side. ::

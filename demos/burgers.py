@@ -33,54 +33,66 @@ from pyroteus_adjoint import *
 
 fields = ['uv_2d']
 
+# First, we specify how to build :class:`FunctionSpace`s. ::
+# Function spaces are given as a dictionary, indexed by the
+# prognostic solution field names. The function spaces
+# should be built upon the meshes contained inside a
+# :class:`GoalOrientedMeshSeq` object. ::
+
+
+def get_function_spaces(go_mesh_seq):
+    return {
+        'uv_2d': [
+            VectorFunctionSpace(mesh, "CG", 2)
+            for mesh in go_mesh_seq.meshes
+        ]
+    }
+
+
 # Pyroteus requires a solver with four arguments: a dictionary
 # containing initial conditions for each prognostic solution,
-# a start time, an end time and a timestep. It also takes two
-# keyword arguments: a quantity of interest (QoI) ``qoi`` and a
-# current value for the QoI, ``J``. The following pattern is
-# used for the QoI, which will be specified later. The
-# dictionary usage may seem cumbersome when applied to such a
-# simple problem, but it comes in handy when solving adjoint
-# problems associated with coupled systems of equations. ::
+# a start time, an end time and a timestep. The following
+# pattern is used for the QoI, which will be specified later.
+# The dictionary usage may seem cumbersome when applied to
+# such a simple problem, but it comes in handy when solving
+# adjoint problems associated with coupled systems of equations. ::
 
+def get_solver(go_mesh_seq):
 
-def solver(ic, t_start, t_end, dt, qoi=None, J=0):
-    function_space = ic['uv_2d'].function_space()
-    dtc = Constant(dt)
-    nu = Constant(0.0001)
+    def solver(ic, t_start, t_end, dt):
+        function_space = ic['uv_2d'].function_space()
+        dtc = Constant(dt)
+        nu = Constant(0.0001)
 
-    # Set initial condition
-    u_ = Function(function_space)
-    u_.assign(ic['uv_2d'])
+        # Set initial condition
+        u_ = Function(function_space)
+        u_.assign(ic['uv_2d'])
 
-    # Setup variational problem
-    v = TestFunction(function_space)
-    u = Function(function_space)
-    F = inner((u - u_)/dtc, v)*dx \
-        + inner(dot(u, nabla_grad(u)), v)*dx \
-        + nu*inner(grad(u), grad(v))*dx
+        # Setup variational problem
+        v = TestFunction(function_space)
+        u = Function(function_space)
+        F = inner((u - u_)/dtc, v)*dx \
+            + inner(dot(u, nabla_grad(u)), v)*dx \
+            + nu*inner(grad(u), grad(v))*dx
 
-    # Time integrate from t_start to t_end
-    t = t_start
-    while t < t_end - 1.0e-05:
-        solve(F == 0, u)
-        if qoi is not None:
-            J += qoi({'uv_2d': u}, t)
-        u_.assign(u)
-        t += dt
-    return {'uv_2d': u_}, J
+        # Time integrate from t_start to t_end
+        t = t_start
+        while t < t_end - 1.0e-05:
+            solve(F == 0, u)
+            u_.assign(u)
+            t += dt
+        return {'uv_2d': u_}
+
+    return solver
 
 
 # Pyroteus also requires a function for generating an initial
-# condition from a function space. Note that we add the
-# ``no_annotations`` decorator to initial conditions so that
-# their contents aren't annotated. ::
+# condition from a function space. ::
 
 
-@no_annotations
-def initial_condition(function_space):
-    fs = function_space['uv_2d'][0]
-    x, y = SpatialCoordinate(fs.mesh())
+def get_initial_condition(go_mesh_seq):
+    fs = go_mesh_seq.function_spaces['uv_2d'][0]
+    x, y = SpatialCoordinate(go_mesh_seq.meshes[0])
     return {'uv_2d': interpolate(as_vector([sin(pi*x), 0]), fs)}
 
 
@@ -97,24 +109,25 @@ def initial_condition(function_space):
 # hand boundary. ::
 
 
-def end_time_qoi(sol):
-    u = sol['uv_2d']
-    return inner(u, u)*ds(2)
+def get_qoi(go_mesh_seq):
+    assert go_mesh_seq.qoi_type == 'end_time'
+
+    def end_time_qoi(sol):
+        u = sol['uv_2d']
+        return inner(u, u)*ds(2)
+
+    return end_time_qoi
 
 
 # Now that we have the above functions defined, we move onto the
-# concrete parts of the solver, which mimic the original demo.
-# Function spaces are given as a dictionary, indexed by the
-# prognostic solution field names. ::
+# concrete parts of the solver, which mimic the original demo. ::
 
 n = 32
 mesh = UnitSquareMesh(n, n)
-V = VectorFunctionSpace(mesh, "CG", 2)
-function_spaces = {'uv_2d': V}
 end_time = 0.5
 dt = 1/n
 
-# The final ingredient required to solve the adjoint problem using
+# Another requirement to solve the adjoint problem using
 # Pyroteus is a ``TimePartition``. This object captures how the
 # temporal domain is to be divided for the purposes of mesh
 # adaptation. In our case, there is a single mesh, so the partition
@@ -123,8 +136,9 @@ dt = 1/n
 num_subintervals = 1
 P = TimePartition(end_time, num_subintervals, dt, fields, timesteps_per_export=2)
 
-# Finally, we are able to call ``solve_adjoint``, which returns the
-# QoI value and a dictionary of solutions for the forward and adjoint
+# Finally, we are able to construct a :class:`GoalOrientedMeshSeq` and
+# thereby call its ``solve_adjoint`` method. This computes the QoI
+# value and returns a dictionary of solutions for the forward and adjoint
 # problems. The solution dictionary has keys `'forward'`, `'forward_old'`,
 # `'adjoint'` and `'adjoint_next'` and arrays as values. When passed
 # an index corresponding to a particular exported timestep, the array
@@ -132,7 +146,11 @@ P = TimePartition(end_time, num_subintervals, dt, fields, timesteps_per_export=2
 # solution at the previous timestep, the current adjoint solution and
 # the adjoint solution at the next timestep, respectively. ::
 
-J, solutions = solve_adjoint(solver, initial_condition, end_time_qoi, function_spaces, P)
+go_mesh_seq = GoalOrientedMeshSeq(
+    P, mesh, get_function_spaces, get_initial_condition,
+    get_solver, get_qoi, qoi_type='end_time',
+)
+solutions = go_mesh_seq.solve_adjoint()[0]
 
 # Finally, we plot the adjoint solution at each exported timestep by
 # looping over ``solutions['adjoint']``. ::
