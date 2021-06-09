@@ -54,7 +54,7 @@ def get_function_space(mesh):
             ]),
         'sediment_2d':
             get_functionspace(mesh, "DG", 1, name="H_2d"),
-        'bathymetry_2d': [
+        'bathymetry_2d':
             get_functionspace(mesh, "CG", 1),
     }
 
