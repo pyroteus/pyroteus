@@ -35,8 +35,8 @@ dt = pi/300
 dt_per_export = 75
 
 
-def get_function_spaces(self):
-    return {field: [FunctionSpace(mesh, "DQ", 1) for mesh in self.meshes] for field in self.fields}
+def get_function_spaces(mesh):
+    return {'tracer_2d': FunctionSpace(mesh, "DQ", 1)}
 
 
 def get_solver(self):

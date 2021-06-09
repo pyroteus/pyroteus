@@ -41,17 +41,16 @@ order = 1
 soliton_amplitude = 0.395
 
 
-def get_function_spaces(self):
+def get_function_spaces(mesh):
     """
     Equal order P1DG-P1DG element pair
     """
     return {
-        'solution_2d': [
+        'solution_2d':
             MixedFunctionSpace([
                 VectorFunctionSpace(mesh, "DG", 1, name="U_2d"),
                 get_functionspace(mesh, "DG", 1, name="H_2d"),
-            ]) for mesh in self.meshes
-        ]
+            ])
     }
 
 

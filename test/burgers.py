@@ -22,13 +22,13 @@ dt = 1/n
 dt_per_export = 2
 
 
-def get_function_spaces(self):
+def get_function_spaces(mesh):
     """
     Construct a sequence of P2 function
     spaces based on the meshes of the
     :class:`MeshSeq`.
     """
-    return {'uv_2d': [VectorFunctionSpace(mesh, "CG", 2) for mesh in self.meshes]}
+    return {'uv_2d': VectorFunctionSpace(mesh, "CG", 2)}
 
 
 def get_solver(self):

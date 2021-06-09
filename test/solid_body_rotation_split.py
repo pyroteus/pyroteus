@@ -24,6 +24,10 @@ fields = ['bell_2d', 'cone_2d', 'slot_cyl_2d']
 solves_per_dt = [3, 3, 3]
 
 
+def get_function_spaces(mesh):
+    return {field: FunctionSpace(mesh, "DQ", 1) for field in fields}
+
+
 def get_solver(self):
     """
     The same solver as in the original version,
