@@ -46,6 +46,13 @@ usage of its different functionalities. It is highly recommended
 that these are read in order, as many of the demos build upon
 earlier ones.
 
+.. rubric:: Introductory demos
+
+.. toctree::
+    :maxdepth: 1
+
+    Partitioning a time interval <demos/time_partition.py>
+
 .. rubric:: Adjoint solver demos
 
 .. toctree::
