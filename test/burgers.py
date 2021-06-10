@@ -36,8 +36,8 @@ def get_solver(self):
     Burgers equation is solved using
     Backward Euler timestepping.
     """
-
-    def solver(ic, t_start, t_end, dt):
+    def solver(i, ic):
+        t_start, t_end, dt = self.time_partition[i]
         fs = ic['uv_2d'].function_space()
         dtc = Constant(dt)
         nu = Constant(0.0001)
@@ -63,7 +63,6 @@ def get_solver(self):
             u_.assign(u)
             t += dt
         return {'uv_2d': u_}
-
     return solver
 
 
@@ -84,7 +83,6 @@ def get_qoi(self):
     norm over the right hand
     boundary.
     """
-
     def end_time_qoi(sol):
         u = sol['uv_2d']
         return inner(u, u)*ds(2)

@@ -93,7 +93,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
     print("\n--- Solving the adjoint problem on 1 subinterval using pyadjoint\n")
     ic = go_mesh_seq.initial_condition
     controls = [Control(value) for key, value in ic.items()]
-    sols = go_mesh_seq.solver(ic, 0.0, end_time, test_case.dt)
+    sols = go_mesh_seq.solver(0, ic)
     J = go_mesh_seq.J if qoi_type == 'time_integrated' else go_mesh_seq.qoi(sols)
     pyadjoint.compute_gradient(J, controls)  # FIXME: gradient w.r.t. mixed function not correct
     J_expected = float(J)

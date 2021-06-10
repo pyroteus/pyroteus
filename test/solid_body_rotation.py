@@ -45,8 +45,8 @@ def get_solver(self):
     integrated using a strong stability
     preserving third order RK method.
     """
-
-    def solver(ic, t_start, t_end, dt, field='tracer_2d'):
+    def solver(i, ic, field='tracer_2d'):
+        t_start, t_end, dt = self.time_partition[i]
         V = ic[field].function_space()
         mesh = V.mesh()
         x, y = SpatialCoordinate(mesh)
@@ -102,7 +102,6 @@ def get_solver(self):
                 self.J += qoi({field: q}, t)
             t += dt
         return {field: q}
-
     return solver
 
 
@@ -149,7 +148,6 @@ def get_qoi(self, exact=get_initial_condition):
     advected slotted cylinder (or
     specified shape).
     """
-
     def time_integrated_qoi(sol, t):
         assert len(list(sol.keys())) == 1
         field = list(sol.keys())[0]

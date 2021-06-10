@@ -55,7 +55,9 @@ def get_function_spaces(mesh):
 
 def get_solver(mesh_seq):
 
-    def solver(ic, t_start, t_end, dt):
+    def solver(index, ic):
+        t_start, t_end = mesh_seq.subintervals[index]
+        dt = mesh_seq.time_partition.timesteps[index]
         function_space = ic['uv_2d'].function_space()
         dtc = Constant(dt)
         nu = Constant(0.0001)

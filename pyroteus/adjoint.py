@@ -93,7 +93,7 @@ class AdjointMeshSeq(MeshSeq):
         # Solve forward
         checkpoints = [self.initial_condition]
         for i in range(len(self)):
-            sols = self.solver(checkpoints[i], *self.time_partition[i], **solver_kwargs)
+            sols = self.solver(i, checkpoints[i], **solver_kwargs)
             assert issubclass(sols.__class__, dict), "solver should return a dict"
             assert set(self.fields).issubset(set(sols.keys())), "missing fields from solver"
             assert set(sols.keys()).issubset(set(self.fields)), "more solver outputs than fields"
@@ -169,10 +169,10 @@ class AdjointMeshSeq(MeshSeq):
         solver = self.solver
 
         @wraps(solver)
-        def wrapped_solver(ic, t_start, t_end, dt, **kwargs):
+        def wrapped_solver(i, ic, **kwargs):
             init = AttrDict({field: ic[field].copy(deepcopy=True) for field in self.fields})
             self.controls = [Control(init[field]) for field in self.fields]
-            return solver(init, t_start, t_end, dt, **kwargs)
+            return solver(i, init, **kwargs)
 
         # Clear tape
         tape = pyadjoint.get_working_tape()
@@ -184,7 +184,7 @@ class AdjointMeshSeq(MeshSeq):
         for i in reversed(range(num_subintervals)):
 
             # Annotate tape on current subinterval
-            sols = wrapped_solver(checkpoints[i], *self.time_partition[i], **solver_kwargs)
+            sols = wrapped_solver(i, checkpoints[i], **solver_kwargs)
 
             # Get seed vector for reverse propagation
             if i == num_subintervals-1:

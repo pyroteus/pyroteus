@@ -60,8 +60,8 @@ def get_solver(self):
     equations using Crank-Nicolson
     timestepping.
     """
-
-    def solver(ic, t_start, t_end, dt, **model_options):
+    def solver(i, ic, **model_options):
+        t_start, t_end, dt = self.time_partition[i]
         mesh2d = ic['solution_2d'].function_space().mesh()
         P1_2d = FunctionSpace(mesh2d, "CG", 1)
         bathymetry2d = Function(P1_2d).assign(1.0)
@@ -120,7 +120,6 @@ def get_solver(self):
         # Revert gravitational acceleration
         physical_constants['g_grav'].assign(g)
         return {'solution_2d': solver_obj.fields.solution_2d}
-
     return solver
 
 
@@ -238,7 +237,6 @@ def get_qoi(self):
     the square L2 error of the advected
     Rossby soliton.
     """
-
     def time_integrated_qoi(sol, t):
         q = sol['solution_2d']
         q_a = asymptotic_expansion(q.function_space(), t)

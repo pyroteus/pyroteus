@@ -60,6 +60,7 @@ earlier ones.
 
     Adjoint of Burgers equation <demos/burgers.py>
     Adjoint of Burgers equation on two meshes <demos/burgers2.py>
+    Adjoint of Burgers equation with a time-integrated QoI <demos/burgers3.py>
 
 .. rubric:: Metric-based mesh adaptation demos
 

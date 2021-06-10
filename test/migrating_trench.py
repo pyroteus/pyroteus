@@ -60,14 +60,14 @@ def get_function_space(mesh):
 
 
 def get_solver(self):
-
-    def solver(ic, t_start, t_end, dt, **model_options):
+    def solver(i, ic, **model_options):
         """
         Solve the coupled hydro-morphodynamics
         system on a subinterval (t_start, t_end),
         given some initial conditions `ic` and
         a timestep `dt`.
         """
+        t_start, t_end, dt = self.time_partition[i]
         bathymetry2d = ic['bathymetry_2d']
         mesh2d = bathymetry2d.function_space().mesh()
 
@@ -194,7 +194,6 @@ def get_qoi(self):
     Quantity of interest which integrates
     sediment over the domain.
     """
-
     def time_integrated_qoi(sol, t):
         s = sol['sediment_2d']
         return s*dx
