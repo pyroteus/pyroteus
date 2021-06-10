@@ -66,3 +66,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             qoi_type=self.qoi_type, steady=self.steady,
         )
         return adj_mesh_seq.solve_adjoint(**kwargs)
+
+    def fixed_point_iteration(self, **kwargs):
+        """
+        Apply goal-oriented mesh adaptation using
+        a fixed point iteration.
+        """
+        raise NotImplementedError  # TODO
