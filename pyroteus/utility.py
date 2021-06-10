@@ -224,3 +224,24 @@ class AttrDict(dict):
     def __init__(self, *args, **kwargs):
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
+
+
+def effectivity_index(error_indicator, Je):
+    r"""
+    Overestimation factor of some error estimator
+    for the QoI error.
+
+    Note that this is only typically used for simple
+    steady-state problems with analytical solutions.
+
+    :arg error_indicator: a :math:`\mathbb P0`
+        :class:`Function` which localises
+        contributions to an error estimator to
+        individual elements
+    :arg Je: error in quantity of interest
+    """
+    assert isinstance(error_indicator, Function), "Error indicator must return a Function"
+    el = error_indicator.ufl_element()
+    assert (el.family(), el.degree()) == ('Discontinuous Lagrange', 0), "Error indicator must be P0"
+    eta = error_indicator.vector().gather().sum()
+    return np.abs(eta/Je)

@@ -25,6 +25,8 @@ computed.
 from firedrake import *
 import pyadjoint
 
+raise NotImplementedError # TODO: update
+
 
 # Problem setup
 n = 0

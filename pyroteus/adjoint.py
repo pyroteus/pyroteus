@@ -14,11 +14,11 @@ __all__ = ["AdjointMeshSeq"]
 class AdjointMeshSeq(MeshSeq):
     """
     An extension of :class:`MeshSeq` to account for
-    goal-oriented problems.
+    solving adjoint problems on a sequence of meshes.
 
-    For goal-oriented problems, the solver should
-    access and modify :attr:`J`, which holds the
-    QoI value.
+    For time-dependent quantities of interest, the
+    solver should access and modify :attr:`J`, which
+    holds the QoI value.
     """
     def __init__(self, time_partition, initial_meshes, get_function_spaces,
                  get_initial_condition, get_solver, get_qoi, **kwargs):

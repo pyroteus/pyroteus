@@ -75,6 +75,10 @@ class MeshSeq(object):
                 mesh == fs.mesh()
                 for mesh, fs in zip(self.meshes, self._fs[field])
             )
+            consistent &= all(
+                self._fs[field][0].ufl_element() == fs.ufl_element()
+                for fs in self._fs[field]
+            )
         return consistent
 
     @property

@@ -83,9 +83,10 @@ def test_adjoint_same_mesh(problem, qoi_type):
         timesteps_per_export=test_case.dt_per_export,
         solves_per_timestep=test_case.solves_per_dt,
     )
-    go_mesh_seq = GoalOrientedMeshSeq(
-        time_partition, test_case.mesh, test_case.get_function_spaces, test_case.get_initial_condition,
-        test_case.get_solver, test_case.get_qoi, qoi_type=qoi_type,
+    go_mesh_seq = AdjointMeshSeq(
+        time_partition, test_case.mesh, test_case.get_function_spaces,
+        test_case.get_initial_condition, test_case.get_solver,
+        test_case.get_qoi, qoi_type=qoi_type,
     )
 
     # Solve forward and adjoint without solve_adjoint
@@ -122,9 +123,10 @@ def test_adjoint_same_mesh(problem, qoi_type):
             timesteps_per_export=test_case.dt_per_export,
             solves_per_timestep=test_case.solves_per_dt,
         )
-        go_mesh_seq = GoalOrientedMeshSeq(
-            time_partition, test_case.mesh, test_case.get_function_spaces, test_case.get_initial_condition,
-            test_case.get_solver, test_case.get_qoi, qoi_type=qoi_type,
+        go_mesh_seq = AdjointMeshSeq(
+            time_partition, test_case.mesh, test_case.get_function_spaces,
+            test_case.get_initial_condition, test_case.get_solver,
+            test_case.get_qoi, qoi_type=qoi_type,
         )
         solutions = go_mesh_seq.solve_adjoint(get_adj_values=True)
 
