@@ -7,6 +7,8 @@ silent, so its pronunciation is identical to
 'Proteus' - the ancient Greek god of the constantly
 changing surface of the sea.
 
+The Pyroteus documentation is hosted at [pyroteus.github.io/](https://pyroteus.github.io/).
+
 This is research of the Applied Modelling and
 Computation Group ([AMCG][amcg]) at Imperial College
 London.
