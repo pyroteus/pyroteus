@@ -17,8 +17,8 @@ def Mesh(arg, **kwargs):
         * facet area.
 
     Extra quantities can be computed using the flags:
-        * `compute_aspect_ratio`;
-        * `compute_scaled_jacobian`.
+        * ``compute_aspect_ratio``;
+        * ``compute_scaled_jacobian``.
 
     The argument and keyword arguments are passed to
     Firedrake's ``Mesh`` constructor, modified so
@@ -214,11 +214,10 @@ def rotate(v, angle, origin=None):
 
 class AttrDict(dict):
     """
-    Dictionary that provides both self['key']
-    and self.key access to members.
+    Dictionary that provides both ``self['key']``
+    and ``self.key`` access to members.
 
-    **Disclaimer:: Copied from
-        http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python
+    **Disclaimer**: Copied from `stackoverflow <http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python>`__.
     """
     def __init__(self, *args, **kwargs):
         super(AttrDict, self).__init__(*args, **kwargs)
