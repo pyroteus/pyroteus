@@ -14,18 +14,17 @@ if [ ! -e "$SOFTWARE" ]; then
 	echo "SOFTWARE environment variable $SOFTWARE does not exist."
 	exit 1
 fi
-export INSTALL_DIR=$SOFTWARE  # Modify as appropriate
-export PETSC_DIR=$INSTALL_DIR/petsc
+export PETSC_DIR=$SOFTWARE/petsc
 export PETSC_ARCH=arch-pragmatic
 
 # Check environment variables
-echo "INSTALL_DIR="$INSTALL_DIR
+echo "INSTALL_DIR="$SOFTWARE
 echo "PETSC_DIR="$PETSC_DIR
 echo "PETSC_ARCH="$PETSC_ARCH
 echo "Are these settings okay? Press enter to continue."
 read chk
 
-cd $INSTALL_DIR
+cd $SOFTWARE
 git clone https://gitlab.com/petsc/petsc.git petsc
 cp configure_petsc.py petsc/
 cd petsc

@@ -64,4 +64,5 @@ cd $FIREDRAKE_DIR/src/firedrake
 python3 tests/test_adapt_2d.py
 
 # Install pip dependencies for Pyroteus
+cd $SOFTWARE
 python3 -m pip install -r requirements.txt
