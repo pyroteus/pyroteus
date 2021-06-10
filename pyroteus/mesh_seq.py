@@ -22,7 +22,7 @@ class MeshSeq(object):
             or a single mesh to use for all subintervals
         :arg get_function_spaces: a function, whose only
             argument is a :class:`MeshSeq`, which constructs
-            prognostic :class:`FunctionSpace`s for each
+            prognostic :class:`FunctionSpace` s for each
             subinterval
         :arg get_initial_condition: a function, whose only
             argument is a :class:`MeshSeq`, which specifies
