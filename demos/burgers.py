@@ -33,11 +33,11 @@ from pyroteus_adjoint import *
 
 fields = ['uv_2d']
 
-# First, we specify how to build :class:`FunctionSpace`s. ::
-# Function spaces are given as a dictionary, indexed by the
-# prognostic solution field names. The function spaces
-# will be built upon the meshes contained inside a
-# :class:`GoalOrientedMeshSeq` object. ::
+# First, we specify how to build a :class:`FunctionSpace`,
+# given some mesh. Function spaces are given as a dictionary,
+# labelled by the prognostic solution field names. The
+# function spaces will be built upon the meshes contained
+# inside a :class:`GoalOrientedMeshSeq` object. ::
 
 
 def get_function_spaces(mesh):
@@ -106,7 +106,6 @@ def get_initial_condition(go_mesh_seq):
 
 
 def get_qoi(go_mesh_seq):
-    assert go_mesh_seq.qoi_type == 'end_time'
 
     def end_time_qoi(sol):
         u = sol['uv_2d']
