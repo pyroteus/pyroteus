@@ -37,7 +37,7 @@ fields = ['uv_2d']
 # given some mesh. Function spaces are given as a dictionary,
 # labelled by the prognostic solution field names. The
 # function spaces will be built upon the meshes contained
-# inside a :class:`GoalOrientedMeshSeq` object. ::
+# inside an :class:`AdjointMeshSeq` object. ::
 
 
 def get_function_spaces(mesh):
@@ -53,7 +53,7 @@ def get_function_spaces(mesh):
 # adjoint problems associated with coupled systems of equations. ::
 
 
-def get_solver(go_mesh_seq):
+def get_solver(mesh_seq):
 
     def solver(ic, t_start, t_end, dt):
         function_space = ic['uv_2d'].function_space()
@@ -86,9 +86,9 @@ def get_solver(go_mesh_seq):
 # condition from a function space. ::
 
 
-def get_initial_condition(go_mesh_seq):
-    fs = go_mesh_seq.function_spaces['uv_2d'][0]
-    x, y = SpatialCoordinate(go_mesh_seq.meshes[0])
+def get_initial_condition(mesh_seq):
+    fs = mesh_seq.function_spaces['uv_2d'][0]
+    x, y = SpatialCoordinate(mesh_seq.meshes[0])
     return {'uv_2d': interpolate(as_vector([sin(pi*x), 0]), fs)}
 
 
@@ -105,7 +105,7 @@ def get_initial_condition(go_mesh_seq):
 # hand boundary. ::
 
 
-def get_qoi(go_mesh_seq):
+def get_qoi(mesh_seq):
 
     def end_time_qoi(sol):
         u = sol['uv_2d']
@@ -131,7 +131,7 @@ dt = 1/n
 num_subintervals = 1
 P = TimePartition(end_time, num_subintervals, dt, fields, timesteps_per_export=2)
 
-# Finally, we are able to construct a :class:`GoalOrientedMeshSeq` and
+# Finally, we are able to construct an :class:`AdjointMeshSeq` and
 # thereby call its ``solve_adjoint`` method. This computes the QoI
 # value and returns a dictionary of solutions for the forward and adjoint
 # problems. The solution dictionary has keys `'forward'`, `'forward_old'`,
@@ -141,11 +141,11 @@ P = TimePartition(end_time, num_subintervals, dt, fields, timesteps_per_export=2
 # solution at the previous timestep, the current adjoint solution and
 # the adjoint solution at the next timestep, respectively. ::
 
-go_mesh_seq = GoalOrientedMeshSeq(
+mesh_seq = AdjointMeshSeq(
     P, mesh, get_function_spaces, get_initial_condition,
     get_solver, get_qoi, qoi_type='end_time',
 )
-solutions = go_mesh_seq.solve_adjoint()
+solutions = mesh_seq.solve_adjoint()
 
 # Finally, we plot the adjoint solution at each exported timestep by
 # looping over ``solutions['adjoint']``. ::

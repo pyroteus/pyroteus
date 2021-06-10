@@ -21,6 +21,7 @@ test: lint
 
 demo:
 	@echo "Running all demos..."
+	@cd demos && python3 time_partition.py
 	@cd demos && python3 burgers.py
 	@cd demos && python3 burgers2.py
 	@echo "Done."
