@@ -50,6 +50,8 @@ class TimePartition(object):
             raise ValueError(f"Non-integer number of subintervals {num_subintervals}")
         self.print("num_subintervals")
         solves_per_timestep = kwargs.get('solves_per_timestep', [1 for field in fields])
+        if not isinstance(solves_per_timestep, Iterable):
+            solves_per_timestep = [solves_per_timestep]
         self.solves_per_timestep = [int(np.round(spts)) for spts in solves_per_timestep]
         if not np.allclose(solves_per_timestep, self.solves_per_timestep):
             raise ValueError(f"Non-integer number of solves per timestep {solves_per_timestep}")
