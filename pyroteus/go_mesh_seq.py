@@ -35,7 +35,8 @@ class GoalOrientedMeshSeq(MeshSeq):
             time_partition, initial_meshes, get_function_spaces,
             get_initial_condition, get_solver, **kwargs
         )
-        self._get_qoi = get_qoi
+        if get_qoi is not None:
+            self._get_qoi = get_qoi
         self.J = 0
         self.controls = None
 
@@ -97,10 +98,10 @@ class GoalOrientedMeshSeq(MeshSeq):
             assert set(self.fields).issubset(set(sols.keys())), "missing fields from solver"
             assert set(sols.keys()).issubset(set(self.fields)), "more solver outputs than fields"
             if i < len(self)-1:
-                checkpoints.append({
+                checkpoints.append(AttrDict({
                     field: project(sols[field], fs[i+1])
                     for field, fs in self._fs.items()
-                })
+                }))
 
         # Account for end time QoI
         if self.qoi_type == 'end_time':
@@ -169,7 +170,7 @@ class GoalOrientedMeshSeq(MeshSeq):
 
         @wraps(solver)
         def wrapped_solver(ic, t_start, t_end, dt, **kwargs):
-            init = {field: ic[field].copy(deepcopy=True) for field in self.fields}
+            init = AttrDict({field: ic[field].copy(deepcopy=True) for field in self.fields})
             self.controls = [Control(init[field]) for field in self.fields]
             return solver(init, t_start, t_end, dt, **kwargs)
 

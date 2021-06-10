@@ -1,4 +1,4 @@
-from .utility import Mesh
+from .utility import AttrDict, Mesh
 from .interpolation import project
 from collections import Iterable
 
@@ -35,13 +35,17 @@ class MeshSeq(object):
         self.time_partition = time_partition
         self.fields = time_partition.fields
         self.subintervals = time_partition.subintervals
+        self.num_subintervals = time_partition.num_subintervals
         self.meshes = initial_meshes
         if not isinstance(self.meshes, Iterable):
             self.meshes = [Mesh(initial_meshes) for subinterval in self.subintervals]
         self._fs = None
-        self._get_function_spaces = get_function_spaces
-        self._get_initial_condition = get_initial_condition
-        self._get_solver = get_solver
+        if get_function_spaces is not None:
+            self._get_function_spaces = get_function_spaces
+        if get_initial_condition is not None:
+            self._get_initial_condition = get_initial_condition
+        if get_solver is not None:
+            self._get_solver = get_solver
         self.warn = warnings
 
     def __len__(self):
@@ -77,12 +81,12 @@ class MeshSeq(object):
     def function_spaces(self):
         if self._fs is None or not self._function_spaces_consistent:
             self._fs = [self.get_function_spaces(mesh) for mesh in self.meshes]
-            self._fs = {
+            self._fs = AttrDict({
                 field: [
                     self._fs[i][field]
                     for i in range(len(self))
                 ] for field in self.fields
-            }
+            })
         assert self._function_spaces_consistent, "Meshes and function spaces are inconsistent"
         return self._fs
 
@@ -92,7 +96,7 @@ class MeshSeq(object):
         assert issubclass(ic.__class__, dict), "`get_initial_condition` should return a dict"
         assert set(self.fields).issubset(set(ic.keys())), "missing fields in initial condition"
         assert set(ic.keys()).issubset(set(self.fields)), "more initial conditions than fields"
-        return ic
+        return AttrDict(ic)
 
     @property
     def solver(self):
