@@ -125,16 +125,15 @@ end_time = 0.5
 dt = 1/n
 
 # Another requirement to solve the adjoint problem using
-# Pyroteus is a ``TimePartition``. This object captures how the
+# Pyroteus is a :class:`TimePartition`. This object captures how the
 # temporal domain is to be divided for the purposes of mesh
 # adaptation. In our case, there is a single mesh, so the partition
-# is trivial. ::
+# is trivial and we can use the :class:`TimeInterval` constructor. ::
 
-num_subintervals = 1
-P = TimePartition(end_time, num_subintervals, dt, fields, timesteps_per_export=2)
+P = TimeInterval(end_time, dt, fields, timesteps_per_export=2)
 
 # Finally, we are able to construct an :class:`AdjointMeshSeq` and
-# thereby call its ``solve_adjoint`` method. This computes the QoI
+# thereby call its :attr:`solve_adjoint` method. This computes the QoI
 # value and returns a dictionary of solutions for the forward and adjoint
 # problems. The solution dictionary has keys `'forward'`, `'forward_old'`,
 # `'adjoint'` and `'adjoint_next'` and arrays as values. When passed
