@@ -46,7 +46,8 @@ def get_solver(self):
     preserving third order RK method.
     """
     def solver(i, ic, field='tracer_2d'):
-        t_start, t_end, dt = self.time_partition[i]
+        t_start, t_end = self.time_partition.subintervals[i]
+        dt = self.time_partition.timesteps[i]
         V = ic[field].function_space()
         mesh = V.mesh()
         x, y = SpatialCoordinate(mesh)

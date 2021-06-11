@@ -1,11 +1,12 @@
 """
 Partitioning for the temporal domain.
 """
+from .utility import AttrDict
 from collections.abc import Iterable
 import numpy as np
 
 
-__all__ = ["TimePartition"]
+__all__ = ["TimePartition", "TimeInterval"]
 
 
 class TimePartition(object):
@@ -44,7 +45,8 @@ class TimePartition(object):
         self.fields = fields
         self.debug = kwargs.get('debug', False)
         timesteps_per_export = kwargs.get('timesteps_per_export', 1)
-        start_time = kwargs.get('start_time', 0.0)
+        self.start_time = kwargs.get('start_time', 0.0)
+        self.end_time = end_time
         self.num_subintervals = int(np.round(num_subintervals))
         if not np.isclose(num_subintervals, self.num_subintervals):
             raise ValueError(f"Non-integer number of subintervals {num_subintervals}")
@@ -56,22 +58,22 @@ class TimePartition(object):
         if not np.allclose(solves_per_timestep, self.solves_per_timestep):
             raise ValueError(f"Non-integer number of solves per timestep {solves_per_timestep}")
         self.print("solves_per_timestep")
-        self.interval = (start_time, end_time)
+        self.interval = (self.start_time, self.end_time)
         self.print("interval")
 
         # Get subintervals
         self.subintervals = kwargs.get('subintervals')
         if self.subintervals is None:
-            subinterval_time = (end_time - start_time)/num_subintervals
+            subinterval_time = (self.end_time - self.start_time)/num_subintervals
             self.subintervals = [
-                (start_time + i*subinterval_time, start_time + (i+1)*subinterval_time)
+                (self.start_time + i*subinterval_time, self.start_time + (i+1)*subinterval_time)
                 for i in range(num_subintervals)
             ]
         assert len(self.subintervals) == num_subintervals
-        assert np.isclose(self.subintervals[0][0], start_time)
+        assert np.isclose(self.subintervals[0][0], self.start_time)
         for i in range(1, num_subintervals):
             assert np.isclose(self.subintervals[i][0], self.subintervals[i-1][1])
-        assert np.isclose(self.subintervals[-1][1], end_time)
+        assert np.isclose(self.subintervals[-1][1], self.end_time)
         self.print("subintervals")
 
         # Get timestep on each subinterval
@@ -126,12 +128,12 @@ class TimePartition(object):
         ], dtype=np.int32)
         self.print("exports_per_subinterval")
 
-    def print(self, msg):
+    def print(self, attr):
         """
         Print attribute 'msg' for debugging purposes.
         """
         try:
-            val = self.__getattribute__(msg)
+            val = self.__getattribute__(attr)
         except AttributeError:
             raise AttributeError(f"Attribute {msg} cannot be printed because it doesn't exist")
         label = ' '.join(msg.split('_'))
@@ -147,9 +149,14 @@ class TimePartition(object):
         :return: subinterval bounds and timestep
             associated with that index
         """
-        return self.subintervals[i][0], self.subintervals[i][1], self.timesteps[i]
+        return AttrDict({
+            'subinterval': self.subintervals[i],
+            'timestep': self.timesteps[i],
+            'timesteps_per_export': self.timesteps_per_export[i],
+            'num_exports': self.exports_per_subinterval[i],
+        })
 
-    def get_solve_blocks(self, field, subinterval=0):
+    def get_solve_blocks(self, field, subinterval=0, has_adj_sol=True):
         """
         Get all blocks of the tape corresponding to
         solve steps for prognostic solution ``field``
@@ -158,13 +165,23 @@ class TimePartition(object):
         from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
         from pyadjoint import get_working_tape
 
+        blocks = get_working_tape().get_blocks()
+        if len(blocks) == 0:
+            print("WARNING: tape has no blocks!")
+            return blocks
+
         solve_blocks = [
             block
-            for block in get_working_tape().get_blocks()
+            for block in blocks
             if issubclass(block.__class__, GenericSolveBlock)
             and not issubclass(block.__class__, ProjectBlock)
-            and block.adj_sol is not None
         ]
+        if has_adj_sol:
+            solve_blocks = [
+                block
+                for block in solve_blocks
+                if block.adj_sol is not None
+            ]
         stride = sum(self.solves_per_timestep)
         offset = sum(self.solves_per_timestep[:self.fields.index(field) + 1])
         offset -= self.timesteps_per_subinterval[subinterval]*stride
@@ -180,3 +197,22 @@ class TimePartition(object):
             for i, block in enumerate(solve_blocks):
                 print(f"{i:4d}: {type(block)}")
         return solve_blocks
+
+
+class TimeInterval(TimePartition):
+    """
+    A trivial :class:`TimePartition`.
+    """
+    def __init__(self, *args, **kwargs):
+        if isinstance(args[0], tuple):
+            assert len(args[0]) == 2
+            kwargs['start_time'] = args[0][0]
+            end_time = args[0][1]
+        else:
+            end_time = args[0]
+        timestep = args[1]
+        fields = args[2]
+        super(TimeInterval, self).__init__(end_time, 1, timestep, fields, **kwargs)
+
+    def __repr__(self):
+        return str(self[0])
