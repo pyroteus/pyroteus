@@ -90,7 +90,7 @@ def get_solver(mesh_seq):
 
 def get_initial_condition(mesh_seq):
     fs = mesh_seq.function_spaces['uv_2d'][0]
-    x, y = SpatialCoordinate(mesh_seq.meshes[0])
+    x, y = SpatialCoordinate(mesh_seq[0])
     return {'uv_2d': interpolate(as_vector([sin(pi*x), 0]), fs)}
 
 
@@ -125,10 +125,9 @@ end_time = 0.5
 dt = 1/n
 
 # Another requirement to solve the adjoint problem using
-# Pyroteus is a :class:`TimePartition`. This object captures how the
-# temporal domain is to be divided for the purposes of mesh
-# adaptation. In our case, there is a single mesh, so the partition
-# is trivial and we can use the :class:`TimeInterval` constructor. ::
+# Pyroteus is a :class:`TimePartition`. In our case, there is a
+# single mesh, so the partition is trivial and we can use the
+# :class:`TimeInterval` constructor. ::
 
 P = TimeInterval(end_time, dt, fields, timesteps_per_export=2)
 
