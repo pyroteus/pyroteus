@@ -4,7 +4,7 @@ Sequences of meshes corresponding to a :class:`TimePartition`.
 import firedrake
 from .utility import AttrDict, Mesh
 from .interpolation import project
-from collections import Iterable
+from collections.abc import Iterable
 
 
 __all__ = ["MeshSeq"]

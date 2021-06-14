@@ -225,6 +225,10 @@ class AdjointMeshSeq(MeshSeq):
                 num_solve_blocks = len(solve_blocks)
                 assert num_solve_blocks > 0, "Looks like no solves were written to tape!" \
                                              + " Does the solution depend on the initial condition?"
+                if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
+                    raise ValueError(f"Solve block list for field {field} contains mismatching"
+                                     + f" elements ({fs[0].ufl_element()} vs. "
+                                     + f" {block.function_space.ufl_element()})")
                 if 'forward_old' in solutions[field]:
                     fwd_old_idx, warned = self.get_lagged_dependency_index(
                         field, i, solve_blocks, warned=warned,
@@ -245,10 +249,11 @@ class AdjointMeshSeq(MeshSeq):
                 for j, block in enumerate(solve_blocks[::stride]):
                     sols.forward[i][j].assign(block._outputs[0].saved_output)
                     sols.adjoint[i][j].assign(block.adj_sol)
-                    if get_adj_values:
-                        sols.adj_value[i][j].assign(block._dependencies[fwd_old_idx].adj_value.function)
                     if fwd_old_idx is not None:
-                        sols.forward_old[i][j].assign(block._dependencies[fwd_old_idx].saved_output)
+                        dep = block._dependencies[fwd_old_idx]
+                        sols.forward_old[i][j].assign(dep.saved_output)
+                        if get_adj_values:
+                            sols.adj_value[i][j].assign(dep.adj_value.function)
                     if not steady:
                         if j*stride+1 < num_solve_blocks:
                             sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
