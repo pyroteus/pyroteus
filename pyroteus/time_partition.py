@@ -135,7 +135,7 @@ class TimePartition(object):
         try:
             val = self.__getattribute__(attr)
         except AttributeError:
-            raise AttributeError(f"Attribute {msg} cannot be printed because it doesn't exist")
+            raise AttributeError(f"Attribute {attr} cannot be printed because it doesn't exist")
         label = ' '.join(attr.split('_'))
         if self.debug:
             print(f"TimePartition: {label:25s} {val}")

@@ -1,3 +1,6 @@
+"""
+Sequences of meshes corresponding to a :class:`TimePartition`.
+"""
 from .utility import AttrDict, Mesh
 from .interpolation import project
 from collections import Iterable
