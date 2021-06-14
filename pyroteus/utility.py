@@ -4,6 +4,7 @@ Utility functions and classes for mesh adaptation.
 from __future__ import absolute_import
 import firedrake
 from firedrake import *
+from .log import *
 from collections import OrderedDict
 
 

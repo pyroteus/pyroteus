@@ -279,4 +279,4 @@ if __name__ == "__main__":
         # Compute effectivity index
         Je = assemble(end_time_qoi({'tracer_2d': c})) - Jh
         I_eff = effectivity_index(eta, Je)
-        print(f"{J:11.4e}  {Jh:11.4e}  {I_eff:11.4e}")
+        pyrint(f"{J:11.4e}  {Jh:11.4e}  {I_eff:11.4e}")

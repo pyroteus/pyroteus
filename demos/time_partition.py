@@ -65,10 +65,11 @@ P = TimePartition(end_time, num_subintervals, dt, fields, debug=True)
 #
 # This partition isn't particularly interesting.
 # Let's try constructing a new one with more
-# than one subinterval. ::
+# than one subinterval. (Note that ``pyrint``
+# accounts for printing in parallel.) ::
 
 num_subintervals = 2
-print('')
+pyrint('')
 P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
                   solves_per_timestep=2, timesteps_per_export=2)
 
@@ -78,7 +79,7 @@ P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
 # for that, it is possible to specify a list of
 # timesteps corresponding to each subinterval. ::
 
-print('')
+pyrint('')
 dt = [0.125, 0.0625]
 P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
                   timesteps_per_export=2)
@@ -88,7 +89,7 @@ P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
 # This can be remedied by also setting
 # ``timesteps_per_export`` as a list. ::
 
-print('')
+pyrint('')
 P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
                   timesteps_per_export=[2, 4])
 
@@ -98,7 +99,7 @@ P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
 # non-uniform subintervals, they need to be passed
 # to the constructor as a list of tuples. ::
 
-print('')
+pyrint('')
 subintervals = [(0.0, 0.75), (0.75, 1.0)]
 P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
                   timesteps_per_export=[2, 4], subintervals=subintervals)
