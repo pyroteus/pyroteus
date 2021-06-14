@@ -69,7 +69,7 @@ def test_adjoint_same_mesh(problem, qoi_type, **kwargs):
     from firedrake_adjoint import pyadjoint
 
     # Imports
-    print(f"\n--- Setting up {problem} test case with {qoi_type} QoI\n")
+    pyrint(f"\n--- Setting up {problem} test case with {qoi_type} QoI\n")
     test_case = importlib.import_module(problem)
     end_time = test_case.end_time
     if "solid_body_rotation" in problem:
@@ -88,7 +88,7 @@ def test_adjoint_same_mesh(problem, qoi_type, **kwargs):
     )
 
     # Solve forward and adjoint without solve_adjoint
-    print("\n--- Solving the adjoint problem on 1 subinterval using pyadjoint\n")
+    pyrint("\n--- Solving the adjoint problem on 1 subinterval using pyadjoint\n")
     ic = mesh_seq.initial_condition
     controls = [pyadjoint.Control(value) for key, value in ic.items()]
     sols = mesh_seq.solver(0, ic)
@@ -109,8 +109,8 @@ def test_adjoint_same_mesh(problem, qoi_type, **kwargs):
 
     # Loop over having one or two subintervals
     for N in range(1, 3):
-        print(f"\n--- Solving the adjoint problem on {N} subinterval"
-              + f"{'' if N == 1 else 's'} using pyroteus\n")
+        pyrint(f"\n--- Solving the adjoint problem on {N} subinterval"
+               + f"{'' if N == 1 else 's'} using pyroteus\n")
 
         # Solve forward and adjoint on each subinterval
         time_partition = TimePartition(
@@ -127,7 +127,7 @@ def test_adjoint_same_mesh(problem, qoi_type, **kwargs):
 
         # Check quantities of interest match
         assert np.isclose(J_expected, mesh_seq.J), f"QoIs do not match ({J_expected} vs." \
-                                                      + f"{mesh_seq.J})"
+                                                   + f"{mesh_seq.J})"
 
         # Check adjoint solutions at initial time match
         for field in time_partition.fields:

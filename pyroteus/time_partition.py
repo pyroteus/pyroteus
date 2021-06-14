@@ -1,7 +1,7 @@
 """
 Partitioning for the temporal domain.
 """
-from .utility import AttrDict
+from .utility import AttrDict, pyrint
 from collections.abc import Iterable
 import numpy as np
 
@@ -138,7 +138,7 @@ class TimePartition(object):
             raise AttributeError(f"Attribute {attr} cannot be printed because it doesn't exist")
         label = ' '.join(attr.split('_'))
         if self.debug:
-            print(f"TimePartition: {label:25s} {val}")
+            pyrint(f"TimePartition: {label:25s} {val}")
 
     def __len__(self):
         return self.num_subintervals
@@ -170,7 +170,7 @@ class TimePartition(object):
         # Get all blocks
         blocks = get_working_tape().get_blocks()
         if len(blocks) == 0:
-            print("WARNING: tape has no blocks!")
+            pyrint("WARNING: tape has no blocks!")
             return blocks
 
         # Restrict to solve blocks
@@ -194,16 +194,24 @@ class TimePartition(object):
         offset = sum(self.solves_per_timestep[:self.fields.index(field) + 1])
         offset -= self.timesteps_per_subinterval[subinterval]*stride
         if self.debug:
-            print("Solve blocks before slicing:")
+            pyrint("Solve blocks before slicing:")
             for i, block in enumerate(solve_blocks):
+<<<<<<< HEAD
                 pyrint(f"{i:4d}: {type(block)} {block.options_prefix}")
+=======
+                pyrint(f"{i:4d}: {type(block)}")
+>>>>>>> 54016e0... log: print -> pyrint
             pyrint(f"Offset = {offset}")
             pyrint(f"Stride = {stride}")
         solve_blocks = solve_blocks[offset::stride]
         if self.debug:
-            print("Solve blocks after slicing:")
+            pyrint("Solve blocks after slicing:")
             for i, block in enumerate(solve_blocks):
+<<<<<<< HEAD
                 pyrint(f"{i:4d}: {type(block)} {block.options_prefix}")
+=======
+                pyrint(f"{i:4d}: {type(block)}")
+>>>>>>> 54016e0... log: print -> pyrint
 
         # Check FunctionSpaces are consistent across solve blocks
         element = solve_blocks[0].function_space.ufl_element()
