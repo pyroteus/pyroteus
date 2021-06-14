@@ -97,23 +97,10 @@ mesh_seq = AdjointMeshSeq(
 )
 solutions = mesh_seq.solve_adjoint()
 
-import matplotlib.pyplot as plt
-rows = P.exports_per_subinterval[0] - 1
-cols = P.num_subintervals
-fig, axes = plt.subplots(rows, cols, sharex='col', figsize=(6*cols, 24//cols))
-levels = np.linspace(0, 2.1, 9)
-for i, adj_sols_step in enumerate(solutions.uv_2d.adjoint):
-    ax = axes[0, i]
-    ax.set_title(f"Mesh {i+1}")
-    for j, adj_sol in enumerate(adj_sols_step):
-        ax = axes[j, i]
-        tricontourf(adj_sol, axes=ax, levels=levels)
-        ax.annotate(
-            f"t={i*end_time/cols + j*P.timesteps_per_export[i]*P.timesteps[i]:.2f}",
-            (0.05, 0.05), color='white',
-        )
-plt.tight_layout()
-plt.savefig("burgers3-time_integrated.jpg")
+# Finally, plot snapshots of the adjoint solution. ::
+
+fig, axes = plot_snapshots(solutions, P, 'uv_2d', 'adjoint', levels=np.linspace(0, 2.1, 9))
+fig.savefig("burgers3-time_integrated.jpg")
 
 # .. figure:: burgers3-time_integrated.jpg
 #    :figwidth: 90%
