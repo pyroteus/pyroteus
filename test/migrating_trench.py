@@ -69,7 +69,8 @@ def get_solver(self):
         """
         t_start, t_end = self.time_partition[i].subinterval
         dt = self.time_partition[i].timestep
-        bathymetry2d = ic['bathymetry_2d']
+        bathymetry2d = Function(self.function_spaces['bathymetry_2d'][i])
+        bathymetry2d.assign(ic['bathymetry_2d'])
         mesh2d = bathymetry2d.function_space().mesh()
 
         # Setup solver

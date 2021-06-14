@@ -225,9 +225,14 @@ class AdjointMeshSeq(MeshSeq):
                 num_solve_blocks = len(solve_blocks)
                 assert num_solve_blocks > 0, "Looks like no solves were written to tape!" \
                                              + " Does the solution depend on the initial condition?"
-                fwd_old_idx, warned = self.get_lagged_dependency_index(
-                    solutions, field, i, solve_blocks, warned=warned,
-                )
+                if 'forward_old' in solutions[field]:
+                    fwd_old_idx, warned = self.get_lagged_dependency_index(
+                        field, i, solve_blocks, warned=warned,
+                    )
+                else:
+                    fwd_old_idx = None
+                if fwd_old_idx is None and 'forward_old' in solutions[field]:
+                    solutions[field].pop('forward_old')
 
                 # Detect whether we have a steady problem
                 steady = self.steady or (num_subintervals == 1 and num_solve_blocks == 1)

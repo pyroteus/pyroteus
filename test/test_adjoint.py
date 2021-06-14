@@ -2,7 +2,6 @@
 Test adjoint drivers.
 """
 from pyroteus_adjoint import *
-import pyadjoint
 import pytest
 
 
@@ -13,6 +12,7 @@ def handle_taping():
         firedrake/tests/regression/test_adjoint_operators.py
     """
     yield
+    import pyadjoint
     tape = pyadjoint.get_working_tape()
     tape.clear_tape()
 
@@ -27,6 +27,7 @@ def handle_exit_annotation():
         firedrake/tests/regression/test_adjoint_operators.py
     """
     yield
+    import pyadjoint
     annotate = pyadjoint.annotate_tape()
     if annotate:
         pyadjoint.pause_annotation()
@@ -65,10 +66,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
         or as a time integral?
     """
     import importlib
-    from firedrake_adjoint import Control
-
-    if __name__ != "__main__" and problem == "migrating_trench":
-        pytest.xfail("FIXME: trench test not correctly annotated")  # FIXME
+    from firedrake_adjoint import pyadjoint
 
     # Imports
     print(f"\n--- Setting up {problem} test case with {qoi_type} QoI\n")
@@ -83,7 +81,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
         timesteps_per_export=test_case.dt_per_export,
         solves_per_timestep=test_case.solves_per_dt,
     )
-    go_mesh_seq = AdjointMeshSeq(
+    mesh_seq = AdjointMeshSeq(
         time_partition, test_case.mesh, test_case.get_function_spaces,
         test_case.get_initial_condition, test_case.get_solver,
         test_case.get_qoi, qoi_type=qoi_type,
@@ -91,24 +89,19 @@ def test_adjoint_same_mesh(problem, qoi_type):
 
     # Solve forward and adjoint without solve_adjoint
     print("\n--- Solving the adjoint problem on 1 subinterval using pyadjoint\n")
-    ic = go_mesh_seq.initial_condition
-    controls = [Control(value) for key, value in ic.items()]
-    sols = go_mesh_seq.solver(0, ic)
-    J = go_mesh_seq.J if qoi_type == 'time_integrated' else go_mesh_seq.qoi(sols)
+    ic = mesh_seq.initial_condition
+    controls = [pyadjoint.Control(value) for key, value in ic.items()]
+    sols = mesh_seq.solver(0, ic)
+    J = mesh_seq.J if qoi_type == 'time_integrated' else mesh_seq.qoi(sols)
     pyadjoint.compute_gradient(J, controls)  # FIXME: gradient w.r.t. mixed function not correct
     J_expected = float(J)
 
+    # Get expected adjoint solutions and values
     adj_sols_expected = {}
     adj_values_expected = {}
-    for field, fs in go_mesh_seq._fs.items():
+    for field, fs in mesh_seq._fs.items():
         solve_blocks = time_partition.get_solve_blocks(field)
-        fwd_old_idx = [
-            dep_index
-            for dep_index, dep in enumerate(solve_blocks[0]._dependencies)
-            if hasattr(dep.output, 'function_space')
-            and dep.output.function_space() == solve_blocks[0].function_space  # == fs
-        ]
-        fwd_old_idx = fwd_old_idx[0]
+        fwd_old_idx = mesh_seq.get_lagged_dependency_index(field, 0, solve_blocks)[0]
         adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
         adj_values_expected[field] = Function(
             fs[0], val=solve_blocks[0]._dependencies[fwd_old_idx].adj_value
@@ -125,16 +118,16 @@ def test_adjoint_same_mesh(problem, qoi_type):
             timesteps_per_export=test_case.dt_per_export,
             solves_per_timestep=test_case.solves_per_dt,
         )
-        go_mesh_seq = AdjointMeshSeq(
+        mesh_seq = AdjointMeshSeq(
             time_partition, test_case.mesh, test_case.get_function_spaces,
             test_case.get_initial_condition, test_case.get_solver,
             test_case.get_qoi, qoi_type=qoi_type,
         )
-        solutions = go_mesh_seq.solve_adjoint(get_adj_values=True, test_checkpoint_qoi=True)
+        solutions = mesh_seq.solve_adjoint(get_adj_values=True, test_checkpoint_qoi=True)
 
         # Check quantities of interest match
-        assert np.isclose(J_expected, go_mesh_seq.J), f"QoIs do not match ({J_expected} vs." \
-                                                      + f"{go_mesh_seq.J})"
+        assert np.isclose(J_expected, mesh_seq.J), f"QoIs do not match ({J_expected} vs." \
+                                                      + f"{mesh_seq.J})"
 
         # Check adjoint solutions at initial time match
         for field in time_partition.fields:
