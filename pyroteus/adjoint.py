@@ -76,7 +76,7 @@ class AdjointMeshSeq(MeshSeq):
             return lambda *args, **kwargs: firedrake.assemble(qoi(*args, **kwargs))
 
     @pyadjoint.no_annotations
-    def get_checkpoints(self, solver_kwargs={}):
+    def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):
         """
         Solve forward on the sequence of meshes,
         extracting checkpoints corresponding to
@@ -89,15 +89,18 @@ class AdjointMeshSeq(MeshSeq):
             the solver
         """
         self.J = 0
+        N = len(self)
 
         # Solve forward
         checkpoints = [self.initial_condition]
-        for i in range(len(self)):
+        if N == 1 and not run_final_subinterval:
+            return checkpoints
+        for i in range(N if run_final_subinterval else N-1):
             sols = self.solver(i, checkpoints[i], **solver_kwargs)
             assert issubclass(sols.__class__, dict), "solver should return a dict"
             assert set(self.fields).issubset(set(sols.keys())), "missing fields from solver"
             assert set(sols.keys()).issubset(set(self.fields)), "more solver outputs than fields"
-            if i < len(self)-1:
+            if i < N-1:
                 checkpoints.append(AttrDict({
                     field: project(sols[field], fs[i+1])
                     for field, fs in self._fs.items()
@@ -108,7 +111,8 @@ class AdjointMeshSeq(MeshSeq):
             self.J = self.qoi(sols, **solver_kwargs.get('qoi_kwargs', {}))
         return checkpoints
 
-    def solve_adjoint(self, solver_kwargs={}, get_adj_values=False):
+    def solve_adjoint(self, solver_kwargs={}, get_adj_values=False,
+                      test_checkpoint_qoi=False):
         """
         Solve an adjoint problem on a sequence of subintervals.
 
@@ -142,7 +146,9 @@ class AdjointMeshSeq(MeshSeq):
         function_spaces = self.function_spaces
 
         # Solve forward to get checkpoints and evaluate QoI
-        checkpoints = self.get_checkpoints(solver_kwargs=solver_kwargs)
+        checkpoints = self.get_checkpoints(
+            solver_kwargs=solver_kwargs, run_final_subinterval=test_checkpoint_qoi,
+        )
         if self.warn and np.isclose(float(self.J), 0.0):
             print("WARNING: Zero QoI. Is it implemented as intended?")
         J_chk = self.J
@@ -270,7 +276,7 @@ class AdjointMeshSeq(MeshSeq):
             tape.clear_tape()
 
         # Check the QoI value agrees with that due to the checkpointing run
-        if self.qoi_type == 'time_integrated':
+        if self.qoi_type == 'time_integrated' and test_checkpoint_qoi:
             assert np.isclose(J_chk, self.J), "QoI values computed during checkpointing and annotated" \
-                                              + f"run do not match ({J_chk} vs. {self.J})"
+                                              + f" run do not match ({J_chk} vs. {self.J})"
         return solutions
