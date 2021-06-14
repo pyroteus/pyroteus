@@ -136,7 +136,7 @@ class TimePartition(object):
             val = self.__getattribute__(attr)
         except AttributeError:
             raise AttributeError(f"Attribute {msg} cannot be printed because it doesn't exist")
-        label = ' '.join(msg.split('_'))
+        label = ' '.join(attr.split('_'))
         if self.debug:
             print(f"TimePartition: {label:25s} {val}")
 
@@ -216,3 +216,7 @@ class TimeInterval(TimePartition):
 
     def __repr__(self):
         return str(self[0])
+
+    @property
+    def timestep(self):
+        return self.timesteps[0]

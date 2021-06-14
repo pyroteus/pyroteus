@@ -110,7 +110,9 @@ def test_adjoint_same_mesh(problem, qoi_type):
         ]
         fwd_old_idx = fwd_old_idx[0]
         adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
-        adj_values_expected[field] = Function(fs[0], val=solve_blocks[0]._dependencies[fwd_old_idx].adj_value)
+        adj_values_expected[field] = Function(
+            fs[0], val=solve_blocks[0]._dependencies[fwd_old_idx].adj_value
+        )
 
     # Loop over having one or two subintervals
     for N in range(1, 3):
@@ -128,10 +130,11 @@ def test_adjoint_same_mesh(problem, qoi_type):
             test_case.get_initial_condition, test_case.get_solver,
             test_case.get_qoi, qoi_type=qoi_type,
         )
-        solutions = go_mesh_seq.solve_adjoint(get_adj_values=True)
+        solutions = go_mesh_seq.solve_adjoint(get_adj_values=True, test_checkpoint_qoi=True)
 
         # Check quantities of interest match
-        assert np.isclose(J_expected, go_mesh_seq.J), f"QoIs do not match ({J_expected} vs. {go_mesh_seq.J})"
+        assert np.isclose(J_expected, go_mesh_seq.J), f"QoIs do not match ({J_expected} vs." \
+                                                      + f"{go_mesh_seq.J})"
 
         # Check adjoint solutions at initial time match
         for field in time_partition.fields:

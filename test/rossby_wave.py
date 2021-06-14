@@ -61,8 +61,8 @@ def get_solver(self):
     timestepping.
     """
     def solver(i, ic, **model_options):
-        t_start, t_end = self.time_partition.subintervals[i]
-        dt = self.time_partition.timesteps[i]
+        t_start, t_end = self.time_partition[i].subinterval
+        dt = self.time_partition[i].timestep
         mesh2d = ic['solution_2d'].function_space().mesh()
         P1_2d = FunctionSpace(mesh2d, "CG", 1)
         bathymetry2d = Function(P1_2d).assign(1.0)

@@ -37,8 +37,8 @@ def get_solver(self):
     Backward Euler timestepping.
     """
     def solver(i, ic):
-        t_start, t_end = self.time_partition[i].subintervals[i]
-        dt = self.time_partition.timesteps[i]
+        t_start, t_end = self.time_partition[i].subinterval
+        dt = self.time_partition[i].timestep
         fs = ic['uv_2d'].function_space()
         dtc = Constant(dt)
         nu = Constant(0.0001)
