@@ -1,6 +1,7 @@
 """
 Sequences of meshes corresponding to a :class:`TimePartition`.
 """
+import firedrake
 from .utility import AttrDict, Mesh
 from .interpolation import project
 from collections import Iterable
@@ -132,3 +133,104 @@ class MeshSeq(object):
                     for field, fs in self._fs.items()
                 })
         return checkpoints
+
+    def solve_forward(self, solver_kwargs={}):
+        """
+        Solve a forward problem on a sequence of subintervals.
+
+        A dictionary of solution fields is computed, the contents
+        of which give values at all exported timesteps, indexed
+        first by the field label and then by type. The contents
+        of these nested dictionaries are lists which are indexed
+        first by subinterval and then by export. For a given
+        exported timestep, the solution types are:
+
+        * ``'forward'``: the forward solution after taking the
+            timestep;
+        * ``'forward_old'``: the forward solution before taking
+            the timestep.
+
+        :kwarg solver_kwargs: a dictionary providing parameters
+            to the solver. Any keyword arguments for the QoI
+            should be included as a subdict with label 'qoi_kwargs'
+
+        :return solution: an :class:`AttrDict` containing
+            solution fields and their lagged versions.
+        """
+        from firedrake_adjoint import pyadjoint
+        num_subintervals = len(self)
+        function_spaces = self.function_spaces
+
+        # Create arrays to hold exported forward solutions
+        solutions = AttrDict({
+            field: AttrDict({
+                label: [
+                    [
+                        firedrake.Function(fs)
+                        for j in range(self.time_partition.exports_per_subinterval[i]-1)
+                    ] for i, fs in enumerate(function_spaces[field])
+                ] for label in ('forward', 'forward_old')
+            }) for field in self.fields
+        })
+
+        # Wrap solver to extract controls
+        solver = self.solver
+
+        # Clear tape
+        tape = pyadjoint.get_working_tape()
+        tape.clear_tape()
+
+        checkpoint = self.initial_condition
+        warned = not self.warn
+        for i in range(num_subintervals):
+
+            # Annotate tape on current subinterval
+            checkpoint = solver(i, checkpoint, **solver_kwargs)
+
+            # Loop over prognostic variables
+            for field, fs in function_spaces.items():
+
+                # Get solve blocks
+                solve_blocks = self.time_partition.get_solve_blocks(
+                    field, subinterval=i, has_adj_sol=False,
+                )
+                num_solve_blocks = len(solve_blocks)
+                assert num_solve_blocks > 0, "Looks like no solves were written to tape!" \
+                                             + " Does the solution depend on the initial condition?"
+
+                # Get lagged forward solution dependency index
+                if 'forward_old' in solutions[field]:
+                    fwd_old_idx = [
+                        dep_index
+                        for dep_index, dep in enumerate(solve_blocks[0]._dependencies)
+                        if hasattr(dep.output, 'function_space')
+                        and dep.output.function_space() == solve_blocks[0].function_space == fs[i]
+                    ]
+                    if len(fwd_old_idx) == 0:
+                        if not warned:
+                            print("WARNING: Solve block has no dependencies")  # FIXME
+                            solutions[field].pop('forward_old')
+                            warned = True
+                        fwd_old_idx = None
+                    elif len(fwd_old_idx) > 1:
+                        if not warned:
+                            print("WARNING: Solve block has dependencies in the prognostic space"
+                                  + " other\n  than the PDE solution at the previous timestep."
+                                  + f" (Dep indices {fwd_old_idx}).\n  Naively assuming the first"
+                                  + " to be the right one.")  # FIXME
+                            warned = True
+                        fwd_old_idx = fwd_old_idx[0]
+                    else:
+                        fwd_old_idx = fwd_old_idx[0]
+                else:
+                    fwd_old_idx = None
+
+                # Extract solution data
+                sols = solutions[field]
+                stride = self.time_partition.timesteps_per_export[i]
+                for j, block in enumerate(solve_blocks[::stride]):
+                    sols.forward[i][j].assign(block._outputs[0].saved_output)
+                    if fwd_old_idx is not None:
+                        sols.forward_old[i][j].assign(block._dependencies[fwd_old_idx].saved_output)
+
+        return solutions

@@ -2,8 +2,7 @@
 Drivers for solving adjoint problems on sequences of meshes.
 """
 import firedrake
-from firedrake_adjoint import Control
-import pyadjoint
+from firedrake_adjoint import pyadjoint
 from .interpolation import project
 from .mesh_seq import MeshSeq
 from .utility import AttrDict, norm
@@ -186,7 +185,7 @@ class AdjointMeshSeq(MeshSeq):
         @wraps(solver)
         def wrapped_solver(i, ic, **kwargs):
             init = AttrDict({field: ic[field].copy(deepcopy=True) for field in self.fields})
-            self.controls = [Control(init[field]) for field in self.fields]
+            self.controls = [pyadjoint.Control(init[field]) for field in self.fields]
             return solver(i, init, **kwargs)
 
         # Clear tape
@@ -232,19 +231,32 @@ class AdjointMeshSeq(MeshSeq):
                 if steady and 'adjoint_next' in sols:
                     sols.pop('adjoint_next')
 
-                # Get lagged forward solution dependecy index
-                fwd_old_idx = [
-                    dep_index
-                    for dep_index, dep in enumerate(solve_blocks[0]._dependencies)
-                    if hasattr(dep.output, 'function_space')
-                    and dep.output.function_space() == solve_blocks[0].function_space == fs[i]
-                ]
-                if not warned and len(fwd_old_idx) != 1:
-                    print("WARNING: Solve block has dependencies in the prognostic space other\n"
-                          + "  than the PDE solution at the previous timestep. (Dep indices"
-                          + f" {fwd_old_idx}).\n  Naively assuming the first to be the right one.")
-                    warned = True  # FIXME
-                fwd_old_idx = fwd_old_idx[0]
+                # Get lagged forward solution dependency index
+                if 'forward_old' in solutions[field]:
+                    fwd_old_idx = [
+                        dep_index
+                        for dep_index, dep in enumerate(solve_blocks[0]._dependencies)
+                        if hasattr(dep.output, 'function_space')
+                        and dep.output.function_space() == solve_blocks[0].function_space == fs[i]
+                    ]
+                    if len(fwd_old_idx) == 0:
+                        if not warned:
+                            print("WARNING: Solve block has no dependencies")  # FIXME
+                            solutions[field].pop('forward_old')
+                            warned = True
+                        fwd_old_idx = None
+                    elif len(fwd_old_idx) > 1:
+                        if not warned:
+                            print("WARNING: Solve block has dependencies in the prognostic space"
+                                  + " other\n  than the PDE solution at the previous timestep."
+                                  + f" (Dep indices {fwd_old_idx}).\n  Naively assuming the first"
+                                  + " to be the right one.")  # FIXME
+                            warned = True
+                        fwd_old_idx = fwd_old_idx[0]
+                    else:
+                        fwd_old_idx = fwd_old_idx[0]
+                else:
+                    fwd_old_idx = None
 
                 # Extract solution data
                 sols = solutions[field]
@@ -254,7 +266,8 @@ class AdjointMeshSeq(MeshSeq):
                     sols.adjoint[i][j].assign(block.adj_sol)
                     if get_adj_values:
                         sols.adj_value[i][j].assign(block._dependencies[fwd_old_idx].adj_value.function)
-                    sols.forward_old[i][j].assign(block._dependencies[fwd_old_idx].saved_output)
+                    if fwd_old_idx is not None:
+                        sols.forward_old[i][j].assign(block._dependencies[fwd_old_idx].saved_output)
                     if not steady:
                         if j*stride+1 < num_solve_blocks:
                             sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
