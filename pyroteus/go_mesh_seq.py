@@ -1,3 +1,6 @@
+"""
+Drivers for goal-oriented error estimation on sequences of meshes.
+"""
 from .adjoint import AdjointMeshSeq
 from firedrake import FunctionSpace, MeshHierarchy
 
