@@ -39,7 +39,7 @@ dt_per_export = 6
 morfac = 300
 
 
-def get_function_space(mesh):
+def get_function_spaces(mesh):
     """
     An equal order P1DG-P1DG element pair
     is used for the shallow water equations.

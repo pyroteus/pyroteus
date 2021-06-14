@@ -67,7 +67,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
     import importlib
     from firedrake_adjoint import Control
 
-    if problem == "migrating_trench":
+    if __name__ != "__main__" and problem == "migrating_trench":
         pytest.xfail("FIXME: trench test not correctly annotated")  # FIXME
 
     # Imports
@@ -159,4 +159,4 @@ def test_adjoint_same_mesh_parallel(problem, qoi_type):
 
 
 if __name__ == "__main__":
-    test_adjoint_same_mesh("rossby_wave", "time_integrated")
+    test_adjoint_same_mesh("migrating_trench", "end_time")

@@ -134,6 +134,40 @@ class MeshSeq(object):
                 })
         return checkpoints
 
+    def get_lagged_dependency_index(self, solutions, field, index, solve_blocks, warned=False):
+        """
+        Get the dependency index corresponding
+        to the lagged forward solution for a
+        solve block.
+
+        :arg solve_blocks: list of taped
+            :class:`GenericSolveBlocks`
+        """
+        fwd_old_idx = None
+        if 'forward_old' in solutions[field]:
+            fs = self.function_spaces[field][index]
+            fwd_old_idx = [
+                dep_index
+                for dep_index, dep in enumerate(solve_blocks[0]._dependencies)
+                if hasattr(dep.output, 'function_space')
+                and dep.output.function_space() == solve_blocks[0].function_space == fs
+            ]
+            if len(fwd_old_idx) == 0:
+                if not warned:
+                    print("WARNING: Solve block has no dependencies")  # FIXME
+                    solutions[field].pop('forward_old')
+                    warned = True
+                fwd_old_idx = None
+            else:
+                if len(fwd_old_idx) > 1 and not warned:
+                    print("WARNING: Solve block has dependencies in the prognostic space"
+                          + " other\n  than the PDE solution at the previous timestep."
+                          + f" (Dep indices {fwd_old_idx}).\n  Naively assuming the first"
+                          + " to be the right one.")  # FIXME
+                    warned = True
+                fwd_old_idx = fwd_old_idx[0]
+        return fwd_old_idx, warned
+
     def solve_forward(self, solver_kwargs={}):
         """
         Solve a forward problem on a sequence of subintervals.
@@ -197,33 +231,9 @@ class MeshSeq(object):
                 num_solve_blocks = len(solve_blocks)
                 assert num_solve_blocks > 0, "Looks like no solves were written to tape!" \
                                              + " Does the solution depend on the initial condition?"
-
-                # Get lagged forward solution dependency index
-                if 'forward_old' in solutions[field]:
-                    fwd_old_idx = [
-                        dep_index
-                        for dep_index, dep in enumerate(solve_blocks[0]._dependencies)
-                        if hasattr(dep.output, 'function_space')
-                        and dep.output.function_space() == solve_blocks[0].function_space == fs[i]
-                    ]
-                    if len(fwd_old_idx) == 0:
-                        if not warned:
-                            print("WARNING: Solve block has no dependencies")  # FIXME
-                            solutions[field].pop('forward_old')
-                            warned = True
-                        fwd_old_idx = None
-                    elif len(fwd_old_idx) > 1:
-                        if not warned:
-                            print("WARNING: Solve block has dependencies in the prognostic space"
-                                  + " other\n  than the PDE solution at the previous timestep."
-                                  + f" (Dep indices {fwd_old_idx}).\n  Naively assuming the first"
-                                  + " to be the right one.")  # FIXME
-                            warned = True
-                        fwd_old_idx = fwd_old_idx[0]
-                    else:
-                        fwd_old_idx = fwd_old_idx[0]
-                else:
-                    fwd_old_idx = None
+                fwd_old_idx, warned = self.get_lagged_dependency_index(
+                    solutions, field, i, solve_blocks, warned=warned,
+                )
 
                 # Extract solution data
                 sols = solutions[field]
