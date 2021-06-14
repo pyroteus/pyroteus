@@ -46,26 +46,13 @@ usage of its different functionalities. It is highly recommended
 that these are read in order, as many of the demos build upon
 earlier ones.
 
-.. rubric:: Introductory demos
+.. rubric:: Demos
 
 .. toctree::
     :maxdepth: 1
 
     Partitioning a time interval <demos/time_partition.py>
-
-.. rubric:: Adjoint solver demos
-
-.. toctree::
-    :maxdepth: 1
-
-    Adjoint of Burgers equation <demos/burgers.py>
+    Burgers equation on a sequence of meshes <demos/burgers.py>
+    Adjoint of Burgers equation <demos/burgers1.py>
     Adjoint of Burgers equation on two meshes <demos/burgers2.py>
     Adjoint of Burgers equation with a time-integrated QoI <demos/burgers3.py>
-
-.. rubric:: Metric-based mesh adaptation demos
-
-`[This is where links to the metric-based demos will be]`
-
-.. rubric:: Goal-oriented mesh adaptation demos
-
-`[This is where links to the goal-based demos will be]`

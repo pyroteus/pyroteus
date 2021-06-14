@@ -104,7 +104,7 @@ P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
                   timesteps_per_export=[2, 4], subintervals=subintervals)
 
 #
-# In the `next demo <./mesh_seq.py.html>`__, we
+# In the `next demo <./burgers.py.html>`__, we
 # learn how to build a :class:`MeshSeq` object
 # on top of a partitioned time interval, so that
 # we can solve PDEs on multiple meshes.

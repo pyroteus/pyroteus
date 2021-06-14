@@ -1,12 +1,13 @@
 # Adjoint of Burgers equation on two meshes
 # =========================================
 #
-# This demo solves the same problem as `the previous one
-# <./burgers.py.html>`__, but now using two subintervals. There is
-# still no mesh adaptation; the same mesh is used in each
-# case to verify that the framework works.
+# This demo solves the same problem as the previous two,
+# but now using two subintervals. There is still no mesh
+# adaptation; the same mesh is used in each case to verify
+# that the framework works.
 #
-# Again, begin by importing Pyroteus. ::
+# Again, begin by importing Pyroteus with adjoint mode
+# activated. ::
 
 from pyroteus_adjoint import *
 
@@ -16,9 +17,8 @@ from pyroteus_adjoint import *
 # velocity space (which actually coincide). They are represented
 # in a list. ::
 
-from burgers import get_solver, get_initial_condition, get_qoi, get_function_spaces
+from burgers1 import fields, get_solver, get_initial_condition, get_qoi, get_function_spaces
 
-fields = ['uv_2d']
 n = 32
 meshes = [
     UnitSquareMesh(n, n, diagonal='left'),
@@ -41,26 +41,10 @@ mesh_seq = AdjointMeshSeq(
 )
 solutions = mesh_seq.solve_adjoint()
 
-# Solution plotting is much the same, but with some minor tweaks to
-# get the two subintervals side by side. ::
+# Finally, plot snapshots of the adjoint solution. ::
 
-import matplotlib.pyplot as plt
-rows = P.exports_per_subinterval[0] - 1
-cols = P.num_subintervals
-fig, axes = plt.subplots(rows, cols, sharex='col', figsize=(6*cols, 24//cols))
-levels = np.linspace(0, 0.8, 9)
-for i, adj_sols_step in enumerate(solutions.uv_2d.adjoint):
-    ax = axes[0, i]
-    ax.set_title(f"Mesh {i+1}")
-    for j, adj_sol in enumerate(adj_sols_step):
-        ax = axes[j, i]
-        tricontourf(adj_sol, axes=ax, levels=levels)
-        ax.annotate(
-            f"t={i*end_time/cols + j*P.timesteps_per_export[i]*P.timesteps[i]:.2f}",
-            (0.05, 0.05), color='white',
-        )
-plt.tight_layout()
-plt.savefig("burgers2-end_time.jpg")
+fig, axes = plot_snapshots(solutions, P, 'uv_2d', 'adjoint', levels=np.linspace(0, 0.8, 9))
+fig.savefig("burgers2-end_time.jpg")
 
 # .. figure:: burgers2-end_time.jpg
 #    :figwidth: 90%
