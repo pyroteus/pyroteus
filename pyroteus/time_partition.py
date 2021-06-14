@@ -154,6 +154,8 @@ class TimePartition(object):
             'timestep': self.timesteps[i],
             'timesteps_per_export': self.timesteps_per_export[i],
             'num_exports': self.exports_per_subinterval[i],
+            'start_time': self.subintervals[i][0],
+            'end_time': self.subintervals[i][1],
         })
 
     def get_solve_blocks(self, field, subinterval=0, has_adj_sol=True):
@@ -165,37 +167,50 @@ class TimePartition(object):
         from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
         from pyadjoint import get_working_tape
 
+        # Get all blocks
         blocks = get_working_tape().get_blocks()
         if len(blocks) == 0:
             print("WARNING: tape has no blocks!")
             return blocks
 
+        # Restrict to solve blocks
         solve_blocks = [
             block
             for block in blocks
             if issubclass(block.__class__, GenericSolveBlock)
             and not issubclass(block.__class__, ProjectBlock)
         ]
+
+        # Restrict to solve blocks with adjoint solutions
         if has_adj_sol:
             solve_blocks = [
                 block
                 for block in solve_blocks
                 if block.adj_sol is not None
             ]
+
+        # Slice solve blocks by field
         stride = sum(self.solves_per_timestep)
         offset = sum(self.solves_per_timestep[:self.fields.index(field) + 1])
         offset -= self.timesteps_per_subinterval[subinterval]*stride
         if self.debug:
             print("Solve blocks before slicing:")
             for i, block in enumerate(solve_blocks):
-                print(f"{i:4d}: {type(block)}")
-            print(f"Offset = {offset}")
-            print(f"Stride = {stride}")
+                pyrint(f"{i:4d}: {type(block)} {block.options_prefix}")
+            pyrint(f"Offset = {offset}")
+            pyrint(f"Stride = {stride}")
         solve_blocks = solve_blocks[offset::stride]
         if self.debug:
             print("Solve blocks after slicing:")
             for i, block in enumerate(solve_blocks):
-                print(f"{i:4d}: {type(block)}")
+                pyrint(f"{i:4d}: {type(block)} {block.options_prefix}")
+
+        # Check FunctionSpaces are consistent across solve blocks
+        element = solve_blocks[0].function_space.ufl_element()
+        for block in solve_blocks:
+            if element != block.function_space.ufl_element():
+                raise ValueError(f"Solve block list for field {field} contains mismatching"
+                                 + f" elements ({element} vs. {block.function_space.ufl_element()})")
         return solve_blocks
 
 

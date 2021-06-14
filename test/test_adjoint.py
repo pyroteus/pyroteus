@@ -56,7 +56,7 @@ def qoi_type(request):
     return request.param
 
 
-def test_adjoint_same_mesh(problem, qoi_type):
+def test_adjoint_same_mesh(problem, qoi_type, **kwargs):
     """
     Check that `solve_adjoint` gives the same
     result when applied on one or two subintervals.
@@ -123,7 +123,7 @@ def test_adjoint_same_mesh(problem, qoi_type):
             test_case.get_initial_condition, test_case.get_solver,
             test_case.get_qoi, qoi_type=qoi_type,
         )
-        solutions = mesh_seq.solve_adjoint(get_adj_values=True, test_checkpoint_qoi=True)
+        solutions = mesh_seq.solve_adjoint(get_adj_values=True, test_checkpoint_qoi=True, **kwargs)
 
         # Check quantities of interest match
         assert np.isclose(J_expected, mesh_seq.J), f"QoIs do not match ({J_expected} vs." \
@@ -152,4 +152,4 @@ def test_adjoint_same_mesh_parallel(problem, qoi_type):
 
 
 if __name__ == "__main__":
-    test_adjoint_same_mesh("migrating_trench", "end_time")
+    test_adjoint_same_mesh("migrating_trench", "end_time", debug=True)
