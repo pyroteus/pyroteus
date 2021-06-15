@@ -34,9 +34,9 @@ x, y = SpatialCoordinate(mesh)
 fields = ['swe2d', 'sediment', 'exner']
 solves_per_dt = [1, 1, 1]
 morfac = 300
-end_time = 1.5*3600/morfac  # TODO: reduce?
+end_time = 0.75*3600/morfac
 dt = 0.3
-dt_per_export = 6
+dt_per_export = 5
 morfac = 300
 
 
@@ -79,26 +79,27 @@ def get_solver(self):
         options = solver_obj.options
 
         # Setup sediment model
-        options.sediment_model_options.solve_suspended_sediment = True
-        options.sediment_model_options.use_bedload = True
-        options.sediment_model_options.solve_exner = True
-        options.sediment_model_options.use_sediment_conservative_form = True
-        options.sediment_model_options.average_sediment_size = Constant(1.6e-04)
-        options.sediment_model_options.bed_reference_height = Constant(0.025)
-        options.sediment_model_options.morphological_acceleration_factor = Constant(morfac)
+        sed_options = options.sediment_model_options
+        sed_options.solve_suspended_sediment = True
+        sed_options.use_bedload = True
+        sed_options.solve_exner = True
+        sed_options.use_sediment_conservative_form = True
+        sed_options.average_sediment_size = Constant(1.6e-04)
+        sed_options.bed_reference_height = Constant(0.025)
+        sed_options.morphological_acceleration_factor = Constant(morfac)
 
         # Setup problem
         options.timestepper_type = 'CrankNicolson'
         options.timestepper_options.implicitness_theta = 1.0
         options.norm_smoother = Constant(0.1)
         options.timestep = dt
-        options.simulation_export_time = 6*0.3
+        options.simulation_export_time = dt*self.time_partition[i].exports
         options.simulation_end_time = t_end
         if self.qoi_type == 'time_integrated' and np.isclose(t_end, end_time):
             options.simulation_end_time += 0.5*dt
         options.horizontal_viscosity = Constant(1.0e-06)
         options.horizontal_diffusivity = Constant(0.15)
-        options.nikuradse_bed_roughness = Constant(3*options.sediment_model_options.average_sediment_size)
+        options.nikuradse_bed_roughness = Constant(3*sed_options.average_sediment_size)
         options.output_directory = 'outputs/migrating_trench'
         model_options.setdefault('no_exports', True)
         options.update(model_options)
@@ -131,12 +132,6 @@ def get_solver(self):
 
         # Correct counters and iterate
         solver_obj.correct_counters(self.time_partition[i])
-        solver_obj.timestepper.timesteppers.swe2d.name = 'swe2d'
-        solver_obj.timestepper.timesteppers.swe2d.update_solver()
-        solver_obj.timestepper.timesteppers.sediment.name = 'sediment'
-        solver_obj.timestepper.timesteppers.sediment.update_solver()
-        solver_obj.timestepper.timesteppers.exner.name = 'exner'
-        solver_obj.timestepper.timesteppers.exner.update_solver()
         solver_obj.iterate(update_forcings=update_forcings)
         return solutions
 
