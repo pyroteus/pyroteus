@@ -221,7 +221,7 @@ class AdjointMeshSeq(MeshSeq):
             for field, fs in function_spaces.items():
 
                 # Get solve blocks
-                solve_blocks = self.time_partition.get_solve_blocks(field, subinterval=i)
+                solve_blocks = self.get_solve_blocks(field, subinterval=i)
                 num_solve_blocks = len(solve_blocks)
                 assert num_solve_blocks > 0, "Looks like no solves were written to tape!" \
                                              + " Does the solution depend on the initial condition?"

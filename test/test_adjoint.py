@@ -79,7 +79,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     time_partition = TimePartition(
         end_time, 1, test_case.dt, test_case.fields,
         timesteps_per_export=test_case.dt_per_export,
-        solves_per_timestep=test_case.solves_per_dt,
     )
     mesh_seq = AdjointMeshSeq(
         time_partition, test_case.mesh, test_case.get_function_spaces,
@@ -100,7 +99,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     adj_sols_expected = {}
     adj_values_expected = {}
     for field, fs in mesh_seq._fs.items():
-        solve_blocks = time_partition.get_solve_blocks(field)
+        solve_blocks = mesh_seq.get_solve_blocks(field)
         fwd_old_idx = mesh_seq.get_lagged_dependency_index(field, 0, solve_blocks)[0]
         adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
         adj_values_expected[field] = Function(
@@ -116,7 +115,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         time_partition = TimePartition(
             end_time, N, test_case.dt, test_case.fields,
             timesteps_per_export=test_case.dt_per_export,
-            solves_per_timestep=test_case.solves_per_dt, debug=debug,
         )
         mesh_seq = AdjointMeshSeq(
             time_partition, test_case.mesh, test_case.get_function_spaces,

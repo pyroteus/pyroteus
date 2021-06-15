@@ -2,6 +2,7 @@
 Sequences of meshes corresponding to a :class:`TimePartition`.
 """
 import firedrake
+from .log import debug
 from .utility import AttrDict, Mesh, pyrint
 from .interpolation import project
 from collections.abc import Iterable
@@ -134,6 +135,58 @@ class MeshSeq(object):
                 })
         return checkpoints
 
+    def get_solve_blocks(self, field, subinterval=0, has_adj_sol=True):
+        """
+        Get all blocks of the tape corresponding to
+        solve steps for prognostic solution ``field``
+        on a given ``subinterval``.
+        """
+        from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
+        from pyadjoint import get_working_tape
+
+        # Get all blocks
+        blocks = get_working_tape().get_blocks()
+        if len(blocks) == 0:
+            pyrint("WARNING: tape has no blocks!")
+            return blocks
+
+        # Restrict to solve blocks
+        solve_blocks = [
+            block
+            for block in blocks
+            if issubclass(block.__class__, GenericSolveBlock)
+            and not issubclass(block.__class__, ProjectBlock)
+        ]
+
+        # Restrict to solve blocks with adjoint solutions
+        if has_adj_sol:
+            solve_blocks = [
+                block
+                for block in solve_blocks
+                if block.adj_sol is not None
+            ]
+
+        # Slice solve blocks by field
+        debug("Solve blocks before slicing:")
+        for i, block in enumerate(solve_blocks):
+            debug(f"{i:4d}: {type(block)} {block.options_prefix}")
+        solve_blocks = [
+            block
+            for block in solve_blocks
+            if block.options_prefix == field
+        ]
+        debug("Solve blocks after slicing:")
+        for i, block in enumerate(solve_blocks):
+            debug(f"{i:4d}: {type(block)} {block.options_prefix}")
+
+        # Check FunctionSpaces are consistent across solve blocks
+        element = solve_blocks[0].function_space.ufl_element()
+        for block in solve_blocks:
+            if element != block.function_space.ufl_element():
+                raise ValueError(f"Solve block list for field {field} contains mismatching elements"
+                                 + f" ({element} vs. {block.function_space.ufl_element()})")
+        return solve_blocks
+
     def get_lagged_dependency_index(self, field, index, solve_blocks, warned=False):
         """
         Get the dependency index corresponding
@@ -222,9 +275,7 @@ class MeshSeq(object):
             for field, fs in function_spaces.items():
 
                 # Get solve blocks
-                solve_blocks = self.time_partition.get_solve_blocks(
-                    field, subinterval=i, has_adj_sol=False,
-                )
+                solve_blocks = self.get_solve_blocks(field, subinterval=i, has_adj_sol=False)
                 num_solve_blocks = len(solve_blocks)
                 assert num_solve_blocks > 0, "Looks like no solves were written to tape!" \
                                              + " Does the solution depend on the initial condition?"
