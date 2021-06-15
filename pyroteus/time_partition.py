@@ -1,6 +1,7 @@
 """
 Partitioning for the temporal domain.
 """
+from .log import debug
 from .utility import AttrDict, pyrint
 from collections.abc import Iterable
 import numpy as np
@@ -43,14 +44,12 @@ class TimePartition(object):
         if isinstance(fields, str):
             fields = [fields]
         self.fields = fields
-        self.debug = kwargs.get('debug', False)
         timesteps_per_export = kwargs.get('timesteps_per_export', 1)
         self.start_time = kwargs.get('start_time', 0.0)
         self.end_time = end_time
         self.num_subintervals = int(np.round(num_subintervals))
         if not np.isclose(num_subintervals, self.num_subintervals):
             raise ValueError(f"Non-integer number of subintervals {num_subintervals}")
-        self.print("num_subintervals")
         solves_per_timestep = kwargs.get('solves_per_timestep', [1 for field in fields])
         if not isinstance(solves_per_timestep, Iterable):
             solves_per_timestep = [solves_per_timestep]
@@ -58,8 +57,9 @@ class TimePartition(object):
         if not np.allclose(solves_per_timestep, self.solves_per_timestep):
             raise ValueError(f"Non-integer number of solves per timestep {solves_per_timestep}")
         self.print("solves_per_timestep")
+        self.debug("num_subintervals")
         self.interval = (self.start_time, self.end_time)
-        self.print("interval")
+        self.debug("interval")
 
         # Get subintervals
         self.subintervals = kwargs.get('subintervals')
@@ -74,13 +74,13 @@ class TimePartition(object):
         for i in range(1, num_subintervals):
             assert np.isclose(self.subintervals[i][0], self.subintervals[i-1][1])
         assert np.isclose(self.subintervals[-1][1], self.end_time)
-        self.print("subintervals")
+        self.debug("subintervals")
 
         # Get timestep on each subinterval
         if not isinstance(timesteps, Iterable):
             timesteps = [timesteps for subinterval in self.subintervals]
         self.timesteps = np.array(timesteps)
-        self.print("timesteps")
+        self.debug("timesteps")
         if len(self.timesteps) != num_subintervals:
             raise ValueError("Number of timesteps and subintervals do not match"
                              + f" ({len(self.timesteps)} vs. {num_subintervals})")
@@ -97,7 +97,7 @@ class TimePartition(object):
         if not np.allclose(self.timesteps_per_subinterval, _timesteps_per_subinterval):
             raise ValueError("Non-integer timesteps per subinterval"
                              + f" ({_timesteps_per_subinterval})")
-        self.print("timesteps_per_subinterval")
+        self.debug("timesteps_per_subinterval")
 
         # Get timesteps per export
         if not isinstance(timesteps_per_export, Iterable):
@@ -119,26 +119,25 @@ class TimePartition(object):
                 raise ValueError("Number of timesteps per export does not divide number of"
                                  + f" timesteps per subinterval ({tspe} vs. {tsps}"
                                  + f" on subinteral {i})")
-        self.print("timesteps_per_export")
+        self.debug("timesteps_per_export")
 
         # Get exports per subinterval
         self.exports_per_subinterval = np.array([
             tsps//tspe + 1
             for tspe, tsps in zip(self.timesteps_per_export, self.timesteps_per_subinterval)
         ], dtype=np.int32)
-        self.print("exports_per_subinterval")
+        self.debug("exports_per_subinterval")
 
-    def print(self, attr):
+    def debug(self, attr):
         """
         Print attribute 'msg' for debugging purposes.
         """
         try:
             val = self.__getattribute__(attr)
         except AttributeError:
-            raise AttributeError(f"Attribute {attr} cannot be printed because it doesn't exist")
+            raise AttributeError(f"Attribute {attr} cannot be debuged because it doesn't exist")
         label = ' '.join(attr.split('_'))
-        if self.debug:
-            pyrint(f"TimePartition: {label:25s} {val}")
+        debug(f"TimePartition: {label:25s} {val}")
 
     def __len__(self):
         return self.num_subintervals
