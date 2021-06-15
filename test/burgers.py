@@ -45,12 +45,12 @@ def get_solver(self):
         nu = Constant(0.0001)
 
         # Set initial condition
-        u_ = Function(fs)
+        u_ = Function(fs, name='uv_2d_old')
         u_.assign(ic['uv_2d'])
 
         # Setup variational problem
         v = TestFunction(fs)
-        u = Function(fs)
+        u = Function(fs, name='uv_2d')
         F = inner((u - u_)/dtc, v)*dx \
             + inner(dot(u, nabla_grad(u)), v)*dx \
             + nu*inner(grad(u), grad(v))*dx
@@ -64,7 +64,7 @@ def get_solver(self):
                 self.J += qoi({'uv_2d': u}, t)
             u_.assign(u)
             t += dt
-        return {'uv_2d': u_}
+        return {'uv_2d': u}
     return solver
 
 

@@ -37,13 +37,16 @@ def handle_exit_annotation():
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=[
+all_problems = [
     "burgers",
     "solid_body_rotation",
     "solid_body_rotation_split",
     "rossby_wave",
     "migrating_trench",
-])
+]
+
+
+@pytest.fixture(params=all_problems)
 def problem(request):
     return request.param
 
@@ -154,4 +157,11 @@ def test_adjoint_same_mesh_parallel(problem, qoi_type):
 
 
 if __name__ == "__main__":
-    test_adjoint_same_mesh("burgers", "end_time", debug=True)
+    import argparse
+    parser = argparse.ArgumentParser(prog='test/test_adjoint.py')
+    parser.add_argument('problem')
+    parser.add_argument('qoi_type')
+    args = parser.parse_args()
+    assert args.qoi_type in ('end_time', 'time_integrated')
+    assert args.problem in all_problems
+    test_adjoint_same_mesh(args.problem, args.qoi_type, debug=True)

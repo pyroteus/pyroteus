@@ -72,7 +72,7 @@ def get_solver(mesh_seq):
         nu = Constant(0.0001)
 
         # Set initial condition
-        u_ = Function(function_space)
+        u_ = Function(function_space, name='uv_2d_old')
         u_.assign(ic['uv_2d'])
 
         # Setup variational problem
@@ -88,7 +88,7 @@ def get_solver(mesh_seq):
             solve(F == 0, u, options_prefix='uv_2d')
             u_.assign(u)
             t += dt
-        return {'uv_2d': u_}
+        return {'uv_2d': u}
 
     return solver
 

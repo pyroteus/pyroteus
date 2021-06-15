@@ -117,6 +117,7 @@ class TimePartition(object):
             for tspe, tsps in zip(self.timesteps_per_export, self.timesteps_per_subinterval)
         ], dtype=np.int32)
         self.debug("exports_per_subinterval")
+        debug('')
 
     def debug(self, attr):
         """

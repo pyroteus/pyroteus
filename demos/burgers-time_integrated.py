@@ -49,7 +49,7 @@ def get_solver(mesh_seq):
             mesh_seq.J += qoi({'uv_2d': u}, t)
             u_.assign(u)
             t += dt
-        return {'uv_2d': u_}
+        return {'uv_2d': u}
 
     return solver
 
