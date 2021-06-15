@@ -206,17 +206,19 @@ class MeshSeq(object):
             for dep_index, dep in enumerate(solve_blocks[0]._dependencies)
             if hasattr(dep.output, 'function_space')
             and dep.output.function_space() == solve_blocks[0].function_space == fs
+            and hasattr(dep.output, 'name')
+            and dep.output.name() == field + '_old'
         ]
         if len(fwd_old_idx) == 0:
             if not warned:
-                warning("Solve block has no dependencies")  # FIXME
+                warning("Solve block has no dependencies")
                 warned = True
             fwd_old_idx = None
         else:
             if len(fwd_old_idx) > 1 and not warned:
                 warning("Solve block has dependencies in the prognostic space other than the\n"
                         + f" PDE solution at the previous timestep. (Dep indices {fwd_old_idx}).\n"
-                        + " Naively assuming the first to be the right one.")  # FIXME
+                        + " Naively assuming the first to be the right one.")
                 warned = True
             fwd_old_idx = fwd_old_idx[0]
         return fwd_old_idx, warned

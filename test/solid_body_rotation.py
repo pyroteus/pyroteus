@@ -57,7 +57,7 @@ def get_solver(self):
         un = 0.5*(dot(u, n) + abs(dot(u, n)))
 
         # Set initial condition
-        q = Function(V)
+        q = Function(V, name=field)
         q.assign(ic[field])
 
         # Set inflow condition value
@@ -71,7 +71,7 @@ def get_solver(self):
             - dtc*conditional(dot(u, n) < 0, phi*dot(u, n)*q_in, 0.0)*ds \
             - dtc*conditional(dot(u, n) > 0, phi*dot(u, n)*q, 0.0)*ds \
             - dtc*(phi('+') - phi('-'))*(un('+')*q('+') - un('-')*q('-'))*dS
-        q1, q2 = Function(V), Function(V)
+        q1, q2 = Function(V), Function(V, name=field + '_old')
         L2, L3 = replace(L1, {q: q1}), replace(L1, {q: q2})
         dq = Function(V)
 
