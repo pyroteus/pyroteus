@@ -68,6 +68,10 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     import importlib
     from firedrake_adjoint import pyadjoint
 
+    # Debugging
+    if debug:
+        set_log_level(DEBUG)
+
     # Imports
     pyrint(f"\n--- Setting up {problem} test case with {qoi_type} QoI\n")
     test_case = importlib.import_module(problem)
@@ -150,4 +154,4 @@ def test_adjoint_same_mesh_parallel(problem, qoi_type):
 
 
 if __name__ == "__main__":
-    test_adjoint_same_mesh("migrating_trench", "end_time", debug=True)
+    test_adjoint_same_mesh("burgers", "end_time", debug=True)
