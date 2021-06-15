@@ -19,7 +19,7 @@ are solved sequentially.
     Computers & Geosciences, 104658.
 """
 try:
-    import thetis
+    import thetis  # noqa
 except ImportError:
     import pytest
     pytest.xfail("Thetis is not installed")
@@ -94,8 +94,6 @@ def get_solver(self):
         options.timestep = dt
         options.simulation_export_time = dt*self.time_partition[i].timesteps_per_export
         options.simulation_end_time = t_end
-        if self.qoi_type == 'time_integrated' and np.isclose(t_end, end_time):
-            options.simulation_end_time += 0.5*dt
         options.horizontal_viscosity = Constant(1.0e-06)
         options.horizontal_diffusivity = Constant(0.15)
         options.nikuradse_bed_roughness = Constant(3*sed_options.average_sediment_size)

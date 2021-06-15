@@ -2,7 +2,7 @@
 Partitioning for the temporal domain.
 """
 from .log import debug
-from .utility import AttrDict, pyrint
+from .utility import AttrDict
 from collections.abc import Iterable
 import numpy as np
 

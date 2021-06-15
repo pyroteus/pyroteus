@@ -2,9 +2,9 @@
 Sequences of meshes corresponding to a :class:`TimePartition`.
 """
 import firedrake
-from .log import debug
-from .utility import AttrDict, Mesh, pyrint
 from .interpolation import project
+from .log import debug, warning
+from .utility import AttrDict, Mesh
 from collections.abc import Iterable
 
 
@@ -147,7 +147,7 @@ class MeshSeq(object):
         # Get all blocks
         blocks = get_working_tape().get_blocks()
         if len(blocks) == 0:
-            pyrint("WARNING: tape has no blocks!")
+            warning("Tape has no blocks!")
             return blocks
 
         # Restrict to solve blocks
@@ -205,15 +205,14 @@ class MeshSeq(object):
         ]
         if len(fwd_old_idx) == 0:
             if not warned:
-                pyrint("WARNING: Solve block has no dependencies")  # FIXME
+                warning("Solve block has no dependencies")  # FIXME
                 warned = True
             fwd_old_idx = None
         else:
             if len(fwd_old_idx) > 1 and not warned:
-                pyrint("WARNING: Solve block has dependencies in the prognostic space"
-                       + " other\n  than the PDE solution at the previous timestep."
-                       + f" (Dep indices {fwd_old_idx}).\n  Naively assuming the first"
-                       + " to be the right one.")  # FIXME
+                warning("Solve block has dependencies in the prognostic space other than the\n"
+                        + f" PDE solution at the previous timestep. (Dep indices {fwd_old_idx}).\n"
+                        + " Naively assuming the first to be the right one.")  # FIXME
                 warned = True
             fwd_old_idx = fwd_old_idx[0]
         return fwd_old_idx, warned

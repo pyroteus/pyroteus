@@ -5,7 +5,7 @@ import firedrake
 from firedrake_adjoint import pyadjoint
 from .interpolation import project
 from .mesh_seq import MeshSeq
-from .utility import AttrDict, norm, pyrint
+from .utility import AttrDict, norm, pyrint, warning
 from functools import wraps
 import numpy as np
 
@@ -158,7 +158,7 @@ class AdjointMeshSeq(MeshSeq):
             solver_kwargs=solver_kwargs, run_final_subinterval=test_checkpoint_qoi,
         )
         if self.warn and np.isclose(float(self.J), 0.0):
-            pyrint("WARNING: Zero QoI. Is it implemented as intended?")
+            warning("Zero QoI. Is it implemented as intended?")
         J_chk = self.J
         self.J = 0
 
@@ -205,7 +205,7 @@ class AdjointMeshSeq(MeshSeq):
                 if self.qoi_type == 'end_time':
                     self.J = self.qoi(sols, **solver_kwargs.get('qoi_kwargs', {}))
                     if self.warn and np.isclose(float(self.J), 0.0):
-                        pyrint("WARNING: Zero QoI. Is it implemented as intended?")
+                        warning("Zero QoI. Is it implemented as intended?")
             else:
                 with pyadjoint.stop_annotating():
                     for field, fs in function_spaces.items():
@@ -228,7 +228,7 @@ class AdjointMeshSeq(MeshSeq):
                 if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
                     raise ValueError(f"Solve block list for field {field} contains mismatching"
                                      + f" elements ({fs[0].ufl_element()} vs. "
-                                     + f" {block.function_space.ufl_element()})")
+                                     + f" {solve_blocks[0].function_space.ufl_element()})")
                 if 'forward_old' in solutions[field]:
                     fwd_old_idx, warned = self.get_lagged_dependency_index(
                         field, i, solve_blocks, warned=warned,
@@ -247,9 +247,6 @@ class AdjointMeshSeq(MeshSeq):
                 sols = solutions[field]
                 stride = self.time_partition.timesteps_per_export[i]
                 for j, block in enumerate(solve_blocks[::stride]):
-                    pyrint(f"DEBUG: field {field}")  # FIXME for migrating_trench
-                    pyrint(f"DEBUG: lvalue space {sols.forward[i][j].function_space()}")
-                    pyrint(f"DEBUG: rvalue space {block._outputs[0].saved_output.function_space()}")
                     sols.forward[i][j].assign(block._outputs[0].saved_output)
                     sols.adjoint[i][j].assign(block.adj_sol)
                     if fwd_old_idx is not None:
@@ -269,9 +266,9 @@ class AdjointMeshSeq(MeshSeq):
                             raise IndexError(f"Cannot extract solve block {j*stride+1} "
                                              + f"> {num_solve_blocks}")
                 if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
-                    pyrint(f"WARNING: Adjoint solution for field {field} on subinterval {i} is zero.")
+                    warning(f"Adjoint solution for field {field} on subinterval {i} is zero.")
                 if self.warn and get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
-                    pyrint(f"WARNING: Adjoint action for field {field} on subinterval {i} is zero.")
+                    warning(f"Adjoint action for field {field} on subinterval {i} is zero.")
 
             # Get adjoint action
             seeds = {
@@ -281,9 +278,9 @@ class AdjointMeshSeq(MeshSeq):
             }
             for field, seed in seeds.items():
                 if self.warn and np.isclose(norm(seed), 0.0):
-                    pyrint(f"WARNING: Adjoint action for field {field} on subinterval {i} is zero.")
+                    warning(f"Adjoint action for field {field} on subinterval {i} is zero.")
                     if steady:
-                        pyrint("  You seem to have a steady-state problem. Presumably it is linear?")
+                        warning("  You seem to have a steady-state problem. Presumably it is linear?")
             tape.clear_tape()
 
         # Check the QoI value agrees with that due to the checkpointing run

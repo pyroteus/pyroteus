@@ -19,7 +19,7 @@ backend.
     Oceans, 113(C7). (2008), pp. 3-6.
 """
 try:
-    import thetis
+    import thetis  # noqa
 except ImportError:
     import pytest
     pytest.xfail("Thetis is not installed")
