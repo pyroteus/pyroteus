@@ -37,24 +37,18 @@ fields = ['solution']
 # With these definitions, we should get
 # a subinterval of :math:`(0,1]` containing
 # eight timesteps. When constructing a
-# :class:`TimePartition`, it is often useful
-# to use the ``debug`` flag to check that it
-# is constructed correctly. ::
+# :class:`TimePartition` (or any other object),
+# it is often useful to use Pyroteus' debugging
+# mode. This is specified using ``set_log_level``. ::
 
-P = TimePartition(end_time, num_subintervals, dt, fields, debug=True)
+set_log_level(DEBUG)
+P = TimePartition(end_time, num_subintervals, dt, fields)
 
 # Notice that one of the things which is printed
-# out is ``solves_per_timestep``. This value
-# defaults to one, but can be set to larger
-# values to account for the case where your
-# PDE has multiple linear or nonlinear solves
-# per timestep.
-#
-# There is also a quantity ``timesteps_per_export``,
-# which controls how frequently data is to be
-# exported to file during a simulation. It
-# also defaults to one, but may be specified
-# as a keyword argument.
+# out is ``timesteps_per_export``, which controls
+# how frequently data is to be exported to file
+# during a simulation. It defaults to one, but may
+# be specified as a keyword argument.
 #
 # Based on the above values, the
 # :class:`TimePartition` computes the number
@@ -65,13 +59,11 @@ P = TimePartition(end_time, num_subintervals, dt, fields, debug=True)
 #
 # This partition isn't particularly interesting.
 # Let's try constructing a new one with more
-# than one subinterval. (Note that ``pyrint``
-# accounts for printing in parallel.) ::
+# than one subinterval. ::
 
 num_subintervals = 2
-pyrint('')
-P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
-                  solves_per_timestep=2, timesteps_per_export=2)
+P = TimePartition(end_time, num_subintervals, dt, fields,
+                  timesteps_per_export=2)
 
 # In some problems, the dynamics evolve such
 # that different timesteps are suitable during
@@ -79,9 +71,8 @@ P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
 # for that, it is possible to specify a list of
 # timesteps corresponding to each subinterval. ::
 
-pyrint('')
 dt = [0.125, 0.0625]
-P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
+P = TimePartition(end_time, num_subintervals, dt, fields,
                   timesteps_per_export=2)
 
 # Note that this means that there are more
@@ -89,8 +80,7 @@ P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
 # This can be remedied by also setting
 # ``timesteps_per_export`` as a list. ::
 
-pyrint('')
-P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
+P = TimePartition(end_time, num_subintervals, dt, fields,
                   timesteps_per_export=[2, 4])
 
 # So far, we have assumed that the subintervals
@@ -99,9 +89,8 @@ P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
 # non-uniform subintervals, they need to be passed
 # to the constructor as a list of tuples. ::
 
-pyrint('')
 subintervals = [(0.0, 0.75), (0.75, 1.0)]
-P = TimePartition(end_time, num_subintervals, dt, fields, debug=True,
+P = TimePartition(end_time, num_subintervals, dt, fields,
                   timesteps_per_export=[2, 4], subintervals=subintervals)
 
 #

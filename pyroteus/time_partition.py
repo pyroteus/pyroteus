@@ -37,6 +37,7 @@ class TimePartition(object):
             of subintervals, which need not be of
             uniform length (defaults to None)
         """
+        debug('')
         if isinstance(fields, str):
             fields = [fields]
         self.fields = fields

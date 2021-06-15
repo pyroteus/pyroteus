@@ -42,21 +42,32 @@ def get_function_spaces(mesh):
     return {'uv_2d': VectorFunctionSpace(mesh, "CG", 2)}
 
 
-# Pyroteus requires a solver with four arguments: a dictionary
-# containing initial conditions for each prognostic solution,
-# a start time, an end time and a timestep. The following
-# pattern is used for the QoI, which will be specified later.
-# The dictionary usage may seem cumbersome when applied to
-# such a simple problem, but it comes in handy when solving
-# adjoint problems associated with coupled systems of equations. ::
+# Pyroteus requires a solver with two arguments: the index
+# within the :class:`MeshSeq` and a dictionary containing a
+# starting value :class:`Function` for each prognostic solution.
+#
+# Timestepping information associated with the mesh within
+# the sequence can be accessed via the :attr:`TimePartition`
+# attribute of the :class:`MeshSeq`.
+#
+# The following pattern is used for the QoI, which will be
+# specified later. The dictionary usage may seem cumbersome when
+# applied to such a simple problem, but it comes in handy when
+# solving adjoint problems associated with coupled systems of
+# equations. It is important that the PDE solve is labelled
+# with an ``options_prefix`` which matches the corresponding
+# prognostic variable name. ::
 
 
 def get_solver(mesh_seq):
 
     def solver(index, ic):
-        t_start, t_end = mesh_seq.subintervals[index]
-        dt = mesh_seq.time_partition.timesteps[index]
-        function_space = ic['uv_2d'].function_space()
+        P = mesh_seq.time_partition
+        t_start, t_end = P.subintervals[index]
+        dt = P.timesteps[index]
+        function_space = mesh_seq.function_spaces['uv_2d'][index]
+
+        # Specify constants
         dtc = Constant(dt)
         nu = Constant(0.0001)
 
@@ -74,7 +85,7 @@ def get_solver(mesh_seq):
         # Time integrate from t_start to t_end
         t = t_start
         while t < t_end - 1.0e-05:
-            solve(F == 0, u)
+            solve(F == 0, u, options_prefix='uv_2d')
             u_.assign(u)
             t += dt
         return {'uv_2d': u_}
@@ -108,8 +119,7 @@ dt = 1/n
 
 num_subintervals = 2
 P = TimePartition(
-    end_time, num_subintervals, dt, fields,
-    timesteps_per_export=2, debug=True
+    end_time, num_subintervals, dt, fields, timesteps_per_export=2,
 )
 
 # Finally, we are able to construct a :class:`MeshSeq` and

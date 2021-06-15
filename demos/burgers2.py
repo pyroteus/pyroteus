@@ -65,7 +65,8 @@ fig.savefig("burgers2-end_time.jpg")
 # solution change when the solution is trasferred between different
 # meshes?
 #
-# In the `next demo <./burgers3.py.html>`__, we solve the same problem
-# but with a QoI involving an integral in time, as well as space.
+# In the `next demo <./burgers-time_integrated.py.html>`__, we solve
+# the same problem but with a QoI involving an integral in time, as
+# well as space.
 #
 # This demo can also be accessed as a `Python script <burgers2.py>`__.
