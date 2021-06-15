@@ -34,7 +34,6 @@ n = 0
 mesh = RectangleMesh(100*2**n, 20*2**n, 50, 10)
 fields = ['tracer_2d']
 function_space = {'tracer_2d': [FunctionSpace(mesh, "CG", 1)]}
-solves_per_dt = [1]
 end_time = 20.0
 dt = 20.0
 dt_per_export = 1

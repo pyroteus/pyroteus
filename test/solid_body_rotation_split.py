@@ -21,7 +21,7 @@ import solid_body_rotation as sbr
 
 
 fields = ['bell_2d', 'cone_2d', 'slot_cyl_2d']
-solves_per_dt = [3, 3, 3]
+end_time /= 3
 
 
 def get_function_spaces(mesh):

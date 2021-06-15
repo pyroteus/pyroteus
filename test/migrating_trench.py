@@ -32,7 +32,6 @@ nx, ny = lx*5, 5
 mesh = RectangleMesh(nx, ny, lx, ly)
 x, y = SpatialCoordinate(mesh)
 fields = ['swe2d', 'sediment', 'exner']
-solves_per_dt = [1, 1, 1]
 morfac = 300
 end_time = 0.75*3600/morfac
 dt = 0.3
@@ -93,7 +92,7 @@ def get_solver(self):
         options.timestepper_options.implicitness_theta = 1.0
         options.norm_smoother = Constant(0.1)
         options.timestep = dt
-        options.simulation_export_time = dt*self.time_partition[i].exports
+        options.simulation_export_time = dt*self.time_partition[i].timesteps_per_export
         options.simulation_end_time = t_end
         if self.qoi_type == 'time_integrated' and np.isclose(t_end, end_time):
             options.simulation_end_time += 0.5*dt

@@ -16,7 +16,6 @@ from firedrake import *
 n = 32
 mesh = UnitSquareMesh(n, n, diagonal='left')
 fields = ['uv_2d']
-solves_per_dt = [1]
 end_time = 0.5
 dt = 1/n
 dt_per_export = 2

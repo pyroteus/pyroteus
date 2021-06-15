@@ -34,7 +34,6 @@ x, y = SpatialCoordinate(mesh)
 W = mesh.coordinates.function_space()
 mesh = Mesh(interpolate(as_vector([x-lx/2, y-ly/2]), W))
 fields = ['swe2d']
-solves_per_dt = [1]
 end_time = 20.0
 dt = 9.6/ny
 dt_per_export = int(10.0/dt)

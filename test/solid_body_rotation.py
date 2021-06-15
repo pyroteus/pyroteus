@@ -28,11 +28,10 @@ coords = mesh.coordinates.copy(deepcopy=True)
 coords.interpolate(coords - as_vector([0.5, 0.5]))
 mesh = Mesh(coords)
 fields = ['tracer_2d']
-solves_per_dt = [3]
 full_rotation = 2*pi
 end_time = full_rotation
 dt = pi/300
-dt_per_export = 75
+dt_per_export = 25
 
 
 def get_function_spaces(mesh):
@@ -83,9 +82,9 @@ def get_solver(self):
             "sub_pc_type": "ilu",
         }
         prob1 = LinearVariationalProblem(a, L1, dq)
-        solv1 = LinearVariationalSolver(prob1, solver_parameters=sp, options_prefix=field)
+        solv1 = LinearVariationalSolver(prob1, solver_parameters=sp)
         prob2 = LinearVariationalProblem(a, L2, dq)
-        solv2 = LinearVariationalSolver(prob2, solver_parameters=sp, options_prefix=field)
+        solv2 = LinearVariationalSolver(prob2, solver_parameters=sp)
         prob3 = LinearVariationalProblem(a, L3, dq)
         solv3 = LinearVariationalSolver(prob3, solver_parameters=sp, options_prefix=field)
 
