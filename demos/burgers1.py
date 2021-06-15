@@ -58,8 +58,8 @@ P = TimeInterval(end_time, dt, fields, timesteps_per_export=2)
 # Finally, we are able to construct an :class:`AdjointMeshSeq` and
 # thereby call its :attr:`solve_adjoint` method. This computes the QoI
 # value and returns a dictionary of solutions for the forward and adjoint
-# problems. The solution dictionary has keys `'forward'`, `'forward_old'`,
-# `'adjoint'` and `'adjoint_next'` and arrays as values. When passed
+# problems. The solution dictionary has keys ``'forward'``, ``'forward_old'``,
+# ``'adjoint'`` and ``'adjoint_next'`` and arrays as values. When passed
 # an index corresponding to a particular exported timestep, the array
 # entries correspond to the current forward solution, the forward
 # solution at the previous timestep, the current adjoint solution and
