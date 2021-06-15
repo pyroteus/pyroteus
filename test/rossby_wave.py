@@ -19,10 +19,11 @@ backend.
     Oceans, 113(C7). (2008), pp. 3-6.
 """
 try:
-    from thetis import *
+    import thetis
 except ImportError:
     import pytest
     pytest.xfail("Thetis is not installed")
+from pyroteus.thetis_compat import *
 
 
 # Problem setup
@@ -32,7 +33,7 @@ mesh = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x')
 x, y = SpatialCoordinate(mesh)
 W = mesh.coordinates.function_space()
 mesh = Mesh(interpolate(as_vector([x-lx/2, y-ly/2]), W))
-fields = ['solution_2d']
+fields = ['swe2d']
 solves_per_dt = [1]
 end_time = 20.0
 dt = 9.6/ny
@@ -46,7 +47,7 @@ def get_function_spaces(mesh):
     Equal order P1DG-P1DG element pair
     """
     return {
-        'solution_2d':
+        'swe2d':
             MixedFunctionSpace([
                 VectorFunctionSpace(mesh, "DG", 1, name="U_2d"),
                 get_functionspace(mesh, "DG", 1, name="H_2d"),
@@ -63,7 +64,7 @@ def get_solver(self):
     def solver(i, ic, **model_options):
         t_start, t_end = self.time_partition[i].subinterval
         dt = self.time_partition[i].timestep
-        mesh2d = ic['solution_2d'].function_space().mesh()
+        mesh2d = ic['swe2d'].function_space().mesh()
         P1_2d = FunctionSpace(mesh2d, "CG", 1)
         bathymetry2d = Function(P1_2d).assign(1.0)
 
@@ -72,10 +73,10 @@ def get_solver(self):
         physical_constants['g_grav'].assign(1.0)
 
         # Setup problem
-        solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
+        solver_obj = FlowSolver2d(mesh2d, bathymetry2d)
         options = solver_obj.options
         options.timestepper_type = 'CrankNicolson'
-        options.timestep = 9.6/ny
+        options.timestep = dt
         options.element_family = 'dg-dg'
         options.simulation_export_time = 10.0
         options.simulation_end_time = t_end
@@ -96,7 +97,7 @@ def get_solver(self):
         }
 
         # Apply initial conditions
-        uv_a, elev_a = ic['solution_2d'].split()
+        uv_a, elev_a = ic['swe2d'].split()
         solver_obj.assign_initial_conditions(uv=uv_a, elev=elev_a)
 
         # Setup QoI
@@ -104,23 +105,15 @@ def get_solver(self):
 
         def update_forcings(t):
             if self.qoi_type == 'time_integrated':
-                self.J += qoi({'solution_2d': solver_obj.fields.solution_2d}, t)
+                self.J += qoi({'swe2d': solver_obj.fields.solution_2d}, t)
 
         # Correct counters and iterate
-        i_export = int(t_start/dt/dt_per_export)
-        solver_obj.simulation_time = t_start
-        solver_obj.i_export = i_export
-        solver_obj.next_export_t = t_start
-        solver_obj.iteration = int(t_start/dt)
-        solver_obj.export_initial_state = np.isclose(t_start, 0.0)
-        if not options.no_exports and len(options.fields_to_export) > 0:
-            for e in solver_obj.exporters['vtk'].exporters:
-                solver_obj.exporters['vtk'].exporters[e].set_next_export_ix(i_export)
+        solver_obj.correct_counters(self.time_partition[i])
         solver_obj.iterate(update_forcings=update_forcings)
 
         # Revert gravitational acceleration
         physical_constants['g_grav'].assign(g)
-        return {'solution_2d': solver_obj.fields.solution_2d}
+        return {'swe2d': solver_obj.fields.solution_2d}
     return solver
 
 
@@ -130,7 +123,7 @@ def get_initial_condition(self):
     two peaks of equal size, equally spaced
     to the North and South.
     """
-    return {'solution_2d': asymptotic_expansion(self.function_spaces['solution_2d'][0], time=0.0)}
+    return {'swe2d': asymptotic_expansion(self.function_spaces['swe2d'][0], time=0.0)}
 
 
 def asymptotic_expansion(fs, time=0.0):
@@ -239,7 +232,7 @@ def get_qoi(self):
     Rossby soliton.
     """
     def time_integrated_qoi(sol, t):
-        q = sol['solution_2d']
+        q = sol['swe2d']
         q_a = asymptotic_expansion(q.function_space(), t)
         return inner(q - q_a, q - q_a)*dx
 

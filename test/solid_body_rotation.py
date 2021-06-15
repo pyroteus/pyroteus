@@ -83,11 +83,11 @@ def get_solver(self):
             "sub_pc_type": "ilu",
         }
         prob1 = LinearVariationalProblem(a, L1, dq)
-        solv1 = LinearVariationalSolver(prob1, solver_parameters=sp)
+        solv1 = LinearVariationalSolver(prob1, solver_parameters=sp, options_prefix=field)
         prob2 = LinearVariationalProblem(a, L2, dq)
-        solv2 = LinearVariationalSolver(prob2, solver_parameters=sp)
+        solv2 = LinearVariationalSolver(prob2, solver_parameters=sp, options_prefix=field)
         prob3 = LinearVariationalProblem(a, L3, dq)
-        solv3 = LinearVariationalSolver(prob3, solver_parameters=sp)
+        solv3 = LinearVariationalSolver(prob3, solver_parameters=sp, options_prefix=field)
 
         # Time integrate from t_start to t_end
         t = t_start

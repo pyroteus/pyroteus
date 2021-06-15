@@ -196,22 +196,14 @@ class TimePartition(object):
         if self.debug:
             pyrint("Solve blocks before slicing:")
             for i, block in enumerate(solve_blocks):
-<<<<<<< HEAD
                 pyrint(f"{i:4d}: {type(block)} {block.options_prefix}")
-=======
-                pyrint(f"{i:4d}: {type(block)}")
->>>>>>> 54016e0... log: print -> pyrint
             pyrint(f"Offset = {offset}")
             pyrint(f"Stride = {stride}")
         solve_blocks = solve_blocks[offset::stride]
         if self.debug:
             pyrint("Solve blocks after slicing:")
             for i, block in enumerate(solve_blocks):
-<<<<<<< HEAD
                 pyrint(f"{i:4d}: {type(block)} {block.options_prefix}")
-=======
-                pyrint(f"{i:4d}: {type(block)}")
->>>>>>> 54016e0... log: print -> pyrint
 
         # Check FunctionSpaces are consistent across solve blocks
         element = solve_blocks[0].function_space.ufl_element()
