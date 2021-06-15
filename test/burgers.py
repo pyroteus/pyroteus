@@ -58,7 +58,7 @@ def get_solver(self):
         t = t_start
         qoi = self.qoi
         while t < t_end - 1.0e-05:
-            solve(F == 0, u)
+            solve(F == 0, u, options_prefix='uv_2d')
             if self.qoi_type == 'time_integrated':
                 self.J += qoi({'uv_2d': u}, t)
             u_.assign(u)

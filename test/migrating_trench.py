@@ -19,10 +19,11 @@ are solved sequentially.
     Computers & Geosciences, 104658.
 """
 try:
-    from thetis import *
+    import thetis
 except ImportError:
     import pytest
     pytest.xfail("Thetis is not installed")
+from pyroteus.thetis_compat import *
 
 
 # Problem setup
@@ -30,7 +31,7 @@ lx, ly = 16, 1.1
 nx, ny = lx*5, 5
 mesh = RectangleMesh(nx, ny, lx, ly)
 x, y = SpatialCoordinate(mesh)
-fields = ['solution_2d', 'sediment_2d', 'bathymetry_2d']
+fields = ['swe2d', 'sediment', 'exner']
 solves_per_dt = [1, 1, 1]
 morfac = 300
 end_time = 1.5*3600/morfac  # TODO: reduce?
@@ -47,14 +48,14 @@ def get_function_spaces(mesh):
     the Exner equation is solved in P1 space.
     """
     return {
-        'solution_2d':
+        'swe2d':
             MixedFunctionSpace([
                 VectorFunctionSpace(mesh, "DG", 1, name="U_2d"),
                 get_functionspace(mesh, "DG", 1, name="H_2d"),
             ]),
-        'sediment_2d':
+        'sediment':
             get_functionspace(mesh, "DG", 1, name="Q_2d"),
-        'bathymetry_2d':
+        'exner':
             get_functionspace(mesh, "CG", 1, name="P1_2d"),
     }
 
@@ -69,12 +70,12 @@ def get_solver(self):
         """
         t_start, t_end = self.time_partition[i].subinterval
         dt = self.time_partition[i].timestep
-        bathymetry2d = Function(self.function_spaces['bathymetry_2d'][i])
-        bathymetry2d.assign(ic['bathymetry_2d'])
+        bathymetry2d = Function(self.function_spaces['exner'][i])
+        bathymetry2d.assign(ic['exner'])
         mesh2d = bathymetry2d.function_space().mesh()
 
         # Setup solver
-        solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
+        solver_obj = FlowSolver2d(mesh2d, bathymetry2d)
         options = solver_obj.options
 
         # Setup sediment model
@@ -107,18 +108,18 @@ def get_solver(self):
             1: {'flux': Constant(-0.22)},
             2: {'elev': Constant(0.397)},
         }
-        solver_obj.bnd_functions['sediment_2d'] = {
+        solver_obj.bnd_functions['sediment'] = {
             1: {'flux': Constant(-0.22), 'equilibrium': None},
             2: {'elev': Constant(0.397)},
         }
 
         # Apply initial conditions
-        uv, elev = ic['solution_2d'].split()
-        solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=ic['sediment_2d'])
+        uv, elev = ic['swe2d'].split()
+        solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=ic['sediment'])
         solutions = {
-            'solution_2d': solver_obj.fields.solution_2d,
-            'sediment_2d': solver_obj.fields.sediment_2d,
-            'bathymetry_2d': solver_obj.fields.bathymetry_2d,
+            'swe2d': solver_obj.fields.solution_2d,
+            'sediment': solver_obj.fields.sediment_2d,
+            'exner': solver_obj.fields.bathymetry_2d,
         }
 
         # Setup QoI
@@ -129,15 +130,13 @@ def get_solver(self):
                 self.J += qoi(solutions, t)
 
         # Correct counters and iterate
-        i_export = int(t_start/dt/dt_per_export)
-        solver_obj.simulation_time = t_start
-        solver_obj.i_export = i_export
-        solver_obj.next_export_t = t_start
-        solver_obj.iteration = int(t_start/dt)
-        solver_obj.export_initial_state = np.isclose(t_start, 0.0)
-        if not options.no_exports and len(options.fields_to_export) > 0:
-            for e in solver_obj.exporters['vtk'].exporters:
-                solver_obj.exporters['vtk'].exporters[e].set_next_export_ix(i_export)
+        solver_obj.correct_counters(self.time_partition[i])
+        solver_obj.timestepper.timesteppers.swe2d.name = 'swe2d'
+        solver_obj.timestepper.timesteppers.swe2d.update_solver()
+        solver_obj.timestepper.timesteppers.sediment.name = 'sediment'
+        solver_obj.timestepper.timesteppers.sediment.update_solver()
+        solver_obj.timestepper.timesteppers.exner.name = 'exner'
+        solver_obj.timestepper.timesteppers.exner.update_solver()
         solver_obj.iterate(update_forcings=update_forcings)
         return solutions
 
@@ -152,9 +151,9 @@ def get_initial_condition(self):
     constant values.
     """
     fs = self.function_spaces
-    q_init = Function(fs['solution_2d'][0])
-    sediment_init = Function(fs['sediment_2d'][0])
-    bed_init = Function(fs['bathymetry_2d'][0])
+    q_init = Function(fs['swe2d'][0])
+    sediment_init = Function(fs['sediment'][0])
+    bed_init = Function(fs['exner'][0])
 
     uv_init, elev_init = q_init.split()
     uv_init.interpolate(as_vector([0.51, 0.0]))
@@ -185,9 +184,9 @@ def get_initial_condition(self):
     )
 
     return {
-        'solution_2d': q_init,
-        'sediment_2d': sediment_init,
-        'bathymetry_2d': bed_init,
+        'swe2d': q_init,
+        'sediment': sediment_init,
+        'exner': bed_init,
     }
 
 
@@ -197,7 +196,7 @@ def get_qoi(self):
     sediment over the domain.
     """
     def time_integrated_qoi(sol, t):
-        s = sol['sediment_2d']
+        s = sol['sediment']
         return s*dx
 
     def end_time_qoi(sol):
