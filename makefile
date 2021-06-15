@@ -25,10 +25,10 @@ demo:
 	@cd demos && python3 burgers.py
 	@cd demos && python3 burgers1.py
 	@cd demos && python3 burgers2.py
-	@cd demos && python3 burgers3.py
+	@cd demos && python3 burgers-time_integrated.py
 	@echo "Done."
 
-doc:
+doc: demo
 	@echo "Building docs in html format..."
 	@cd docs && make html
 	@echo "Done."

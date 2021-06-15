@@ -100,7 +100,7 @@ solutions = mesh_seq.solve_adjoint()
 # Finally, plot snapshots of the adjoint solution. ::
 
 fig, axes = plot_snapshots(solutions, P, 'uv_2d', 'adjoint', levels=np.linspace(0, 2.1, 9))
-fig.savefig("burgers3-time_integrated.jpg")
+fig.savefig("burgers-time_integrated.jpg")
 
 # .. figure:: burgers-time_integrated.jpg
 #    :figwidth: 90%
