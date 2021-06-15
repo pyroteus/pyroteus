@@ -3,7 +3,7 @@ Sequences of meshes corresponding to a :class:`TimePartition`.
 """
 import firedrake
 from .interpolation import project
-from .log import debug, warning
+from .log import warning
 from .utility import AttrDict, Mesh
 from collections.abc import Iterable
 

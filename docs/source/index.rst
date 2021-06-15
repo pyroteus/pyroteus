@@ -55,4 +55,4 @@ earlier ones.
     Burgers equation on a sequence of meshes <demos/burgers.py>
     Adjoint of Burgers equation <demos/burgers1.py>
     Adjoint of Burgers equation on two meshes <demos/burgers2.py>
-    Adjoint of Burgers equation with a time-integrated QoI <demos/burgers3.py>
+    Adjoint of Burgers equation with a time-integrated QoI <demos/burgers-time_integrated.py>

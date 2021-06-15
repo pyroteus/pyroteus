@@ -172,7 +172,7 @@ texinfo_documents = [
 intersphinx_mapping = {
     'python': ('https://docs.python.org/2.7/', None),
     'ufl': ('https://fenics.readthedocs.io/projects/ufl/en/latest/', None),
-    'firedrake': ('http://firedrakeproject.org/', None),
+    'firedrake': ('https://firedrakeproject.org/', None),
 }
 
 autoclass_content = "both"

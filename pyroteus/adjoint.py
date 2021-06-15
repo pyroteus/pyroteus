@@ -5,7 +5,7 @@ import firedrake
 from firedrake_adjoint import pyadjoint
 from .interpolation import project
 from .mesh_seq import MeshSeq
-from .utility import AttrDict, norm, pyrint, warning
+from .utility import AttrDict, norm, warning
 from functools import wraps
 import numpy as np
 
