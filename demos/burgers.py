@@ -56,7 +56,9 @@ def get_function_spaces(mesh):
 # solving adjoint problems associated with coupled systems of
 # equations. It is important that the PDE solve is labelled
 # with an ``options_prefix`` which matches the corresponding
-# prognostic variable name. ::
+# prognostic variable name. It is also important that the
+# lagged solution field be given a name which is the field name,
+# appended by ``'_old'``. ::
 
 
 def get_solver(mesh_seq):
