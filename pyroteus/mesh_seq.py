@@ -157,6 +157,9 @@ class MeshSeq(object):
             if issubclass(block.__class__, GenericSolveBlock)
             and not issubclass(block.__class__, ProjectBlock)
         ]
+        if len(solve_blocks) == 0:
+            warning("Tape has no solve blocks!")
+            return solve_blocks
 
         # Restrict to solve blocks with adjoint solutions
         if has_adj_sol:
@@ -165,19 +168,20 @@ class MeshSeq(object):
                 for block in solve_blocks
                 if block.adj_sol is not None
             ]
+            if len(solve_blocks) == 0:
+                warning("No block has an adjoint solution. Has the adjoint equation been solved?")
+                return solve_blocks
 
         # Slice solve blocks by field
-        debug("Solve blocks before slicing:")
-        for i, block in enumerate(solve_blocks):
-            debug(f"{i:4d}: {type(block)} {block.options_prefix}")
         solve_blocks = [
             block
             for block in solve_blocks
             if block.options_prefix == field
         ]
-        debug("Solve blocks after slicing:")
-        for i, block in enumerate(solve_blocks):
-            debug(f"{i:4d}: {type(block)} {block.options_prefix}")
+        if len(solve_blocks) == 0:
+            warning(f"Tape has no solve blocks associated with field {field}.\nHas the options"
+                    + " prefix been applied correctly?")
+            return solve_blocks
 
         # Check FunctionSpaces are consistent across solve blocks
         element = solve_blocks[0].function_space.ufl_element()
@@ -290,9 +294,16 @@ class MeshSeq(object):
                 # Extract solution data
                 sols = solutions[field]
                 stride = self.time_partition.timesteps_per_export[i]
+                if len(solve_blocks[::stride]) >= self.time_partition.exports_per_subinterval[i]:
+                    raise ValueError("More solve blocks than expected"
+                                     + f" ({len(solve_blocks[::stride])} vs."
+                                     + f" {self.time_partition.exports_per_subinterval[i]})")
                 for j, block in enumerate(solve_blocks[::stride]):
                     sols.forward[i][j].assign(block._outputs[0].saved_output)
                     if fwd_old_idx is not None:
                         sols.forward_old[i][j].assign(block._dependencies[fwd_old_idx].saved_output)
+
+            # Clear tape
+            tape.clear_tape()
 
         return solutions

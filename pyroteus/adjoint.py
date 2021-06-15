@@ -246,6 +246,10 @@ class AdjointMeshSeq(MeshSeq):
                 # Extract solution data
                 sols = solutions[field]
                 stride = self.time_partition.timesteps_per_export[i]
+                if len(solve_blocks[::stride]) >= self.time_partition.exports_per_subinterval[i]:
+                    raise ValueError("More solve blocks than expected"
+                                     + f" ({len(solve_blocks[::stride])} vs."
+                                     + f" {self.time_partition.exports_per_subinterval[i]})")
                 for j, block in enumerate(solve_blocks[::stride]):
                     sols.forward[i][j].assign(block._outputs[0].saved_output)
                     sols.adjoint[i][j].assign(block.adj_sol)

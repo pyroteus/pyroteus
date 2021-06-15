@@ -45,7 +45,7 @@ def get_solver(mesh_seq):
         t = t_start
         qoi = mesh_seq.qoi
         while t < t_end - 1.0e-05:
-            solve(F == 0, u)
+            solve(F == 0, u, options_prefix='uv_2d')
             mesh_seq.J += qoi({'uv_2d': u}, t)
             u_.assign(u)
             t += dt
@@ -102,7 +102,7 @@ solutions = mesh_seq.solve_adjoint()
 fig, axes = plot_snapshots(solutions, P, 'uv_2d', 'adjoint', levels=np.linspace(0, 2.1, 9))
 fig.savefig("burgers3-time_integrated.jpg")
 
-# .. figure:: burgers3-time_integrated.jpg
+# .. figure:: burgers-time_integrated.jpg
 #    :figwidth: 90%
 #    :align: center
 #
@@ -110,4 +110,4 @@ fig.savefig("burgers3-time_integrated.jpg")
 # has a source term at the right hand boundary, rather
 # than a instantaneous pulse at the terminal time.
 #
-# This demo can also be accessed as a `Python script <burgers3.py>`__.
+# This demo can also be accessed as a `Python script <burgers-time_integrated.py>`__.
