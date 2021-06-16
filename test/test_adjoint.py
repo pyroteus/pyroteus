@@ -43,6 +43,7 @@ all_problems = [
     "solid_body_rotation_split",
     "rossby_wave",
     "migrating_trench",
+    "rayleigh_taylor",
 ]
 
 
@@ -79,7 +80,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     pyrint(f"\n--- Setting up {problem} test case with {qoi_type} QoI\n")
     test_case = importlib.import_module(problem)
     end_time = test_case.end_time
-    if "solid_body_rotation" in problem:
+    if "solid_body_rotation" in problem or problem == "rayleigh_taylor":
         end_time /= 4  # Reduce testing time
 
     # Partition time interval and create MeshSeq
@@ -163,5 +164,5 @@ if __name__ == "__main__":
     parser.add_argument('qoi_type')
     args = parser.parse_args()
     assert args.qoi_type in ('end_time', 'time_integrated')
-    # assert args.problem in all_problems
+    assert args.problem in all_problems
     test_adjoint_same_mesh(args.problem, args.qoi_type, debug=True)

@@ -1,17 +1,19 @@
 # TODO: doc
 from pyroteus.compat.thwaites import *
+from pyroteus.log import debug
 
 
 mesh = RectangleMesh(50, 400, 0.5, 4)
+fields = ['up', 'rho']
 end_time = 2.0
 dt = 0.01
-dt_per_export = 50
+dt_per_export = 25
 At = 0.5
 rho_min = 1.0
 rho_max = rho_min*(1.0 + At)/(1.0 - At)
 
 
-def get_function_space(mesh):
+def get_function_spaces(mesh):
     r"""
     :math:`\mathbb P1_{DG}-\mathbb P2`
     velocity-pressure pair and
@@ -71,7 +73,7 @@ def get_solver(self):
         # Specify solver parameters
         mumps_solver_parameters = {
             'mat_type': 'aij',
-            'snes_monitor': None,
+            # 'snes_converged_reason': None,
             'ksp_type': 'preonly',
             'pc_type': 'lu',
             'pc_factor_mat_solver_type': 'mumps',
@@ -88,7 +90,7 @@ def get_solver(self):
                 'ksp_type': 'gmres',
                 'pc_type': 'python',
                 'pc_python_type': 'firedrake.AssembledPC',
-                'ksp_converged_reason': None,
+                # 'ksp_converged_reason': None,
                 'assembled_ksp_type': 'preonly',
                 'assembled_pc_type': 'bjacobi',
                 'assembled_sub_pc_type': 'ilu',
@@ -100,7 +102,7 @@ def get_solver(self):
                 'pc_python_type': 'thwaites.AssembledSchurPC',
                 'schur_ksp_type': 'cg',
                 'schur_ksp_max_it': 100,
-                'schur_ksp_converged_reason': None,
+                # 'schur_ksp_converged_reason': None,
                 'schur_pc_type': 'gamg',
             }
         }
@@ -116,14 +118,14 @@ def get_solver(self):
         )
         rho_timestepper = DIRK33(
             rho_eq, rho, rho_fields, dt, rho_bcs,
-            solver_parameters=rho_solver_parameters,
+            solver_parameters=mumps_solver_parameters,
         )
 
         # Modify options prefixes
-        up_timestepper.solver.options_prefix = 'up'
+        up_timestepper.name = 'up'
         up_timestepper.solution_old.rename('up_old')
         # FIXME: This is not the lagged solution! It is the last tendency
-        rho_timestepper.solver.options_prefix = 'rho'
+        rho_timestepper.solver[-1].options_prefix = 'rho'
         rho_timestepper.solution_old.rename('rho_old')
         # FIXME: This is not the lagged solution! It is the last tendency
 
@@ -144,6 +146,7 @@ def get_solver(self):
         p_file = File('outputs/rayleigh_taylor/pressure.pvd')
         rho_file = File('outputs/rayleigh_taylor/density.pvd')
         while t < self.time_partition[i].end_time - 0.5*dt:
+            debug(f"time = {t:.2f}s")
 
             # Take a timestep
             up_timestepper.advance(t)
