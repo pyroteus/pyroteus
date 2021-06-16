@@ -144,6 +144,9 @@ def get_solver(self):
             up_timestepper.advance(t)
             rho_timestepper.advance(t)
 
+            # debug(self.get_solve_blocks('up', i, has_adj_sol=False))
+            # debug(self.get_solve_blocks('rho', i, has_adj_sol=False))
+
             # Evalute QoI
             if self.qoi_type == 'time_integrated':
                 self.J += qoi(solutions, t)
