@@ -163,5 +163,5 @@ if __name__ == "__main__":
     parser.add_argument('qoi_type')
     args = parser.parse_args()
     assert args.qoi_type in ('end_time', 'time_integrated')
-    assert args.problem in all_problems
+    # assert args.problem in all_problems
     test_adjoint_same_mesh(args.problem, args.qoi_type, debug=True)

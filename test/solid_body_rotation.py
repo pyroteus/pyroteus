@@ -72,6 +72,7 @@ def get_solver(self):
             - dtc*conditional(dot(u, n) > 0, phi*dot(u, n)*q, 0.0)*ds \
             - dtc*(phi('+') - phi('-'))*(un('+')*q('+') - un('-')*q('-'))*dS
         q1, q2 = Function(V), Function(V, name=field + '_old')
+        # FIXME: This is not the lagged solution! It is the last tendency
         L2, L3 = replace(L1, {q: q1}), replace(L1, {q: q2})
         dq = Function(V)
 
