@@ -211,7 +211,7 @@ class MeshSeq(object):
         ]
         if len(fwd_old_idx) == 0:
             if not warned:
-                warning("Solve block has no dependencies")
+                warning(f"Solve block for {field} has no dependencies")
                 warned = True
             fwd_old_idx = None
         else:

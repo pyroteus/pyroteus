@@ -14,3 +14,13 @@ class DIRK33(thwaites.time_stepper.DIRK33):
                 NonlinearVariationalSolver(p,
                     solver_parameters=self.solver_parameters,
                     options_prefix="rho" if i == self.n_stages-1 else None))
+        self.solution_old.rename("rho_old")
+        # FIXME: This is not the lagged solution! It is the last tendency
+
+
+class PressureProjectionTimeIntegrator(thwaites.coupled_integrators.PressureProjectionTimeIntegrator):
+    def initialize(self, *args):
+        self.name = 'up'
+        self.solution_old.rename('up_old')
+        # FIXME: This is not the lagged solution! It is the last tendency
+        super(PressureProjectionTimeIntegrator, self).initialize(*args)

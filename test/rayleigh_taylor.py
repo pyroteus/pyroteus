@@ -121,14 +121,6 @@ def get_solver(self):
             solver_parameters=mumps_solver_parameters,
         )
 
-        # Modify options prefixes
-        up_timestepper.name = 'up'
-        up_timestepper.solution_old.rename('up_old')
-        # FIXME: This is not the lagged solution! It is the last tendency
-        rho_timestepper.solver[-1].options_prefix = 'rho'
-        rho_timestepper.solution_old.rename('rho_old')
-        # FIXME: This is not the lagged solution! It is the last tendency
-
         # Setup for limiters
         # rho_limiter = VertexBasedLimiter(Q)
         # u_comp = Function(Q)
