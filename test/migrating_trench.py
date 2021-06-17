@@ -114,22 +114,27 @@ def get_solver(self):
         # Apply initial conditions
         uv, elev = ic['swe2d'].split()
         solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=ic['sediment'])
+
+        # Setup QoI
+        qoi = self.get_qoi(i)
         solutions = {
             'swe2d': solver_obj.fields.solution_2d,
             'sediment': solver_obj.fields.sediment_2d,
             'exner': solver_obj.fields.bathymetry_2d,
         }
 
-        # Setup QoI
-        qoi = self.get_qoi(i)
-
         def update_forcings(t):
             if self.qoi_type == 'time_integrated':
-                self.J += qoi(solutions, t)
+                self.J += qoi(solutions, t - dt)
+                # TODO: Use a callback instead
 
         # Correct counters and iterate
         solver_obj.correct_counters(self.time_partition[i])
         solver_obj.iterate(update_forcings=update_forcings)
+
+        if self.qoi_type == 'time_integrated':
+            for solution in solutions:  # FIXME: HACK
+                self.J += qoi(solutions, t_end)
         return solutions
 
     return solver
@@ -188,16 +193,21 @@ def get_qoi(self, i):
     sediment over the domain.
     """
     dtc = Constant(self.time_partition[i].timestep)
+    wq = Constant(1.0)
+    self.counter = 0
 
     def time_integrated_qoi(sol, t):
+        t_start, t_end = self.time_partition[i].subinterval
+        wq.assign(0.0 if np.isclose(t, t_start) or self.counter % 3 != 1 else 1.0)  # Backward Euler
         s = sol['sediment']
-        return dtc*s*dx
+        self.counter += 1
+        return wq*dtc*s*dx
 
     def end_time_qoi(sol):
-        return time_integrated_qoi(sol, end_time)
+        s = sol['sediment']
+        return s*dx
 
     if self.qoi_type == 'end_time':
-        dtc.assign(1.0)
         return end_time_qoi
     else:
         return time_integrated_qoi

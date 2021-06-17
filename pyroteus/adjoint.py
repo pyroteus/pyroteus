@@ -150,6 +150,7 @@ class AdjointMeshSeq(MeshSeq):
         """
         num_subintervals = len(self)
         function_spaces = self.function_spaces
+        P = self.time_partition
 
         # Solve forward to get checkpoints and evaluate QoI
         checkpoints = self.get_checkpoints(
@@ -171,7 +172,7 @@ class AdjointMeshSeq(MeshSeq):
                 label: [
                     [
                         firedrake.Function(fs)
-                        for j in range(self.time_partition.exports_per_subinterval[i]-1)
+                        for j in range(P.exports_per_subinterval[i]-1)
                     ] for i, fs in enumerate(function_spaces[field])
                 ] for label in labels
             }) for field in self.fields
@@ -243,12 +244,11 @@ class AdjointMeshSeq(MeshSeq):
 
                 # Extract solution data
                 sols = solutions[field]
-                stride = self.time_partition.timesteps_per_export[i]
-                if len(solve_blocks[::stride]) >= self.time_partition.exports_per_subinterval[i]:
-                    raise ValueError("More solve blocks than expected"
-                                     + f" ({len(solve_blocks[::stride])} vs."
-                                     + f" {self.time_partition.exports_per_subinterval[i]})")
-                for j, block in enumerate(solve_blocks[::stride]):
+                stride = P.timesteps_per_export[i]
+                if len(solve_blocks[::stride]) >= P.exports_per_subinterval[i]:
+                    warning(f"More solve blocks than expected ({len(solve_blocks[::stride])} >"
+                            + f" {P.exports_per_subinterval[i]-1})")
+                for j, block in zip(range(P.exports_per_subinterval[i]-1), solve_blocks[::stride]):
                     sols.forward[i][j].assign(block._outputs[0].saved_output)
                     sols.adjoint[i][j].assign(block.adj_sol)
                     if fwd_old_idx is not None:
