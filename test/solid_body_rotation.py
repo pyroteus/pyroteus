@@ -82,11 +82,11 @@ def get_solver(self):
             "sub_pc_type": "ilu",
         }
         prob1 = LinearVariationalProblem(a, L1, dq)
-        solv1 = LinearVariationalSolver(prob1, solver_parameters=sp)
+        solv1 = LinearVariationalSolver(prob1, solver_parameters=sp, options_prefix=field + '_1/6')
         prob2 = LinearVariationalProblem(a, L2, dq)
-        solv2 = LinearVariationalSolver(prob2, solver_parameters=sp)
+        solv2 = LinearVariationalSolver(prob2, solver_parameters=sp, options_prefix=field + '_1/6')
         prob3 = LinearVariationalProblem(a, L3, dq)
-        solv3 = LinearVariationalSolver(prob3, solver_parameters=sp, options_prefix=field)
+        solv3 = LinearVariationalSolver(prob3, solver_parameters=sp, options_prefix=field + '_2/3')
 
         # Time integrate from t_start to t_end
         t = t_start
@@ -94,12 +94,16 @@ def get_solver(self):
         while t < t_end - 1.0e-05:
             solv1.solve()
             q1.assign(q + dq)
+            if self.qoi_type == 'time_integrated':
+                self.J += qoi({field: dq}, t, quadrature_weight=1/6)
             solv2.solve()
             q2.assign(0.75*q + 0.25*(q1 + dq))
+            if self.qoi_type == 'time_integrated':
+                self.J += qoi({field: dq}, t, quadrature_weight=1/6)
             solv3.solve()
             q.assign((1.0/3.0)*q + (2.0/3.0)*(q2 + dq))
             if self.qoi_type == 'time_integrated':
-                self.J += qoi({field: q}, t)
+                self.J += qoi({field: dq}, t, quadrature_weight=2/3)
             t += dt
         return {field: q}
     return solver
@@ -149,8 +153,10 @@ def get_qoi(self, i, exact=get_initial_condition):
     specified shape).
     """
     dtc = Constant(self.time_partition[i].timestep)
+    wq = Constant(1.0)
 
-    def time_integrated_qoi(sol, t):
+    def time_integrated_qoi(sol, t, quadrature_weight=1.0):
+        wq.assign(quadrature_weight)
         assert len(list(sol.keys())) == 1
         field = list(sol.keys())[0]
         q = sol[field]
@@ -172,7 +178,7 @@ def get_qoi(self, i, exact=get_initial_condition):
             raise ValueError(f"Tracer field {field} not recognised")
         x0, y0 = interpolate(rotate(as_vector([x0, y0]), theta), W)
         ball = conditional((x[0] - x0)**2 + (x[1] - y0)**2 < r0**2, 1.0, 0.0)
-        return dtc*ball*(q-q_exact[field])**2*dx
+        return wq*dtc*ball*(q-q_exact[field])**2*dx
 
     def end_time_qoi(sol):
         return sum(

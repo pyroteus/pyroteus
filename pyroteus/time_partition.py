@@ -144,6 +144,7 @@ class TimePartition(object):
             'timestep': self.timesteps[i],
             'timesteps_per_export': self.timesteps_per_export[i],
             'num_exports': self.exports_per_subinterval[i],
+            'num_timesteps': self.timesteps_per_subinterval[i],
             'start_time': self.subintervals[i][0],
             'end_time': self.subintervals[i][1],
         })
