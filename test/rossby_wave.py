@@ -100,7 +100,7 @@ def get_solver(self):
         solver_obj.assign_initial_conditions(uv=uv_a, elev=elev_a)
 
         # Setup QoI
-        qoi = self.qoi
+        qoi = self.get_qoi(i)
 
         def update_forcings(t):
             if self.qoi_type == 'time_integrated':
@@ -224,21 +224,24 @@ def asymptotic_expansion(fs, time=0.0):
     return q_a
 
 
-def get_qoi(self):
+def get_qoi(self, i):
     """
     Quantity of interest which computes
     the square L2 error of the advected
     Rossby soliton.
     """
+    dtc = Constant(self.time_partition[i].timestep)
+
     def time_integrated_qoi(sol, t):
         q = sol['swe2d']
         q_a = asymptotic_expansion(q.function_space(), t)
-        return inner(q - q_a, q - q_a)*dx
+        return dtc*inner(q - q_a, q - q_a)*dx
 
     def end_time_qoi(sol):
         return time_integrated_qoi(sol, end_time)
 
     if self.qoi_type == 'end_time':
+        dtc.assign(1.0)
         return end_time_qoi
     else:
         return time_integrated_qoi

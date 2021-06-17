@@ -57,7 +57,7 @@ def get_solver(self):
 
         # Time integrate from t_start to t_end
         t = t_start
-        qoi = self.qoi
+        qoi = self.get_qoi(i)
         while t < t_end - 1.0e-05:
             solve(F == 0, u, options_prefix='uv_2d')
             if self.qoi_type == 'time_integrated':
@@ -78,22 +78,24 @@ def get_initial_condition(self):
     return {'uv_2d': interpolate(as_vector([sin(pi*x), 0]), init_fs)}
 
 
-def get_qoi(self):
+def get_qoi(self, i):
     """
     Quantity of interest which
     computes the square L2
     norm over the right hand
     boundary.
     """
-    def end_time_qoi(sol):
-        u = sol['uv_2d']
-        return inner(u, u)*ds(2)
+    dtc = Constant(self.time_partition[i].timestep)
 
     def time_integrated_qoi(sol, t):
         u = sol['uv_2d']
-        return inner(u, u)*ds(2)
+        return dtc*inner(u, u)*ds(2)
+
+    def end_time_qoi(sol):
+        return time_integrated_qoi(sol, end_time)
 
     if self.qoi_type == 'end_time':
+        dtc.assign(1.0)
         return end_time_qoi
     else:
         return time_integrated_qoi
