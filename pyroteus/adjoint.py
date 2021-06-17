@@ -249,13 +249,15 @@ class AdjointMeshSeq(MeshSeq):
                     warning(f"More solve blocks than expected ({len(solve_blocks[::stride])} >"
                             + f" {P.exports_per_subinterval[i]-1})")
                 for j, block in zip(range(P.exports_per_subinterval[i]-1), solve_blocks[::stride]):
-                    sols.forward[i][j].assign(block._outputs[0].saved_output)
-                    sols.adjoint[i][j].assign(block.adj_sol)
+
+                    # Lagged forward solution
                     if fwd_old_idx is not None:
                         dep = block._dependencies[fwd_old_idx]
                         sols.forward_old[i][j].assign(dep.saved_output)
                         if get_adj_values:
                             sols.adj_value[i][j].assign(dep.adj_value.function)
+
+                    # Lagged adjoint solution
                     if not steady:
                         if j*stride+1 < num_solve_blocks:
                             sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
@@ -267,6 +269,31 @@ class AdjointMeshSeq(MeshSeq):
                         else:
                             raise IndexError(f"Cannot extract solve block {j*stride+1} "
                                              + f"> {num_solve_blocks}")
+
+                    # Forward and adjoint solution at current timestep
+                    if self.solves_per_timestep == 1:
+                        sols.forward[i][j].assign(block._outputs[0].saved_output)
+                        sols.adjoint[i][j].assign(block.adj_sol)
+                    else:
+                        debug(f"MeshSeq: It looks like you have a {self.solves_per_timestep}"
+                              + " step RK method")
+                        assert fwd_old_idx is not None, "Need old solution for RK methods"
+                        sols.forward[i][j].assign(sols.forward_old[i][j])
+                        sols.adjoint[i][j].assign(sols.adjoint_next[i][j])
+                        for k in range(self.solves_per_timestep):
+                            rk_block = solve_blocks[j*stride + k]
+                            s = rk_block.options_prefix.split()
+                            assert len(s) == 2, "Prefix should be '<field>_<quadrature_weight>'"
+                            assert s[0] == field, "Prefix should be '<field>_<quadrature_weight>'"
+                            if '/' in s[1]:
+                                numerator, divisor = s[1].split('/')
+                                wq = float(numerator)/float(divisor)
+                            else:
+                                wq = float(s[1])
+                            sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
+                            sols.adjoint[i][j] += wq*rk_block.adj_sol
+
+                # Check non-zero adjoint solution/value
                 if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
                     warning(f"Adjoint solution for field {field} on subinterval {i} is zero.")
                 if self.warn and get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):

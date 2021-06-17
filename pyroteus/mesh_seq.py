@@ -3,9 +3,10 @@ Sequences of meshes corresponding to a :class:`TimePartition`.
 """
 import firedrake
 from .interpolation import project
-from .log import warning
+from .log import debug, warning
 from .utility import AttrDict, Mesh
 from collections.abc import Iterable
+import numpy as np
 
 
 __all__ = ["MeshSeq"]
@@ -176,7 +177,7 @@ class MeshSeq(object):
         solve_blocks = [
             block
             for block in solve_blocks
-            if block.options_prefix == field
+            if field in block.options_prefix
         ]
         if len(solve_blocks) == 0:
             warning(f"Tape has no solve blocks associated with field {field}.\nHas the options"
@@ -189,6 +190,15 @@ class MeshSeq(object):
             if element != block.function_space.ufl_element():
                 raise ValueError(f"Solve block list for field {field} contains mismatching elements"
                                  + f" ({element} vs. {block.function_space.ufl_element()})")
+
+        # Check the number of timesteps divides the number of solve blocks
+        ratio = len(solve_blocks)/self.time_partition[subinterval].num_timesteps
+        if not np.isclose(np.round(ratio), ratio):
+            raise ValueError(f"Number of timesteps does not divide number of solve blocks"
+                             + f" ({self.time_partition[subinterval].num_timesteps} vs."
+                             + f" {len(solve_blocks)})")
+        self.solves_per_timestep = int(ratio)
+        debug(f"MeshSeq: Number of solves per timestep: {self.solves_per_timestep}")
         return solve_blocks
 
     def get_lagged_dependency_index(self, field, index, solve_blocks, warned=False):
@@ -295,15 +305,32 @@ class MeshSeq(object):
 
                 # Extract solution data
                 sols = solutions[field]
-                stride = self.time_partition.timesteps_per_export[i]
+                stride = self.time_partition.timesteps_per_export[i]*self.solves_per_timestep
                 if len(solve_blocks[::stride]) >= self.time_partition.exports_per_subinterval[i]:
                     raise ValueError("More solve blocks than expected"
                                      + f" ({len(solve_blocks[::stride])} vs."
                                      + f" {self.time_partition.exports_per_subinterval[i]})")
                 for j, block in enumerate(solve_blocks[::stride]):
-                    sols.forward[i][j].assign(block._outputs[0].saved_output)
                     if fwd_old_idx is not None:
                         sols.forward_old[i][j].assign(block._dependencies[fwd_old_idx].saved_output)
+                    if self.solves_per_timestep == 1:
+                        sols.forward[i][j].assign(block._outputs[0].saved_output)
+                    else:
+                        debug(f"MeshSeq: It looks like you have a {self.solves_per_timestep}"
+                              + " step RK method")
+                        assert fwd_old_idx is not None, "Need old solution for RK methods"
+                        sols.forward[i][j].assign(sols.forward_old[i][j])
+                        for k in range(self.solves_per_timestep):
+                            rk_block = solve_blocks[j*stride + k]
+                            s = rk_block.options_prefix.split()
+                            assert len(s) == 2, "Prefix should be '<field>_<quadrature_weight>'"
+                            assert s[0] == field, "Prefix should be '<field>_<quadrature_weight>'"
+                            if '/' in s[1]:
+                                numerator, divisor = s[1].split('/')
+                                wq = float(numerator)/float(divisor)
+                            else:
+                                wq = float(s[1])
+                            sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
 
             # Clear tape
             tape.clear_tape()
