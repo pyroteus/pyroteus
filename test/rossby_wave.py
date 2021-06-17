@@ -62,6 +62,7 @@ def get_solver(self):
     """
     def solver(i, ic, **model_options):
         t_start, t_end = self.time_partition[i].subinterval
+        last_solve = np.isclose(t_end, end_time)
         dt = self.time_partition[i].timestep
         mesh2d = ic['swe2d'].function_space().mesh()
         P1_2d = FunctionSpace(mesh2d, "CG", 1)
@@ -79,8 +80,6 @@ def get_solver(self):
         options.element_family = 'dg-dg'
         options.simulation_export_time = 10.0
         options.simulation_end_time = t_end
-        if self.qoi_type == 'time_integrated' and np.isclose(t_end, end_time):
-            options.simulation_end_time += 0.5*dt
         options.use_grad_div_viscosity_term = False
         options.use_grad_depth_viscosity_term = False
         options.horizontal_viscosity = None
@@ -101,10 +100,12 @@ def get_solver(self):
 
         # Setup QoI
         qoi = self.get_qoi(i)
+        solutions = {'swe2d': solver_obj.fields.solution_2d}
 
         def update_forcings(t):
             if self.qoi_type == 'time_integrated':
-                self.J += qoi({'swe2d': solver_obj.fields.solution_2d}, t)
+                self.J += qoi(solutions, t - dt)
+                # TODO: Use a callback instead
 
         # Correct counters and iterate
         solver_obj.correct_counters(self.time_partition[i])
@@ -112,7 +113,10 @@ def get_solver(self):
 
         # Revert gravitational acceleration
         physical_constants['g_grav'].assign(g)
-        return {'swe2d': solver_obj.fields.solution_2d}
+
+        if self.qoi_type == 'time_integrated':
+            self.J += qoi(solutions, t_end)
+        return solutions
     return solver
 
 
@@ -231,17 +235,21 @@ def get_qoi(self, i):
     Rossby soliton.
     """
     dtc = Constant(self.time_partition[i].timestep)
+    wq = Constant(1.0)
 
     def time_integrated_qoi(sol, t):
+        t_start, t_end = self.time_partition[i].subinterval
+        wq.assign(0.5 if np.isclose(t, t_start) or np.isclose(t, t_end) else 1.0)  # Crank-Nicolson
         q = sol['swe2d']
         q_a = asymptotic_expansion(q.function_space(), t)
-        return dtc*inner(q - q_a, q - q_a)*dx
+        return wq*dtc*inner(q - q_a, q - q_a)*dx
 
     def end_time_qoi(sol):
-        return time_integrated_qoi(sol, end_time)
+        q = sol['swe2d']
+        q_a = asymptotic_expansion(q.function_space(), end_time)
+        return inner(q - q_a, q - q_a)*dx
 
     if self.qoi_type == 'end_time':
-        dtc.assign(1.0)
         return end_time_qoi
     else:
         return time_integrated_qoi
