@@ -54,6 +54,9 @@ class MeshSeq(object):
             self._get_solver = get_solver
         self.warn = warnings
 
+    def debug(self, msg):
+        debug(f"MeshSeq: {msg}")
+
     def __len__(self):
         return len(self.meshes)
 
@@ -183,6 +186,8 @@ class MeshSeq(object):
             warning(f"Tape has no solve blocks associated with field {field}.\nHas the options"
                     + " prefix been applied correctly?")
             return solve_blocks
+        self.debug(f"Field {field} on subinterval {subinterval+1} has "
+                   + f"{len(solve_blocks)} solve blocks")
 
         # Check FunctionSpaces are consistent across solve blocks
         element = solve_blocks[0].function_space.ufl_element()
@@ -194,23 +199,27 @@ class MeshSeq(object):
         # Check the number of timesteps divides the number of solve blocks
         ratio = len(solve_blocks)/self.time_partition[subinterval].num_timesteps
         if not np.isclose(np.round(ratio), ratio):
-            raise ValueError(f"Number of timesteps does not divide number of solve blocks"
+            raise ValueError("Number of timesteps does not divide number of solve blocks"
                              + f" ({self.time_partition[subinterval].num_timesteps} vs."
                              + f" {len(solve_blocks)})")
         self.solves_per_timestep = int(ratio)
-        debug(f"MeshSeq: Number of solves per timestep: {self.solves_per_timestep}")
+        self.debug(f"Number of solves per timestep for field {field}: {self.solves_per_timestep}")
+        if self.solves_per_timestep > 1:
+            self.debug(f"It looks like you have a {self.solves_per_timestep} step RK method")
         return solve_blocks
 
-    def get_lagged_dependency_index(self, field, index, solve_blocks, warned=False):
+    def get_lagged_dependency_index(self, field, subinterval, solve_blocks, warned=False):
         """
         Get the dependency index corresponding
         to the lagged forward solution for a
         solve block.
 
+        :arg field: field of interest
+        :arg subinterval: subinterval index
         :arg solve_blocks: list of taped
             :class:`GenericSolveBlocks`
         """
-        fs = self.function_spaces[field][index]
+        fs = self.function_spaces[field][subinterval]
         fwd_old_idx = [
             dep_index
             for dep_index, dep in enumerate(solve_blocks[0]._dependencies)
@@ -232,6 +241,34 @@ class MeshSeq(object):
                 warned = True
             fwd_old_idx = fwd_old_idx[0]
         return fwd_old_idx, warned
+
+    def get_rk_blocks(self, field, subinterval, index, solve_blocks):
+        """
+        Get the :class:`GenericSolveBlock`s corresponding
+        to a ``field`` and ``index`` in the case of
+        Runge-Kutta timestepping.
+
+        :arg field: field of interest
+        :arg subinterval: the subinterval index
+        :arg index: index for the timestep within the subinterval
+        :arg solve_blocks: list of taped
+            :class:`GenericSolveBlocks`
+        """
+        assert hasattr(self, 'solves_per_timestep') and self.solves_per_timestep > 1
+        stride = self.time_partition.timesteps_per_export[subinterval]*self.solves_per_timestep
+        rk_blocks = [solve_blocks[index*stride + k] for k in range(self.solves_per_timestep)]
+        quadrature_weights = []
+        for rk_block in rk_blocks:
+            s = rk_block.options_prefix.split('_')
+            if '_'.join(s[:-1]) != field:
+                raise ValueError("Prefix should be '<field>_<quadrature_weight>', not"
+                                 + f" {rk_block.options_prefix}")
+            if '/' in s[-1]:
+                numerator, divisor = s[-1].split('/')
+                quadrature_weights.append(float(numerator)/float(divisor))
+            else:
+                quadrature_weights.append(float(s[-1]))
+        return rk_blocks, quadrature_weights
 
     def solve_forward(self, solver_kwargs={}):
         """
@@ -316,20 +353,9 @@ class MeshSeq(object):
                     if self.solves_per_timestep == 1:
                         sols.forward[i][j].assign(block._outputs[0].saved_output)
                     else:
-                        debug(f"MeshSeq: It looks like you have a {self.solves_per_timestep}"
-                              + " step RK method")
                         assert fwd_old_idx is not None, "Need old solution for RK methods"
                         sols.forward[i][j].assign(sols.forward_old[i][j])
-                        for k in range(self.solves_per_timestep):
-                            rk_block = solve_blocks[j*stride + k]
-                            s = rk_block.options_prefix.split()
-                            assert len(s) == 2, "Prefix should be '<field>_<quadrature_weight>'"
-                            assert s[0] == field, "Prefix should be '<field>_<quadrature_weight>'"
-                            if '/' in s[1]:
-                                numerator, divisor = s[1].split('/')
-                                wq = float(numerator)/float(divisor)
-                            else:
-                                wq = float(s[1])
+                        for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks)):
                             sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
 
             # Clear tape

@@ -4,8 +4,9 @@ Drivers for solving adjoint problems on sequences of meshes.
 import firedrake
 from firedrake_adjoint import pyadjoint
 from .interpolation import project
+from .log import debug, warning
 from .mesh_seq import MeshSeq
-from .utility import AttrDict, norm, warning
+from .utility import AttrDict, norm
 from functools import wraps
 import numpy as np
 
@@ -244,7 +245,7 @@ class AdjointMeshSeq(MeshSeq):
 
                 # Extract solution data
                 sols = solutions[field]
-                stride = P.timesteps_per_export[i]
+                stride = P.timesteps_per_export[i]*self.solves_per_timestep
                 if len(solve_blocks[::stride]) >= P.exports_per_subinterval[i]:
                     warning(f"More solve blocks than expected ({len(solve_blocks[::stride])} >"
                             + f" {P.exports_per_subinterval[i]-1})")
@@ -275,21 +276,10 @@ class AdjointMeshSeq(MeshSeq):
                         sols.forward[i][j].assign(block._outputs[0].saved_output)
                         sols.adjoint[i][j].assign(block.adj_sol)
                     else:
-                        debug(f"MeshSeq: It looks like you have a {self.solves_per_timestep}"
-                              + " step RK method")
                         assert fwd_old_idx is not None, "Need old solution for RK methods"
                         sols.forward[i][j].assign(sols.forward_old[i][j])
                         sols.adjoint[i][j].assign(sols.adjoint_next[i][j])
-                        for k in range(self.solves_per_timestep):
-                            rk_block = solve_blocks[j*stride + k]
-                            s = rk_block.options_prefix.split()
-                            assert len(s) == 2, "Prefix should be '<field>_<quadrature_weight>'"
-                            assert s[0] == field, "Prefix should be '<field>_<quadrature_weight>'"
-                            if '/' in s[1]:
-                                numerator, divisor = s[1].split('/')
-                                wq = float(numerator)/float(divisor)
-                            else:
-                                wq = float(s[1])
+                        for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks)):
                             sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
                             sols.adjoint[i][j] += wq*rk_block.adj_sol
 
