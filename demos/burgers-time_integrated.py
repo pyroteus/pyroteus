@@ -43,7 +43,7 @@ def get_solver(mesh_seq):
 
         # Time integrate from t_start to t_end
         t = t_start
-        qoi = mesh_seq.qoi
+        qoi = mesh_seq.get_qoi(i)
         while t < t_end - 1.0e-05:
             solve(F == 0, u, options_prefix='uv_2d')
             mesh_seq.J += qoi({'uv_2d': u}, t)
@@ -62,14 +62,17 @@ def get_solver(mesh_seq):
 #    \mathbf u(1,y,t) \cdot \mathbf u(1,y,t)
 #    \;\mathrm dy\;\mathrm dt.
 #
-# ::
+# Note that in this case we multiply by the timestep.
+# It is wrapped in a :class:`Constant` to avoid
+# recompilation if the value is changed. ::
 
 
-def get_qoi(mesh_seq):
+def get_qoi(mesh_seq, i):
+    dtc = Constant(mesh_seq.time_partition[i].timestep)
 
     def time_integrated_qoi(sol, t):
         u = sol['uv_2d']
-        return inner(u, u)*ds(2)
+        return dtc*inner(u, u)*ds(2)
 
     return time_integrated_qoi
 

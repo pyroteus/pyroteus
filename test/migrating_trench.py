@@ -121,7 +121,7 @@ def get_solver(self):
         }
 
         # Setup QoI
-        qoi = self.qoi
+        qoi = self.get_qoi(i)
 
         def update_forcings(t):
             if self.qoi_type == 'time_integrated':
@@ -182,19 +182,22 @@ def get_initial_condition(self):
     }
 
 
-def get_qoi(self):
+def get_qoi(self, i):
     """
     Quantity of interest which integrates
     sediment over the domain.
     """
+    dtc = Constant(self.time_partition[i].timestep)
+
     def time_integrated_qoi(sol, t):
         s = sol['sediment']
-        return s*dx
+        return dtc*s*dx
 
     def end_time_qoi(sol):
         return time_integrated_qoi(sol, end_time)
 
     if self.qoi_type == 'end_time':
+        dtc.assign(1.0)
         return end_time_qoi
     else:
         return time_integrated_qoi

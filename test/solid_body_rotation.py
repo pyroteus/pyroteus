@@ -90,7 +90,7 @@ def get_solver(self):
 
         # Time integrate from t_start to t_end
         t = t_start
-        qoi = self.qoi
+        qoi = self.get_qoi(i)
         while t < t_end - 1.0e-05:
             solv1.solve()
             q1.assign(q + dq)
@@ -141,13 +141,15 @@ def get_initial_condition(self, coordinates=None):
     return {'tracer_2d': interpolate(1.0 + bell + cone + slot_cyl, init_fs)}
 
 
-def get_qoi(self, exact=get_initial_condition):
+def get_qoi(self, i, exact=get_initial_condition):
     """
     Quantity of interest which
     computes square L2 error of the
     advected slotted cylinder (or
     specified shape).
     """
+    dtc = Constant(self.time_partition[i].timestep)
+
     def time_integrated_qoi(sol, t):
         assert len(list(sol.keys())) == 1
         field = list(sol.keys())[0]
@@ -170,7 +172,7 @@ def get_qoi(self, exact=get_initial_condition):
             raise ValueError(f"Tracer field {field} not recognised")
         x0, y0 = interpolate(rotate(as_vector([x0, y0]), theta), W)
         ball = conditional((x[0] - x0)**2 + (x[1] - y0)**2 < r0**2, 1.0, 0.0)
-        return ball*(q-q_exact[field])**2*dx
+        return dtc*ball*(q-q_exact[field])**2*dx
 
     def end_time_qoi(sol):
         return sum(
@@ -179,6 +181,7 @@ def get_qoi(self, exact=get_initial_condition):
         )
 
     if self.qoi_type == 'end_time':
+        dtc.assign(1.0)
         return end_time_qoi
     else:
         return time_integrated_qoi

@@ -25,11 +25,12 @@ class AdjointMeshSeq(MeshSeq):
     def __init__(self, time_partition, initial_meshes, get_function_spaces,
                  get_initial_condition, get_solver, get_qoi, **kwargs):
         """
-        :arg get_qoi: a function, whose only argument is
+        :arg get_qoi: a function, with two arguments,
             a :class:`AdjointMeshSeq`, which returns
             a function of either one or two variables,
             corresponding to either an end time or time
-            integrated quantity of interest, respectively
+            integrated quantity of interest, respectively,
+            as well as an index for the :class:`MeshSeq`
         """
         self.qoi_type = kwargs.pop('qoi_type')
         self.steady = kwargs.pop('steady', False)
@@ -42,17 +43,13 @@ class AdjointMeshSeq(MeshSeq):
         self.J = 0
         self.controls = None
 
-    def get_qoi(self):
-        return self._get_qoi(self)
-
     @property
     @pyadjoint.no_annotations
     def initial_condition(self):
         return super(AdjointMeshSeq, self).initial_condition
 
-    @property
-    def qoi(self):
-        qoi = self.get_qoi()
+    def get_qoi(self, i):
+        qoi = self._get_qoi(self, i)
 
         # Count number of arguments
         num_kwargs = 0 if qoi.__defaults__ is None else len(qoi.__defaults__)
@@ -73,9 +70,10 @@ class AdjointMeshSeq(MeshSeq):
                 j.block_variable.adj_value = 1.0
                 return j
 
-            return wrapper
+            self.qoi = wrapper
         else:
-            return lambda *args, **kwargs: firedrake.assemble(qoi(*args, **kwargs))
+            self.qoi = lambda *args, **kwargs: firedrake.assemble(qoi(*args, **kwargs))
+        return self.qoi
 
     @pyadjoint.no_annotations
     def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):
@@ -313,11 +311,12 @@ def solve_adjoint(*args, **kwargs):
     :arg get_solver: a function, whose only argument is
         a :class:`MeshSeq`, which returns a function
         that integrates initial data over a subinterval
-    :arg get_qoi: a function, whose only argument is
+    :arg get_qoi: a function, with two arguments,
         a :class:`AdjointMeshSeq`, which returns
         a function of either one or two variables,
         corresponding to either an end time or time
-        integrated quantity of interest, respectively
+        integrated quantity of interest, respectively,
+        as well as an index for the :class:`MeshSeq`
     :kwarg warnings: print warnings?
     :kwarg solver_kwargs: a dictionary providing parameters
         to the solver. Any keyword arguments for the QoI
