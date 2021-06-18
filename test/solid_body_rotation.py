@@ -91,6 +91,8 @@ def get_solver(self):
         # Time integrate from t_start to t_end
         t = t_start
         qoi = self.get_qoi(i)
+        if self.qoi_type == 'time_integrated':
+            self.J += qoi({field: q}, t)
         while t < t_end - 1.0e-05:
             solv1.solve()
             q1.assign(q + dq)

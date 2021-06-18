@@ -115,6 +115,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
             adj_sols_expected[field] = solve_blocks[1].adj_sol.copy(deepcopy=True)
             for rk_block, wq in zip(*mesh_seq.get_rk_blocks(field, 0, 0, solve_blocks)):
                 adj_sols_expected[field] += wq*rk_block.adj_sol
+            # FIXME: RK adjoint not correct
         adj_values_expected[field] = Function(
             fs[0], val=solve_blocks[0]._dependencies[fwd_old_idx].adj_value
         )

@@ -283,7 +283,7 @@ class AdjointMeshSeq(MeshSeq):
                         for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks)):
                             sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
                             sols.adjoint[i][j] += wq*rk_block.adj_sol
-                            # FIXME: Not correct for RK methods
+                            # FIXME: Adjoint not correct
 
                 # Check non-zero adjoint solution/value
                 if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
