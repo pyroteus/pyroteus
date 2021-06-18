@@ -235,13 +235,16 @@ class MeshSeq(object):
             and dep.output.name() == field + '_old'
         ]
         if len(fwd_old_idx) == 0:
-            self.warning(f"Solve block for field '{field}' on subinterval {subinterval} has no dependencies")
+            if not warned:
+                self.warning(f"Solve block for field '{field}' on subinterval {subinterval} has no dependencies")
+                warned = True
             fwd_old_idx = None
         else:
-            if len(fwd_old_idx) > 1:
+            if len(fwd_old_idx) > 1 and not warned:
                 self.warning(f"Solve block  for field '{field}' on subinterval {subinterval} has dependencies\n"
                              + " in the prognostic space other than the PDE solution at the previous timestep.\n"
                              + f"(Dep indices {fwd_old_idx}). Naively assuming the first to be the right one.")
+                warned = True
             fwd_old_idx = fwd_old_idx[0]
         self._lagged_dep_idx[field] = fwd_old_idx
         return fwd_old_idx
