@@ -305,7 +305,7 @@ class MeshSeq(object):
             field: AttrDict({
                 label: [
                     [
-                        firedrake.Function(fs)
+                        firedrake.Function(fs, name='_'.join([field, label]))
                         for j in range(self.time_partition.exports_per_subinterval[i]-1)
                     ] for i, fs in enumerate(function_spaces[field])
                 ] for label in ('forward', 'forward_old')

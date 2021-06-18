@@ -171,7 +171,7 @@ class AdjointMeshSeq(MeshSeq):
             field: AttrDict({
                 label: [
                     [
-                        firedrake.Function(fs)
+                        firedrake.Function(fs, name='_'.join([field, label]))
                         for j in range(P.exports_per_subinterval[i]-1)
                     ] for i, fs in enumerate(function_spaces[field])
                 ] for label in labels
