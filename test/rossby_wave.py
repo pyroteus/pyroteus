@@ -62,7 +62,6 @@ def get_solver(self):
     """
     def solver(i, ic, **model_options):
         t_start, t_end = self.time_partition[i].subinterval
-        last_solve = np.isclose(t_end, end_time)
         dt = self.time_partition[i].timestep
         mesh2d = ic['swe2d'].function_space().mesh()
         P1_2d = FunctionSpace(mesh2d, "CG", 1)
