@@ -91,6 +91,8 @@ def get_solver(self):
         # Time integrate from t_start to t_end
         t = t_start
         qoi = self.get_qoi(i)
+        if self.qoi_type == 'time_integrated':
+            self.J += qoi({field: q}, t)
         while t < t_end - 1.0e-05:
             solv1.solve()
             q1.assign(q + dq)
@@ -178,6 +180,7 @@ def get_qoi(self, i, exact=get_initial_condition):
             raise ValueError(f"Tracer field {field} not recognised")
         x0, y0 = interpolate(rotate(as_vector([x0, y0]), theta), W)
         ball = conditional((x[0] - x0)**2 + (x[1] - y0)**2 < r0**2, 1.0, 0.0)
+        # return wq*dtc*ball*q*dx
         return wq*dtc*ball*(q-q_exact[field])**2*dx
 
     def end_time_qoi(sol):

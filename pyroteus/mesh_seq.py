@@ -229,14 +229,14 @@ class MeshSeq(object):
         ]
         if len(fwd_old_idx) == 0:
             if not warned:
-                self.warning("Solve block has no dependencies")
+                self.warning(f"Solve block for field '{field}' on subinterval {subinterval} has no dependencies")
                 warned = True
             fwd_old_idx = None
         else:
             if len(fwd_old_idx) > 1 and not warned:
-                self.warning("Solve block has dependencies in the prognostic space other than the\n"
-                             + f" PDE solution at the previous timestep. (Dep indices {fwd_old_idx}).\n"
-                             + " Naively assuming the first to be the right one.")
+                self.warning(f"Solve block  for field '{field}' on subinterval {subinterval} has dependencies\n"
+                             + " in the prognostic space other than the PDE solution at the previous timestep.\n"
+                             + f"(Dep indices {fwd_old_idx}). Naively assuming the first to be the right one.")
                 warned = True
             fwd_old_idx = fwd_old_idx[0]
         return fwd_old_idx, warned

@@ -1,7 +1,7 @@
 """
 Partitioning for the temporal domain.
 """
-from .log import debug, pyrint
+from .log import debug
 from .utility import AttrDict
 from collections.abc import Iterable
 import numpy as np
@@ -37,7 +37,7 @@ class TimePartition(object):
             of subintervals, which need not be of
             uniform length (defaults to None)
         """
-        pyrint('')
+        debug(100*'-')
         if isinstance(fields, str):
             fields = [fields]
         self.fields = fields
@@ -117,7 +117,7 @@ class TimePartition(object):
             for tspe, tsps in zip(self.timesteps_per_export, self.timesteps_per_subinterval)
         ], dtype=np.int32)
         self.debug("exports_per_subinterval")
-        pyrint('')
+        debug(100*'-')
 
     def debug(self, attr):
         """

@@ -173,7 +173,7 @@ def plot_solutions(problem, qoi_type, debug=True):
         or as a time integral?
     :kwarg debug: toggle debugging mode
     """
-    import firedrake_adjoint
+    import firedrake_adjoint  # noqa
     import importlib
     import os
 

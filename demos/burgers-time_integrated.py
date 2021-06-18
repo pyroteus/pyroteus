@@ -26,24 +26,26 @@ def get_solver(mesh_seq):
     def solver(index, ic):
         t_start, t_end = mesh_seq.subintervals[index]
         dt = mesh_seq.time_partition.timesteps[index]
-        function_space = ic['uv_2d'].function_space()
+        function_space = mesh_seq.function_spaces['uv_2d'][index]
+
+        # Specify constants
         dtc = Constant(dt)
         nu = Constant(0.0001)
 
         # Set initial condition
-        u_ = Function(function_space)
+        u_ = Function(function_space, name='uv_2d_old')
         u_.assign(ic['uv_2d'])
 
         # Setup variational problem
         v = TestFunction(function_space)
-        u = Function(function_space)
+        u = Function(function_space, name='uv_2d')
         F = inner((u - u_)/dtc, v)*dx \
             + inner(dot(u, nabla_grad(u)), v)*dx \
             + nu*inner(grad(u), grad(v))*dx
 
         # Time integrate from t_start to t_end
         t = t_start
-        qoi = mesh_seq.get_qoi(i)
+        qoi = mesh_seq.get_qoi(index)
         while t < t_end - 1.0e-05:
             solve(F == 0, u, options_prefix='uv_2d')
             mesh_seq.J += qoi({'uv_2d': u}, t)
@@ -92,17 +94,17 @@ dt = 1/n
 num_subintervals = 2
 P = TimePartition(
     end_time, num_subintervals, dt, fields,
-    timesteps_per_export=2, debug=True
+    timesteps_per_export=2
 )
 mesh_seq = AdjointMeshSeq(
     P, meshes, get_function_spaces, get_initial_condition,
-    get_solver, get_qoi, qoi_type='end_time',
+    get_solver, get_qoi, qoi_type='time_integrated',
 )
 solutions = mesh_seq.solve_adjoint()
 
 # Finally, plot snapshots of the adjoint solution. ::
 
-fig, axes = plot_snapshots(solutions, P, 'uv_2d', 'adjoint', levels=np.linspace(0, 2.1, 9))
+fig, axes = plot_snapshots(solutions, P, 'uv_2d', 'adjoint')
 fig.savefig("burgers-time_integrated.jpg")
 
 # .. figure:: burgers-time_integrated.jpg

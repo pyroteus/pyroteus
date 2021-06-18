@@ -31,7 +31,7 @@ from burgers import fields, get_solver, get_initial_condition, get_function_spac
 # hand boundary. ::
 
 
-def get_qoi(mesh_seq):
+def get_qoi(mesh_seq, i):
 
     def end_time_qoi(sol):
         u = sol['uv_2d']

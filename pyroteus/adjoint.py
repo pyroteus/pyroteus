@@ -111,7 +111,8 @@ class AdjointMeshSeq(MeshSeq):
 
         # Account for end time QoI
         if self.qoi_type == 'end_time':
-            self.J = self.qoi(sols, **solver_kwargs.get('qoi_kwargs', {}))
+            qoi = self.get_qoi(N-1)
+            self.J = qoi(sols, **solver_kwargs.get('qoi_kwargs', {}))
         return checkpoints
 
     def solve_adjoint(self, solver_kwargs={}, get_adj_values=False,
@@ -202,7 +203,8 @@ class AdjointMeshSeq(MeshSeq):
             # Get seed vector for reverse propagation
             if i == num_subintervals-1:
                 if self.qoi_type == 'end_time':
-                    self.J = self.qoi(sols, **solver_kwargs.get('qoi_kwargs', {}))
+                    qoi = self.get_qoi(i)
+                    self.J = qoi(sols, **solver_kwargs.get('qoi_kwargs', {}))
                     if self.warn and np.isclose(float(self.J), 0.0):
                         self.warning("Zero QoI. Is it implemented as intended?")
             else:
@@ -262,7 +264,6 @@ class AdjointMeshSeq(MeshSeq):
                         if j*stride+1 < num_solve_blocks:
                             if solve_blocks[j*stride+1].adj_sol is not None:
                                 sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
-                            # FIXME: Not correct for RK methods
                         elif j*stride+1 == num_solve_blocks:
                             if i+1 < num_subintervals:
                                 sols.adjoint_next[i][j].assign(
@@ -283,7 +284,6 @@ class AdjointMeshSeq(MeshSeq):
                         for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks)):
                             sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
                             sols.adjoint[i][j] += wq*rk_block.adj_sol
-                            # FIXME: Not correct for RK methods
 
                 # Check non-zero adjoint solution/value
                 if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
