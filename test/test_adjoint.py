@@ -201,7 +201,11 @@ def plot_solutions(problem, qoi_type, debug=True):
     })
     for label in outfiles:
         for k in range(time_partition.exports_per_subinterval[0]-1):
-            outfiles[label].write(*[solutions[field][label][0][k] for field in time_partition.fields])
+            to_plot = []
+            for field in time_partition.fields:
+                sol = solutions[field][label][0][k]
+                to_plot += [sol] if not hasattr(sol, 'split') else list(sol.split())
+            outfiles[label].write(*to_plot)
 
 
 if __name__ == "__main__":
