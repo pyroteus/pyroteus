@@ -67,6 +67,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     :arg problem: string denoting the test case of choice
     :arg qoi_type: is the QoI evaluated at the end time
         or as a time integral?
+    :kwarg debug: toggle debugging mode
     """
     import importlib
     from firedrake_adjoint import pyadjoint
@@ -161,12 +162,59 @@ def test_adjoint_same_mesh_parallel(problem, qoi_type):
     test_adjoint_same_mesh(problem, qoi_type)
 
 
+def plot_solutions(problem, qoi_type, debug=True):
+    """
+    Plot the forward and adjoint solutions, their lagged
+    counterparts and the adjoint values corresponding to
+    each field and exported timestep.
+
+    :arg problem: string denoting the test case of choice
+    :arg qoi_type: is the QoI evaluated at the end time
+        or as a time integral?
+    :kwarg debug: toggle debugging mode
+    """
+    import firedrake_adjoint
+    import importlib
+    import os
+
+    if debug:
+        set_log_level(DEBUG)
+
+    test_case = importlib.import_module(problem)
+    end_time = test_case.end_time
+    time_partition = TimePartition(
+        end_time, 1, test_case.dt, test_case.fields,
+        timesteps_per_export=test_case.dt_per_export,
+    )
+    solutions = AdjointMeshSeq(
+        time_partition, test_case.mesh, test_case.get_function_spaces,
+        test_case.get_initial_condition, test_case.get_solver,
+        test_case.get_qoi, qoi_type=qoi_type,
+    ).solve_adjoint(get_adj_values=True, test_checkpoint_qoi=True)
+    output_dir = os.path.join(os.path.dirname(__file__), 'outputs', problem)
+    outfiles = AttrDict({
+        'forward': File(os.path.join(output_dir, 'forward.pvd')),
+        'forward_old': File(os.path.join(output_dir, 'forward_old.pvd')),
+        'adjoint': File(os.path.join(output_dir, 'adjoint.pvd')),
+        'adjoint_next': File(os.path.join(output_dir, 'adjoint_next.pvd')),
+        'adj_value': File(os.path.join(output_dir, 'adj_value.pvd')),
+    })
+    for label in outfiles:
+        for k in range(time_partition.exports_per_subinterval[0]-1):
+            outfiles[label].write(*[solutions[field][label][0][k] for field in time_partition.fields])
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(prog='test/test_adjoint.py')
     parser.add_argument('problem')
     parser.add_argument('qoi_type')
+    parser.add_argument('-plot')
     args = parser.parse_args()
     assert args.qoi_type in ('end_time', 'time_integrated')
     assert args.problem in all_problems
-    test_adjoint_same_mesh(args.problem, args.qoi_type, debug=True)
+    plot = bool(args.plot or False)
+    if plot:
+        plot_solutions(args.problem, args.qoi_type, debug=True)
+    else:
+        test_adjoint_same_mesh(args.problem, args.qoi_type, debug=True)

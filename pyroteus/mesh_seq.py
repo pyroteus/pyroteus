@@ -57,6 +57,9 @@ class MeshSeq(object):
     def debug(self, msg):
         debug(f"MeshSeq: {msg}")
 
+    def warning(self, msg):
+        warning(f"MeshSeq: {msg}")
+
     def __len__(self):
         return len(self.meshes)
 
@@ -151,7 +154,7 @@ class MeshSeq(object):
         # Get all blocks
         blocks = get_working_tape().get_blocks()
         if len(blocks) == 0:
-            warning("Tape has no blocks!")
+            self.warning("Tape has no blocks!")
             return blocks
 
         # Restrict to solve blocks
@@ -162,32 +165,29 @@ class MeshSeq(object):
             and not issubclass(block.__class__, ProjectBlock)
         ]
         if len(solve_blocks) == 0:
-            warning("Tape has no solve blocks!")
+            self.warning("Tape has no solve blocks!")
             return solve_blocks
-
-        # Restrict to solve blocks with adjoint solutions
-        if has_adj_sol:
-            solve_blocks = [
-                block
-                for block in solve_blocks
-                if block.adj_sol is not None
-            ]
-            if len(solve_blocks) == 0:
-                warning("No block has an adjoint solution. Has the adjoint equation been solved?")
-                return solve_blocks
 
         # Slice solve blocks by field
         solve_blocks = [
             block
             for block in solve_blocks
-            if field in block.options_prefix
+            if block.options_prefix is not None
+            and field in block.options_prefix
         ]
         if len(solve_blocks) == 0:
-            warning(f"Tape has no solve blocks associated with field {field}.\nHas the options"
-                    + " prefix been applied correctly?")
+            self.warning(f"Tape has no solve blocks associated with field {field}.\nHas the options"
+                         + " prefix been applied correctly?")
             return solve_blocks
-        self.debug(f"Field {field} on subinterval {subinterval+1} has "
-                   + f"{len(solve_blocks)} solve blocks")
+        self.debug(f"Field '{field}' on subinterval {subinterval} has {len(solve_blocks)} solve blocks")
+
+        # Default adjoint solution to zero, rather than None
+        if has_adj_sol:
+            if all(block.adj_sol is None for block in solve_blocks):
+                self.warning("No block has an adjoint solution. Has the adjoint equation been solved?")
+            for block in solve_blocks:
+                if block.adj_sol is None:
+                    block.adj_sol = firedrake.Function(self.function_spaces[field][subinterval], name=field)
 
         # Check FunctionSpaces are consistent across solve blocks
         element = solve_blocks[0].function_space.ufl_element()
@@ -199,10 +199,9 @@ class MeshSeq(object):
         # Check the number of timesteps divides the number of solve blocks
         ratio = len(solve_blocks)/self.time_partition[subinterval].num_timesteps
         if not np.isclose(np.round(ratio), ratio):
-            raise ValueError("Number of timesteps does not divide number of solve blocks"
-                             + f" ({self.time_partition[subinterval].num_timesteps} vs."
-                             + f" {len(solve_blocks)})")
-        self.solves_per_timestep = int(ratio)
+            self.warning(f"Number of timesteps for field '{field}' does not divide number of solve blocks"
+                         + f" ({self.time_partition[subinterval].num_timesteps} vs. {len(solve_blocks)})")
+        self.solves_per_timestep = int(np.round(ratio))
         self.debug(f"Number of solves per timestep for field {field}: {self.solves_per_timestep}")
         if self.solves_per_timestep > 1:
             self.debug(f"It looks like you have a {self.solves_per_timestep} step RK method")
@@ -230,14 +229,14 @@ class MeshSeq(object):
         ]
         if len(fwd_old_idx) == 0:
             if not warned:
-                warning("Solve block has no dependencies")
+                self.warning("Solve block has no dependencies")
                 warned = True
             fwd_old_idx = None
         else:
             if len(fwd_old_idx) > 1 and not warned:
-                warning("Solve block has dependencies in the prognostic space other than the\n"
-                        + f" PDE solution at the previous timestep. (Dep indices {fwd_old_idx}).\n"
-                        + " Naively assuming the first to be the right one.")
+                self.warning("Solve block has dependencies in the prognostic space other than the\n"
+                             + f" PDE solution at the previous timestep. (Dep indices {fwd_old_idx}).\n"
+                             + " Naively assuming the first to be the right one.")
                 warned = True
             fwd_old_idx = fwd_old_idx[0]
         return fwd_old_idx, warned
@@ -246,7 +245,8 @@ class MeshSeq(object):
         """
         Get the :class:`GenericSolveBlock`s corresponding
         to a ``field`` and ``index`` in the case of
-        Runge-Kutta timestepping.
+        Runge-Kutta timestepping, as well as the associated
+        quadrature weights.
 
         :arg field: field of interest
         :arg subinterval: the subinterval index
@@ -263,11 +263,14 @@ class MeshSeq(object):
             if '_'.join(s[:-1]) != field:
                 raise ValueError("Prefix should be '<field>_<quadrature_weight>', not"
                                  + f" {rk_block.options_prefix}")
-            if '/' in s[-1]:
-                numerator, divisor = s[-1].split('/')
-                quadrature_weights.append(float(numerator)/float(divisor))
-            else:
-                quadrature_weights.append(float(s[-1]))
+            try:
+                if '/' in s[-1]:
+                    numerator, divisor = s[-1].split('/')
+                    quadrature_weights.append(float(numerator)/float(divisor))
+                else:
+                    quadrature_weights.append(float(s[-1]))
+            except Exception:
+                raise ValueError(f"Unintelligible quadrature weight {s[-1]}")
         return rk_blocks, quadrature_weights
 
     def solve_forward(self, solver_kwargs={}):
@@ -344,8 +347,7 @@ class MeshSeq(object):
                 sols = solutions[field]
                 stride = self.time_partition.timesteps_per_export[i]*self.solves_per_timestep
                 if len(solve_blocks[::stride]) >= self.time_partition.exports_per_subinterval[i]:
-                    raise ValueError("More solve blocks than expected"
-                                     + f" ({len(solve_blocks[::stride])} vs."
+                    raise ValueError(f"More solve blocks than expected ({len(solve_blocks[::stride])} vs."
                                      + f" {self.time_partition.exports_per_subinterval[i]})")
                 for j, block in enumerate(solve_blocks[::stride]):
                     if fwd_old_idx is not None:

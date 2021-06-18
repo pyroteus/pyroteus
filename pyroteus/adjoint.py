@@ -4,7 +4,6 @@ Drivers for solving adjoint problems on sequences of meshes.
 import firedrake
 from firedrake_adjoint import pyadjoint
 from .interpolation import project
-from .log import debug, warning
 from .mesh_seq import MeshSeq
 from .utility import AttrDict, norm
 from functools import wraps
@@ -158,7 +157,7 @@ class AdjointMeshSeq(MeshSeq):
             solver_kwargs=solver_kwargs, run_final_subinterval=test_checkpoint_qoi,
         )
         if self.warn and np.isclose(float(self.J), 0.0):
-            warning("Zero QoI. Is it implemented as intended?")
+            self.warning("Zero QoI. Is it implemented as intended?")
         J_chk = self.J
         self.J = 0
 
@@ -205,7 +204,7 @@ class AdjointMeshSeq(MeshSeq):
                 if self.qoi_type == 'end_time':
                     self.J = self.qoi(sols, **solver_kwargs.get('qoi_kwargs', {}))
                     if self.warn and np.isclose(float(self.J), 0.0):
-                        warning("Zero QoI. Is it implemented as intended?")
+                        self.warning("Zero QoI. Is it implemented as intended?")
             else:
                 with pyadjoint.stop_annotating():
                     for field, fs in function_spaces.items():
@@ -247,8 +246,8 @@ class AdjointMeshSeq(MeshSeq):
                 sols = solutions[field]
                 stride = P.timesteps_per_export[i]*self.solves_per_timestep
                 if len(solve_blocks[::stride]) >= P.exports_per_subinterval[i]:
-                    warning(f"More solve blocks than expected ({len(solve_blocks[::stride])} >"
-                            + f" {P.exports_per_subinterval[i]-1})")
+                    self.warning(f"More solve blocks than expected ({len(solve_blocks[::stride])} >"
+                                 + f" {P.exports_per_subinterval[i]-1})")
                 for j, block in zip(range(P.exports_per_subinterval[i]-1), solve_blocks[::stride]):
 
                     # Lagged forward solution
@@ -261,7 +260,8 @@ class AdjointMeshSeq(MeshSeq):
                     # Lagged adjoint solution
                     if not steady:
                         if j*stride+1 < num_solve_blocks:
-                            sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
+                            if solve_blocks[j*stride+1].adj_sol is not None:
+                                sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
                         elif j*stride+1 == num_solve_blocks:
                             if i+1 < num_subintervals:
                                 sols.adjoint_next[i][j].assign(
@@ -274,7 +274,8 @@ class AdjointMeshSeq(MeshSeq):
                     # Forward and adjoint solution at current timestep
                     if self.solves_per_timestep == 1:
                         sols.forward[i][j].assign(block._outputs[0].saved_output)
-                        sols.adjoint[i][j].assign(block.adj_sol)
+                        if block.adj_sol is not None:
+                            sols.adjoint[i][j].assign(block.adj_sol)
                     else:
                         assert fwd_old_idx is not None, "Need old solution for RK methods"
                         sols.forward[i][j].assign(sols.forward_old[i][j])
@@ -285,9 +286,9 @@ class AdjointMeshSeq(MeshSeq):
 
                 # Check non-zero adjoint solution/value
                 if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
-                    warning(f"Adjoint solution for field {field} on subinterval {i} is zero.")
+                    self.warning(f"Adjoint solution for field {field} on subinterval {i} is zero.")
                 if self.warn and get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
-                    warning(f"Adjoint action for field {field} on subinterval {i} is zero.")
+                    self.warning(f"Adjoint action for field {field} on subinterval {i} is zero.")
 
             # Get adjoint action
             seeds = {
@@ -297,9 +298,9 @@ class AdjointMeshSeq(MeshSeq):
             }
             for field, seed in seeds.items():
                 if self.warn and np.isclose(norm(seed), 0.0):
-                    warning(f"Adjoint action for field {field} on subinterval {i} is zero.")
+                    self.warning(f"Adjoint action for field {field} on subinterval {i} is zero.")
                     if steady:
-                        warning("  You seem to have a steady-state problem. Presumably it is linear?")
+                        self.warning("  You seem to have a steady-state problem. Presumably it is linear?")
             tape.clear_tape()
 
         # Check the QoI value agrees with that due to the checkpointing run
