@@ -262,14 +262,14 @@ class AdjointMeshSeq(MeshSeq):
                         if j*stride+1 < num_solve_blocks:
                             if solve_blocks[j*stride+1].adj_sol is not None:
                                 sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
+                            # FIXME: Not correct for RK methods
                         elif j*stride+1 == num_solve_blocks:
                             if i+1 < num_subintervals:
                                 sols.adjoint_next[i][j].assign(
                                     project(sols.adjoint_next[i+1][0], fs[i], adjoint=True)
                                 )
                         else:
-                            raise IndexError(f"Cannot extract solve block {j*stride+1} "
-                                             + f"> {num_solve_blocks}")
+                            raise IndexError(f"Cannot extract solve block {j*stride+1} > {num_solve_blocks}")
 
                     # Forward and adjoint solution at current timestep
                     if self.solves_per_timestep == 1:
@@ -283,6 +283,7 @@ class AdjointMeshSeq(MeshSeq):
                         for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks)):
                             sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
                             sols.adjoint[i][j] += wq*rk_block.adj_sol
+                            # FIXME: Not correct for RK methods
 
                 # Check non-zero adjoint solution/value
                 if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):

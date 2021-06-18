@@ -198,14 +198,14 @@ def get_qoi(self, i):
 
     def time_integrated_qoi(sol, t):
         t_start, t_end = self.time_partition[i].subinterval
-        wq.assign(0.0 if np.isclose(t, t_start) or self.counter % 3 != 1 else 1.0)  # Backward Euler
-        s = sol['sediment']
+        wq.assign(0.0 if np.isclose(t, t_start) or self.counter % 3 != 2 else 1.0)  # Backward Euler
+        b = sol['exner']
         self.counter += 1
-        return wq*dtc*s*dx
+        return wq*dtc*inner(grad(b), grad(b))*dx
 
     def end_time_qoi(sol):
-        s = sol['sediment']
-        return s*dx
+        b = sol['exner']
+        return inner(grad(b), grad(b))*dx
 
     if self.qoi_type == 'end_time':
         return end_time_qoi
