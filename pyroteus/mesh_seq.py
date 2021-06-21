@@ -20,7 +20,7 @@ class MeshSeq(object):
     temporal domain.
     """
     def __init__(self, time_partition, initial_meshes, get_function_spaces,
-                 get_initial_condition, get_solver, warnings=True):
+                 get_initial_condition, get_solver, warnings=True, **kwargs):
         """
         :arg time_partition: the :class:`TimePartition` which
             partitions the temporal domain
@@ -38,6 +38,8 @@ class MeshSeq(object):
             a :class:`MeshSeq`, which returns a function
             that integrates initial data over a subinterval
         :kwarg warnings: print warnings?
+        :kwarg tableau: :class:`ButcherTableau` object for RK
+            methods
         """
         self.time_partition = time_partition
         self.fields = time_partition.fields
@@ -54,6 +56,7 @@ class MeshSeq(object):
         if get_solver is not None:
             self._get_solver = get_solver
         self.warn = warnings
+        self.tableau = kwargs.get('tableau')
         self._lagged_dep_idx = {}
 
     def debug(self, msg):
@@ -343,7 +346,7 @@ class MeshSeq(object):
                         sols.forward[i][j].assign(block._outputs[0].saved_output)
                     else:
                         assert fwd_old_idx is not None, "Need old solution for RK methods"
-                        assert hasattr(self, 'tableau'), "Need Butcher tableau for RK methods"
+                        assert self.tableau is not None, "Need Butcher tableau for RK methods"
                         sols.forward[i][j].assign(sols.forward_old[i][j])
                         for rk_block, wq in zip(self.get_rk_blocks(field, i, j, solve_blocks), self.tableau.b):
                             sols.forward[i][j] += wq*rk_block._outputs[0].saved_output

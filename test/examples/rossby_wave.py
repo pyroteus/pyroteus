@@ -24,6 +24,7 @@ except ImportError:
     import pytest
     pytest.xfail("Thetis is not installed")
 from pyroteus.thetis_compat import *
+from pyroteus.runge_kutta import CrankNicolson
 
 
 # Problem setup
@@ -40,6 +41,7 @@ dt_per_export = int(10.0/dt)
 order = 1
 soliton_amplitude = 0.395
 steady = False
+tableau = CrankNicolson()
 
 
 def get_function_spaces(mesh):

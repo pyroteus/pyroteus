@@ -35,6 +35,7 @@ dt = pi/300
 dt_per_export = 25
 steady = False
 wq = Constant(1.0)
+tableau = SSPRK33()
 
 
 def get_function_spaces(mesh):
@@ -51,7 +52,6 @@ def get_solver(self):
     using a strong stability preserving
     third order Runge-Kutta method.
     """
-    self.tableau = SSPRK33()
 
     def solver(i, ic, field='tracer_2d'):
         t_start, t_end = self.time_partition[i].subinterval
