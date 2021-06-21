@@ -269,7 +269,8 @@ class AdjointMeshSeq(MeshSeq):
                                 if solve_blocks[j*stride+1].adj_sol is not None:
                                     sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
                             # else:  # TODO: see above
-                            #     for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks, offset=1)):
+                            #     assert hasattr(self, 'tableau'), "Need Butcher tableau for RK methods"
+                            #     for rk_block, wq in zip(self.get_rk_blocks(field, i, j, solve_blocks, offset=1), self.tableau.b):
                             #         if rk_block.adj_sol is not None:
                             #             sols.adjoint_next[i][j] += wq*rk_block.adj_sol
                         elif j*stride+1 == num_solve_blocks:
@@ -287,9 +288,10 @@ class AdjointMeshSeq(MeshSeq):
                             sols.adjoint[i][j].assign(block.adj_sol)
                     else:
                         assert fwd_old_idx is not None, "Need old solution for RK methods"
+                        assert hasattr(self, 'tableau'), "Need Butcher tableau for RK methods"
                         sols.forward[i][j].assign(sols.forward_old[i][j])
                         sols.adjoint[i][j].assign(sols.adjoint_next[i][j])
-                        for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks)):
+                        for rk_block, wq in zip(self.get_rk_blocks(field, i, j, solve_blocks), self.tableau.b):
                             sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
                             if rk_block.adj_sol is not None:
                                 sols.adjoint[i][j] += wq*rk_block.adj_sol

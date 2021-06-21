@@ -132,7 +132,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
             adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
         else:
             adj_sols_expected[field] = solve_blocks[1].adj_sol.copy(deepcopy=True)
-            for rk_block, wq in zip(*mesh_seq.get_rk_blocks(field, 0, 0, solve_blocks)):
+            for rk_block, wq in zip(mesh_seq.get_rk_blocks(field, 0, 0, solve_blocks), mesh_seq.tableau.b):
                 adj_sols_expected[field] += wq*rk_block.adj_sol
         if not steady:
             adj_values_expected[field] = Function(

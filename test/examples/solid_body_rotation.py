@@ -19,6 +19,7 @@ required per timestep.
     flow' (1996).
 """
 from firedrake import *
+from pyroteus.runge_kutta import SSPRK33
 from pyroteus.utility import rotate
 
 
@@ -33,6 +34,7 @@ end_time = full_rotation
 dt = pi/300
 dt_per_export = 25
 steady = False
+wq = Constant(1.0)
 
 
 def get_function_spaces(mesh):
@@ -49,6 +51,8 @@ def get_solver(self):
     using a strong stability preserving
     third order Runge-Kutta method.
     """
+    self.tableau = SSPRK33()
+
     def solver(i, ic, field='tracer_2d'):
         t_start, t_end = self.time_partition[i].subinterval
         dt = self.time_partition[i].timestep
@@ -69,16 +73,15 @@ def get_solver(self):
         q_in = Constant(1.0)
 
         # Setup variational problem
-        dq_trial = TrialFunction(V)
         phi = TestFunction(V)
-        a = phi*dq_trial*dx
+        a = phi*TrialFunction(V)*dx
         L1 = dtc*q*div(phi*u)*dx \
             - dtc*conditional(dot(u, n) < 0, phi*dot(u, n)*q_in, 0.0)*ds \
             - dtc*conditional(dot(u, n) > 0, phi*dot(u, n)*q, 0.0)*ds \
             - dtc*(phi('+') - phi('-'))*(un('+')*q('+') - un('-')*q('-'))*dS
         q1, q2 = Function(V), Function(V)
         L2, L3 = replace(L1, {q: q1}), replace(L1, {q: q2})
-        dq = Function(V)
+        k1, k2, k3 = Function(V), Function(V), Function(V)
 
         # Setup SSPRK33 time integrator
         sp = {
@@ -86,34 +89,36 @@ def get_solver(self):
             "pc_type": "bjacobi",
             "sub_pc_type": "ilu",
         }
-        prob1 = LinearVariationalProblem(a, L1, dq)
-        solv1 = LinearVariationalSolver(prob1, solver_parameters=sp, options_prefix=field + '_1/6')
-        prob2 = LinearVariationalProblem(a, L2, dq)
-        solv2 = LinearVariationalSolver(prob2, solver_parameters=sp, options_prefix=field + '_1/6')
-        prob3 = LinearVariationalProblem(a, L3, dq)
-        solv3 = LinearVariationalSolver(prob3, solver_parameters=sp, options_prefix=field + '_2/3')
-        # TODO: Use SSPRK33 matrix  a = [[0, 0, 0], [1, 0, 0], [1/4, 1/4, 0]]
-        # TODO: use SSPRK33 weights b = [1/6, 1/6, 2/3]
-        # TODO: use SSPRK33 nodes   c = [0,   1,   1/2]
+        prob1 = LinearVariationalProblem(a, L1, k1)
+        solv1 = LinearVariationalSolver(prob1, solver_parameters=sp, options_prefix=field)
+        prob2 = LinearVariationalProblem(a, L2, k2)
+        solv2 = LinearVariationalSolver(prob2, solver_parameters=sp, options_prefix=field)
+        prob3 = LinearVariationalProblem(a, L3, k3)
+        solv3 = LinearVariationalSolver(prob3, solver_parameters=sp, options_prefix=field)
 
         # Time integrate from t_start to t_end
         t = t_start
         qoi = self.get_qoi(i)
-        if self.qoi_type == 'time_integrated':
-            self.J += qoi({field: q}, t)
+        tmp = Function(V)
         while t < t_end - 1.0e-05:
             solv1.solve()
-            q1.assign(q + dq)
+            q1.assign(q + self.tableau.a[1, 0]*k1)
             if self.qoi_type == 'time_integrated':
-                self.J += qoi({field: dq}, t + 0*dt, quadrature_weight=1/6)
+                wq.assign(self.tableau.b[0])
+                tmp.assign(self.tableau.b[0]*q1)
+                self.J += qoi({field: tmp}, t + self.tableau.c[0]*dt)
             solv2.solve()
-            q2.assign(0.75*q + 0.25*(q1 + dq))
+            q2.assign(q + self.tableau.a[2, 0]*k1 + self.tableau.a[2, 1]*k2)
             if self.qoi_type == 'time_integrated':
-                self.J += qoi({field: dq}, t + 1*dt, quadrature_weight=1/6)
+                wq.assign(self.tableau.b[1])
+                tmp.assign(self.tableau.b[1]*q2)
+                self.J += qoi({field: tmp}, t + self.tableau.c[1]*dt)
             solv3.solve()
-            q.assign((1.0/3.0)*q + (2.0/3.0)*(q2 + dq))
+            q.assign(q + self.tableau.b[0]*k1 + self.tableau.b[1]*k2 + self.tableau.b[2]*k3)
             if self.qoi_type == 'time_integrated':
-                self.J += qoi({field: dq}, t + 0.5*dt, quadrature_weight=2/3)
+                wq.assign(self.tableau.b[2])
+                tmp.assign(self.tableau.b[2]*q)
+                self.J += qoi({field: tmp}, t + self.tableau.c[2]*dt)
             t += dt
         return {field: q}
     return solver
@@ -163,10 +168,8 @@ def get_qoi(self, i, exact=get_initial_condition):
     specified shape).
     """
     dtc = Constant(self.time_partition[i].timestep)
-    wq = Constant(1.0)
 
-    def time_integrated_qoi(sol, t, quadrature_weight=1.0):
-        wq.assign(quadrature_weight)
+    def time_integrated_qoi(sol, t):
         assert len(list(sol.keys())) == 1
         field = list(sol.keys())[0]
         q = sol[field]
