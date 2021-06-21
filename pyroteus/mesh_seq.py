@@ -241,7 +241,7 @@ class MeshSeq(object):
             fwd_old_idx = fwd_old_idx[0]
         return fwd_old_idx, warned
 
-    def get_rk_blocks(self, field, subinterval, index, solve_blocks):
+    def get_rk_blocks(self, field, subinterval, index, solve_blocks, offset=0):
         """
         Get the :class:`GenericSolveBlock`s corresponding
         to a ``field`` and ``index`` in the case of
@@ -253,10 +253,13 @@ class MeshSeq(object):
         :arg index: index for the timestep within the subinterval
         :arg solve_blocks: list of taped
             :class:`GenericSolveBlocks`
+        :kwarg offset: number of timesteps to offset by
+            (default 0)
         """
         assert hasattr(self, 'solves_per_timestep') and self.solves_per_timestep > 1
         stride = self.time_partition.timesteps_per_export[subinterval]*self.solves_per_timestep
-        rk_blocks = [solve_blocks[index*stride + k] for k in range(self.solves_per_timestep)]
+        istart = index*stride + offset*self.solves_per_timestep
+        rk_blocks = solve_blocks[istart:istart + self.solves_per_timestep]
         quadrature_weights = []
         for rk_block in rk_blocks:
             s = rk_block.options_prefix.split('_')

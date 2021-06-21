@@ -87,6 +87,9 @@ def get_solver(self):
         solv2 = LinearVariationalSolver(prob2, solver_parameters=sp, options_prefix=field + '_1/6')
         prob3 = LinearVariationalProblem(a, L3, dq)
         solv3 = LinearVariationalSolver(prob3, solver_parameters=sp, options_prefix=field + '_2/3')
+        # TODO: Use SSPRK33 matrix  a = [[0, 0, 0], [1, 0, 0], [1/4, 1/4, 0]]
+        # TODO: use SSPRK33 weights b = [1/6, 1/6, 2/3]
+        # TODO: use SSPRK33 nodes   c = [0,   1,   1/2]
 
         # Time integrate from t_start to t_end
         t = t_start
@@ -97,15 +100,15 @@ def get_solver(self):
             solv1.solve()
             q1.assign(q + dq)
             if self.qoi_type == 'time_integrated':
-                self.J += qoi({field: dq}, t, quadrature_weight=1/6)
+                self.J += qoi({field: dq}, t + 0*dt, quadrature_weight=1/6)
             solv2.solve()
             q2.assign(0.75*q + 0.25*(q1 + dq))
             if self.qoi_type == 'time_integrated':
-                self.J += qoi({field: dq}, t, quadrature_weight=1/6)
+                self.J += qoi({field: dq}, t + 1*dt, quadrature_weight=1/6)
             solv3.solve()
             q.assign((1.0/3.0)*q + (2.0/3.0)*(q2 + dq))
             if self.qoi_type == 'time_integrated':
-                self.J += qoi({field: dq}, t, quadrature_weight=2/3)
+                self.J += qoi({field: dq}, t + 0.5*dt, quadrature_weight=2/3)
             t += dt
         return {field: q}
     return solver

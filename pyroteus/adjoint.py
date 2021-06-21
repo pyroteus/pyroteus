@@ -262,8 +262,16 @@ class AdjointMeshSeq(MeshSeq):
                     # Lagged adjoint solution
                     if not steady:
                         if j*stride+1 < num_solve_blocks:
-                            if solve_blocks[j*stride+1].adj_sol is not None:
-                                sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
+                            if self.solves_per_timestep == 1:
+                                if solve_blocks[j*stride+1].adj_sol is not None:
+                                    sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
+                            else:
+                                if solve_blocks[j*stride+1].adj_sol is not None:
+                                    sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
+                            # else:
+                            #     for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks, offset=1)):
+                            #         if rk_block.adj_sol is not None:
+                            #             sols.adjoint_next[i][j] += wq*rk_block.adj_sol
                         elif j*stride+1 == num_solve_blocks:
                             if i+1 < num_subintervals:
                                 sols.adjoint_next[i][j].assign(
@@ -283,7 +291,8 @@ class AdjointMeshSeq(MeshSeq):
                         sols.adjoint[i][j].assign(sols.adjoint_next[i][j])
                         for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks)):
                             sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
-                            sols.adjoint[i][j] += wq*rk_block.adj_sol
+                            if rk_block.adj_sol is not None:
+                                sols.adjoint[i][j] += wq*rk_block.adj_sol
 
                 # Check non-zero adjoint solution/value
                 if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
