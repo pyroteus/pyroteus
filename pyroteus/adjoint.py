@@ -194,7 +194,6 @@ class AdjointMeshSeq(MeshSeq):
 
         # Loop over subintervals in reverse
         seeds = None
-        warned = not self.warn
         for i in reversed(range(num_subintervals)):
 
             # Annotate tape on current subinterval
@@ -231,9 +230,7 @@ class AdjointMeshSeq(MeshSeq):
                                      + f" elements ({fs[0].ufl_element()} vs. "
                                      + f" {solve_blocks[0].function_space.ufl_element()})")
                 if 'forward_old' in solutions[field]:
-                    fwd_old_idx, warned = self.get_lagged_dependency_index(
-                        field, i, solve_blocks, warned=warned,
-                    )
+                    fwd_old_idx = self.get_lagged_dependency_index(field, i, solve_blocks)
                 else:
                     fwd_old_idx = None
                 if fwd_old_idx is None and 'forward_old' in solutions[field]:
@@ -243,6 +240,8 @@ class AdjointMeshSeq(MeshSeq):
                 steady = self.steady or (num_subintervals == 1 and num_solve_blocks == 1)
                 if steady and 'adjoint_next' in sols:
                     sols.pop('adjoint_next')
+
+                # TODO: Accumulate adjoint values going backwards
 
                 # Extract solution data
                 sols = solutions[field]
@@ -268,7 +267,7 @@ class AdjointMeshSeq(MeshSeq):
                             else:
                                 if solve_blocks[j*stride+1].adj_sol is not None:
                                     sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
-                            # else:
+                            # else:  # TODO: see above
                             #     for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks, offset=1)):
                             #         if rk_block.adj_sol is not None:
                             #             sols.adjoint_next[i][j] += wq*rk_block.adj_sol

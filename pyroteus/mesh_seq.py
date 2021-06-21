@@ -53,6 +53,7 @@ class MeshSeq(object):
         if get_solver is not None:
             self._get_solver = get_solver
         self.warn = warnings
+        self._lagged_dep_idx = {}
 
     def debug(self, msg):
         debug(f"MeshSeq: {msg}")
@@ -207,7 +208,7 @@ class MeshSeq(object):
             self.debug(f"It looks like you have a {self.solves_per_timestep} step RK method")
         return solve_blocks
 
-    def get_lagged_dependency_index(self, field, subinterval, solve_blocks, warned=False):
+    def get_lagged_dependency_index(self, field, subinterval, solve_blocks):
         """
         Get the dependency index corresponding
         to the lagged forward solution for a
@@ -218,6 +219,8 @@ class MeshSeq(object):
         :arg solve_blocks: list of taped
             :class:`GenericSolveBlocks`
         """
+        if field in self._lagged_dep_idx:
+            return self._lagged_dep_idx[field]
         fs = self.function_spaces[field][subinterval]
         fwd_old_idx = [
             dep_index
@@ -228,18 +231,16 @@ class MeshSeq(object):
             and dep.output.name() == field + '_old'
         ]
         if len(fwd_old_idx) == 0:
-            if not warned:
-                self.warning(f"Solve block for field '{field}' on subinterval {subinterval} has no dependencies")
-                warned = True
+            self.warning(f"Solve block for field '{field}' on subinterval {subinterval} has no dependencies")
             fwd_old_idx = None
         else:
-            if len(fwd_old_idx) > 1 and not warned:
+            if len(fwd_old_idx) > 1:
                 self.warning(f"Solve block  for field '{field}' on subinterval {subinterval} has dependencies\n"
                              + " in the prognostic space other than the PDE solution at the previous timestep.\n"
                              + f"(Dep indices {fwd_old_idx}). Naively assuming the first to be the right one.")
-                warned = True
             fwd_old_idx = fwd_old_idx[0]
-        return fwd_old_idx, warned
+        self._lagged_dep_idx[field] = fwd_old_idx
+        return fwd_old_idx
 
     def get_rk_blocks(self, field, subinterval, index, solve_blocks, offset=0):
         """
@@ -323,7 +324,6 @@ class MeshSeq(object):
         tape.clear_tape()
 
         checkpoint = self.initial_condition
-        warned = not self.warn
         for i in range(num_subintervals):
 
             # Annotate tape on current subinterval
@@ -338,9 +338,7 @@ class MeshSeq(object):
                 assert num_solve_blocks > 0, "Looks like no solves were written to tape!" \
                                              + " Does the solution depend on the initial condition?"
                 if 'forward_old' in solutions[field]:
-                    fwd_old_idx, warned = self.get_lagged_dependency_index(
-                        field, i, solve_blocks, warned=warned,
-                    )
+                    fwd_old_idx = self.get_lagged_dependency_index(field, i, solve_blocks)
                 else:
                     fwd_old_idx = None
                 if fwd_old_idx is None and 'forward_old' in solutions[field]:
