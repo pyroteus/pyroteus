@@ -66,22 +66,21 @@ def get_solver(self):
         un = 0.5*(dot(u, n) + abs(dot(u, n)))
 
         # Set initial condition
-        q = Function(V, name=field + '_old')
-        q.assign(ic[field])
+        sol = Function(V, name=field)
+        sol.assign(ic[field])
 
         # Set inflow condition value
         q_in = Constant(1.0)
 
         # Setup variational problem
+        q = [Function(V, name=field + '_old'), Function(V), Function(V)]
         phi = TestFunction(V)
-        a = phi*TrialFunction(V)*dx
-        L1 = dtc*q*div(phi*u)*dx \
+        lhs = dtc*sol*div(phi*u)*dx \
             - dtc*conditional(dot(u, n) < 0, phi*dot(u, n)*q_in, 0.0)*ds \
-            - dtc*conditional(dot(u, n) > 0, phi*dot(u, n)*q, 0.0)*ds \
-            - dtc*(phi('+') - phi('-'))*(un('+')*q('+') - un('-')*q('-'))*dS
-        q1, q2 = Function(V), Function(V)
-        L2, L3 = replace(L1, {q: q1}), replace(L1, {q: q2})
-        k1, k2, k3 = Function(V), Function(V), Function(V)
+            - dtc*conditional(dot(u, n) > 0, phi*dot(u, n)*sol, 0.0)*ds \
+            - dtc*(phi('+') - phi('-'))*(un('+')*sol('+') - un('-')*sol('-'))*dS
+        lhs = [replace(lhs, {sol: qj}) for qj in q]
+        k = [Function(V), Function(V), Function(V)]
 
         # Setup SSPRK33 time integrator
         sp = {
@@ -89,38 +88,37 @@ def get_solver(self):
             "pc_type": "bjacobi",
             "sub_pc_type": "ilu",
         }
-        prob1 = LinearVariationalProblem(a, L1, k1)
-        solv1 = LinearVariationalSolver(prob1, solver_parameters=sp, options_prefix=field)
-        prob2 = LinearVariationalProblem(a, L2, k2)
-        solv2 = LinearVariationalSolver(prob2, solver_parameters=sp, options_prefix=field)
-        prob3 = LinearVariationalProblem(a, L3, k3)
-        solv3 = LinearVariationalSolver(prob3, solver_parameters=sp, options_prefix=field)
+        solvers = [
+            LinearVariationalSolver(
+                LinearVariationalProblem(phi*TrialFunction(V)*dx, L, k[j]),
+                solver_parameters=sp, options_prefix=field
+            ) for j, L in enumerate(lhs)
+        ]
 
         # Time integrate from t_start to t_end
         t = t_start
         qoi = self.get_qoi(i)
-        tmp = Function(V)
-        while t < t_end - 1.0e-05:
-            solv1.solve()
-            q1.assign(q + self.tableau.a[1, 0]*k1)
+        solutions = {field: Function(V)}
+        sum_k = np.dot(self.tableau.b, k)
+        while t < t_end - 0.5*dt:
+
+            # Apply RK method
+            for j in range(3):
+                if j == 0:
+                    q[j].assign(sol)
+                else:
+                    q[j].assign(sol + np.dot(self.tableau.a[j, :j], k[:j]))
+                solvers[j].solve()
+            sol.assign(sol + sum_k)
+
+            # Evaluate QoI correspondingly
             if self.qoi_type == 'time_integrated':
-                wq.assign(self.tableau.b[0])
-                tmp.assign(self.tableau.b[0]*q1)
-                self.J += qoi({field: tmp}, t + self.tableau.c[0]*dt)
-            solv2.solve()
-            q2.assign(q + self.tableau.a[2, 0]*k1 + self.tableau.a[2, 1]*k2)
-            if self.qoi_type == 'time_integrated':
-                wq.assign(self.tableau.b[1])
-                tmp.assign(self.tableau.b[1]*q2)
-                self.J += qoi({field: tmp}, t + self.tableau.c[1]*dt)
-            solv3.solve()
-            q.assign(q + self.tableau.b[0]*k1 + self.tableau.b[1]*k2 + self.tableau.b[2]*k3)
-            if self.qoi_type == 'time_integrated':
-                wq.assign(self.tableau.b[2])
-                tmp.assign(self.tableau.b[2]*q)
-                self.J += qoi({field: tmp}, t + self.tableau.c[2]*dt)
+                for b, c in zip(self.tableau.b, self.tableau.c):
+                    wq.assign(b)
+                    solutions[field].assign(sol + c*sum_k)
+                    self.J += qoi(solutions, t + c*dt)
             t += dt
-        return {field: q}
+        return {field: sol}
     return solver
 
 
@@ -160,7 +158,7 @@ def get_initial_condition(self, coordinates=None):
     return {'tracer_2d': interpolate(1.0 + bell + cone + slot_cyl, init_fs)}
 
 
-def get_qoi(self, i, exact=get_initial_condition):
+def get_qoi(self, i, exact=get_initial_condition, linear=True):
     """
     Quantity of interest which
     computes square L2 error of the
@@ -191,8 +189,10 @@ def get_qoi(self, i, exact=get_initial_condition):
             raise ValueError(f"Tracer field {field} not recognised")
         x0, y0 = interpolate(rotate(as_vector([x0, y0]), theta), W)
         ball = conditional((x[0] - x0)**2 + (x[1] - y0)**2 < r0**2, 1.0, 0.0)
-        # return wq*dtc*ball*q*dx
-        return wq*dtc*ball*(q-q_exact[field])**2*dx
+        if linear:
+            return wq*dtc*ball*q*dx
+        else:
+            return wq*dtc*ball*(q-q_exact[field])**2*dx
 
     def end_time_qoi(sol):
         return sum(
