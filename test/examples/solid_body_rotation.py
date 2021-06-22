@@ -109,14 +109,28 @@ def get_solver(self):
                 else:
                     q[j].assign(sol + np.dot(self.tableau.a[j, :j], k[:j]))
                 solvers[j].solve()
-            sol.assign(sol + sum_k)
 
-            # Evaluate QoI correspondingly
+            # Evaluate QoI using Simpson's rule
             if self.qoi_type == 'time_integrated':
-                for b, c in zip(self.tableau.b, self.tableau.c):
-                    wq.assign(b)
-                    solutions[field].assign(sol + c*sum_k)
-                    self.J += qoi(solutions, t + c*dt)
+
+                # 1/6*f(a)
+                wq.assign(1.0/6.0)
+                solutions[field].assign(sol)
+                self.J += qoi(solutions, t + 0.0*dt)
+
+                # 1/6*f(b)
+                wq.assign(1.0/6.0)
+                solutions[field].assign(sol + sum_k)
+                # solutions[field].assign(sol + 1.0*k[0])
+                self.J += qoi(solutions, t + 1.0*dt)
+
+                # 2/3*f(1/2*(a+b))
+                wq.assign(2.0/3.0)
+                solutions[field].assign(sol + 0.25*(k[0] + k[1]))
+                self.J += qoi(solutions, t + 0.5*dt)
+
+            # Update/increment
+            sol.assign(sol + sum_k)
             t += dt
         return {field: sol}
     return solver
