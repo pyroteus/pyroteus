@@ -157,7 +157,7 @@ class AdjointMeshSeq(MeshSeq):
         checkpoints = self.get_checkpoints(
             solver_kwargs=solver_kwargs, run_final_subinterval=test_checkpoint_qoi,
         )
-        if self.warn and np.isclose(float(self.J), 0.0):
+        if self.warn and test_checkpoint_qoi and np.isclose(float(self.J), 0.0):
             self.warning("Zero QoI. Is it implemented as intended?")
         J_chk = self.J
         self.J = 0
