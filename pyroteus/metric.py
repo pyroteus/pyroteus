@@ -153,7 +153,7 @@ def element_wise_anisotropic_metric(error_indicator, hessian, target_space=None,
 
     # Get optimal element volume
     K_opt = interpolate(pow(error_indicator, 1/(convergence_rate+1)), P0)
-    K_opt.interpolate(K.opt.vector().gather().sum()/target_complexity*K/K_opt)
+    K_opt.interpolate(K_opt.vector().gather().sum()/target_complexity*K/K_opt)
 
     # Compute eigendecomposition
     P0_ten = TensorFunctionSpace(mesh, "DG", 0)
