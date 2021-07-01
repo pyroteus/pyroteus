@@ -4,7 +4,7 @@ Sequences of meshes corresponding to a :class:`TimePartition`.
 import firedrake
 from .interpolation import project
 from .log import debug, warning
-from .utility import AttrDict, Mesh
+from .utility import AttrDict, Mesh, classify_element, create_section
 from collections import OrderedDict
 from collections.abc import Iterable
 import numpy as np
@@ -58,6 +58,7 @@ class MeshSeq(object):
         self.warn = warnings
         self.tableau = kwargs.get('tableau')
         self._lagged_dep_idx = {}
+        self.sections = [{} for mesh in self]
 
     def debug(self, msg):
         debug(f"MeshSeq: {msg}")
@@ -355,3 +356,53 @@ class MeshSeq(object):
             tape.clear_tape()
 
         return solutions
+
+    # TODO: Parallelise
+    def get_values_at_elements(self, field, index=0, reorder=True):
+        """
+        Extract all of the values associated with
+        each element for a given :class:`Function`.
+
+        The values will be returned in the ordering
+        used by Firedrake, unless ``reorder`` is
+        set to ``False``.
+
+        :arg field: the :class:`Function` to get
+            the values of
+        :kwarg index: the mesh index to be used
+            (defaults to 0)
+        :kwarg reorder: toggle whether to reorder
+            in Firedrake numbering.
+        """
+        dim = self[index].topological_dimension()
+        label, entity_dofs = classify_element(field.ufl_element(), dim)
+        d = max(entity_dofs)
+
+        # Extract the DMPlex and appropriate PETSc Section
+        plex = self[index].topology_dm
+        if label not in self.sections[index]:
+            self.sections[index][label] = create_section(self[index], field.ufl_element())
+        sec = self.sections[index][label]
+
+        # Loop over all elements and extract the values from the DOFs there
+        vals = []
+        all_vertices = set(range(*plex.getDepthStratum(0)))
+        for e in range(*plex.getHeightStratum(0)):
+            if 'P0' in label:
+                vals.append([field.dat.data[sec.getOffset(e)//d]])
+            elif 'P1' in label:
+                vertices = set(plex.getTransitiveClosure(e)[0]).intersection(all_vertices)
+                vals.append([field.dat.data[sec.getOffset(v)//d] for v in vertices])
+
+        # Get back to the Firedrake element numbering
+        if reorder:
+            if 'P0' not in self.sections[index]:
+                entity_dofs *= 0
+                entity_dofs[-1] = 1
+                self.sections[index]['P0'] = create_section(self[index], entity_dofs)
+            sec = self.sections[index]['P0']
+            offsets = [sec.getOffset(e) for e in range(*plex.getHeightStratum(0))]
+            num_cells = self[index].num_cells()
+            vals = [val for off in range(num_cells) for val, offset in zip(vals, offsets) if offset == off]
+            assert len(vals) == num_cells
+        return vals
