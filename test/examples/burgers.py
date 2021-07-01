@@ -23,18 +23,17 @@ steady = False
 
 
 def get_function_spaces(mesh):
-    """
-    Construct a sequence of P2 function
-    spaces based on the meshes of the
-    :class:`MeshSeq`.
+    r"""
+    :math:`\mathbb P2` space.
     """
     return {'uv_2d': VectorFunctionSpace(mesh, "CG", 2)}
 
 
 def get_solver(self):
     """
-    Burgers equation is solved using
-    Backward Euler timestepping.
+    Burgers equation solved using
+    a direct method and backward
+    Euler timestepping.
     """
     def solver(i, ic):
         t_start, t_end = self.time_partition[i].subinterval
@@ -71,8 +70,8 @@ def get_solver(self):
 
 def get_initial_condition(self):
     """
-    Initial condition for Burgers' equation
-    which is sinusoidal in the x-direction.
+    Initial condition which is
+    sinusoidal in the x-direction.
     """
     init_fs = self.function_spaces['uv_2d'][0]
     x, y = SpatialCoordinate(self.meshes[0])

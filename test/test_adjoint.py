@@ -45,6 +45,7 @@ def handle_exit_annotation():
 
 all_problems = [
     "point_discharge2d",
+    "steady_flow_past_cyl",
     "burgers",
     "solid_body_rotation",
     "solid_body_rotation_split",
@@ -89,7 +90,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     if "solid_body_rotation" in problem:
         end_time /= 4  # Reduce testing time
     elif test_case.steady and qoi_type == "time_integrated":
-        pytest.skip("Time integrated QoIs do not make sense for steady problems.")
+        pytest.skip("n/a for steady case")
 
     # Partition time interval and create MeshSeq
     time_partition = TimePartition(

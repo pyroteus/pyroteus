@@ -39,8 +39,7 @@ steady = True
 
 def get_function_spaces(mesh):
     r"""
-    Define a :math:`\mathbb P1` space on
-    some ``mesh``.
+    :math:`\mathbb P1` space.
     """
     return {'tracer_2d': FunctionSpace(mesh, "CG", 1)}
 
@@ -56,15 +55,11 @@ def source(mesh):
 
 
 def get_solver(self):
-
+    """
+    Advection-diffusion equation
+    solved using a direct method.
+    """
     def solver(i, ic):
-        """
-        Solve an advection-diffusion equation
-        with a point source. Note that none of
-        the arguments are used, except ``ic``.
-        It is important that the solution is
-        dependent on this input.
-        """
         fs = self.function_spaces['tracer_2d'][i]
         D = Constant(0.1)
         u = Constant(as_vector([1.0, 0.0]))
@@ -114,13 +109,12 @@ def get_initial_condition(self):
 
 
 def get_qoi(self, i):
-
+    """
+    Quantity of interest which integrates
+    the tracer concentration over an offset
+    receiver region.
+    """
     def steady_qoi(sol):
-        """
-        Quantity of interest which integrates
-        the tracer concentration over an offset
-        receiver region.
-        """
         c = sol['tracer_2d']
         x, y = SpatialCoordinate(self[i])
         kernel = conditional((x - rec_x)**2 + (y - rec_y)**2 < rec_r**2, 1, 0)
