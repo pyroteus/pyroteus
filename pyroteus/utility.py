@@ -246,3 +246,27 @@ def effectivity_index(error_indicator, Je):
     assert (el.family(), el.degree()) == ('Discontinuous Lagrange', 0), "Error indicator must be P0"
     eta = error_indicator.vector().gather().sum()
     return np.abs(eta/Je)
+
+
+def classify_element(element, dim):
+    """
+    Classify a :class:`FiniteElement` in terms
+    of a label and a list of entity DOFs.
+
+    :arg element: the :class:`FiniteElement`
+    :arg dim: the topological dimension
+    """
+    p = element.degree()
+    family = element.family()
+    n = len(element.sub_elements()) or 1
+    label = {1: '', dim: 'Vector ', dim**2: 'Tensor '}[n]
+    entity_dofs = np.zeros(dim+1, dtype=np.int32)
+    if family == 'Discontinuous Lagrange' and p == 0:
+        entity_dofs[-1] = n
+        label += f"P{p}DG"
+    elif family == 'Lagrange' and p == 1:
+        entity_dofs[0] = n
+        label += f"P{p}"
+    else:
+        raise NotImplementedError
+    return label, entity_dofs
