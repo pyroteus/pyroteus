@@ -12,6 +12,7 @@ Code here is based on that found at
 """
 from firedrake import *
 import os
+from pyroteus.runge_kutta import SteadyState
 
 
 mesh = Mesh(os.path.join(os.path.dirname(__file__), "mesh-with-hole.msh"))
@@ -21,6 +22,7 @@ end_time = dt
 dt_per_export = 1
 num_subintervals = 1
 steady = True
+tableau = SteadyState
 
 
 def get_function_spaces(mesh):

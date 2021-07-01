@@ -49,6 +49,12 @@ class ButcherTableau(object):
         self.is_dirk = np.diag(self.a).all()
 
 
+class SteadyState(ButcherTableau):
+    a = [[0.0]]
+    b = [1.0]
+    c = [0.0]
+
+
 class ForwardEuler(ButcherTableau):
     a = [[0.0]]
     b = [1.0]
