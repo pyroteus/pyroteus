@@ -39,7 +39,7 @@ def get_solver(self):
         W = self.function_spaces['up'][i]
 
         # Assign initial condition
-        up = Function(W)
+        up = Function(W, name='up_old')
         up.assign(ic['up'])
 
         # Define inflow

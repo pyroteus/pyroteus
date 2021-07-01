@@ -216,6 +216,7 @@ class AdjointMeshSeq(MeshSeq):
             with pyadjoint.stop_annotating():
                 with tape.marked_nodes(m):
                     tape.evaluate_adj(markings=True)
+            # FIXME: Using mixed Functions as Controls not correct
 
             # Loop over prognostic variables
             for field, fs in function_spaces.items():

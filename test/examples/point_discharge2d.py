@@ -68,7 +68,7 @@ def get_solver(self):
         S = source(self[i])
 
         # Ensure dependence on initial condition
-        c = Function(fs)
+        c = Function(fs, name='tracer_2d_old')
         c.assign(ic['tracer_2d'])
 
         # Stabilisation parameter

@@ -130,9 +130,10 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
             adj_sols_expected[field] = solve_blocks[1].adj_sol.copy(deepcopy=True)
             for rk_block, wq in zip(*mesh_seq.get_rk_blocks(field, 0, 0, solve_blocks)):
                 adj_sols_expected[field] += wq*rk_block.adj_sol
-        adj_values_expected[field] = Function(
-            fs[0], val=solve_blocks[0]._dependencies[fwd_old_idx].adj_value
-        )
+        if not test_case.steady:
+            adj_values_expected[field] = Function(
+                fs[0], val=solve_blocks[0]._dependencies[fwd_old_idx].adj_value
+            )
 
     # Loop over having one or two subintervals
     for N in range(1, 2 if test_case.steady else 3):
@@ -149,7 +150,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
             test_case.get_initial_condition, test_case.get_solver,
             test_case.get_qoi, qoi_type=qoi_type,
         )
-        solutions = mesh_seq.solve_adjoint(get_adj_values=True, test_checkpoint_qoi=True)
+        solutions = mesh_seq.solve_adjoint(get_adj_values=not test_case.steady, test_checkpoint_qoi=True)
 
         # Check quantities of interest match
         assert np.isclose(J_expected, mesh_seq.J), f"QoIs do not match ({J_expected} vs." \
@@ -164,12 +165,13 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
                                          + f" (Error {err:.4e}.)"
 
         # Check adjoint actions at initial time match
-        for field in time_partition.fields:
-            adj_value_expected = adj_values_expected[field]
-            adj_value_computed = solutions[field].adj_value[0][0]
-            err = errornorm(adj_value_expected, adj_value_computed)/norm(adj_value_expected)
-            assert np.isclose(err, 0.0), "Adjoint values at initial time do not match." \
-                                         + f" (Error {err:.4e}.)"
+        if not test_case.steady:
+            for field in time_partition.fields:
+                adj_value_expected = adj_values_expected[field]
+                adj_value_computed = solutions[field].adj_value[0][0]
+                err = errornorm(adj_value_expected, adj_value_computed)/norm(adj_value_expected)
+                assert np.isclose(err, 0.0), "Adjoint values at initial time do not match." \
+                                             + f" (Error {err:.4e}.)"
 
 
 @pytest.mark.parallel
