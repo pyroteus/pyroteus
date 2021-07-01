@@ -110,7 +110,12 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     sols = mesh_seq.solver(0, ic)
     qoi = mesh_seq.get_qoi(0)
     J = mesh_seq.J if qoi_type == 'time_integrated' else qoi(sols)
-    pyadjoint.compute_gradient(J, controls)  # FIXME: gradient w.r.t. mixed function not correct
+    m = pyadjoint.enlisting.Enlist(controls)
+    tape = pyadjoint.get_working_tape()
+    with pyadjoint.stop_annotating():
+        with tape.marked_nodes(m):
+            tape.evaluate_adj(markings=True)
+    # FIXME: Using mixed Functions as Controls not correct
     J_expected = float(J)
 
     # Get expected adjoint solutions and values
