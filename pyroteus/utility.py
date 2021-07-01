@@ -6,6 +6,8 @@ import firedrake
 from firedrake import *
 from .log import *
 from collections import OrderedDict
+from collections.abc import Iterable
+import firedrake.cython.dmcommon as dmcommon
 
 
 def Mesh(arg, **kwargs):
@@ -270,3 +272,22 @@ def classify_element(element, dim):
     else:
         raise NotImplementedError
     return label, entity_dofs
+
+
+def create_section(mesh, element):
+    """
+    Create a PETSc section associated with
+    a mesh and some :class:`FiniteElement`.
+
+    :arg mesh: the mesh
+    :arg element: the :class:`FiniteElement`
+        for which a section is sought, or a
+        list of entity DOFs to be passed
+        straight through
+    """
+    if isinstance(element, Iterable):
+        return dmcommon.create_section(mesh, element)
+    else:
+        dim = mesh.topological_dimension()
+        label, entity_dofs = classify_element(element, dim)
+        return dmcommon.create_section(mesh, entity_dofs)
