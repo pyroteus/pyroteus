@@ -5,6 +5,7 @@ import firedrake
 from .interpolation import project
 from .log import debug, warning
 from .utility import AttrDict, Mesh
+from collections import OrderedDict
 from collections.abc import Iterable
 import numpy as np
 
@@ -109,7 +110,7 @@ class MeshSeq(object):
 
     @property
     def initial_condition(self):
-        ic = self.get_initial_condition()
+        ic = OrderedDict(self.get_initial_condition())
         assert issubclass(ic.__class__, dict), "`get_initial_condition` should return a dict"
         assert set(self.fields).issubset(set(ic.keys())), "missing fields in initial condition"
         assert set(ic.keys()).issubset(set(self.fields)), "more initial conditions than fields"

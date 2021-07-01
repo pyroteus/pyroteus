@@ -39,6 +39,7 @@ dt = 9.6/ny
 dt_per_export = int(10.0/dt)
 order = 1
 soliton_amplitude = 0.395
+steady = False
 
 
 def get_function_spaces(mesh):

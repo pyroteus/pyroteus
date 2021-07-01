@@ -32,17 +32,22 @@ full_rotation = 2*pi
 end_time = full_rotation
 dt = pi/300
 dt_per_export = 25
+steady = False
 
 
 def get_function_spaces(mesh):
+    r"""
+    :math:`\mathbb P1_{DG}` space.
+    """
     return {'tracer_2d': FunctionSpace(mesh, "DQ", 1)}
 
 
 def get_solver(self):
     """
-    The tracer transport model is time
-    integrated using a strong stability
-    preserving third order RK method.
+    Advection equation solved using an
+    iterative method and time integrated
+    using a strong stability preserving
+    third order Runge-Kutta method.
     """
     def solver(i, ic, field='tracer_2d'):
         t_start, t_end = self.time_partition[i].subinterval

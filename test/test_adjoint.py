@@ -3,6 +3,12 @@ Test adjoint drivers.
 """
 from pyroteus_adjoint import *
 import pytest
+import importlib
+import os
+import sys
+
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "examples"))
 
 
 @pytest.fixture(autouse=True)
@@ -38,6 +44,8 @@ def handle_exit_annotation():
 # ---------------------------
 
 all_problems = [
+    "point_discharge2d",
+    "steady_flow_past_cyl",
     "burgers",
     "solid_body_rotation",
     "solid_body_rotation_split",
@@ -69,7 +77,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         or as a time integral?
     :kwarg debug: toggle debugging mode
     """
-    import importlib
     from firedrake_adjoint import pyadjoint
 
     # Debugging
@@ -80,8 +87,14 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     pyrint(f"\n--- Setting up {problem} test case with {qoi_type} QoI\n")
     test_case = importlib.import_module(problem)
     end_time = test_case.end_time
+    steady = test_case.steady
+    if steady:
+        assert test_case.dt_per_export == 1
+        assert np.isclose(end_time/test_case.dt, 1.0)
     if "solid_body_rotation" in problem:
         end_time /= 4  # Reduce testing time
+    elif steady and qoi_type == "time_integrated":
+        pytest.skip("n/a for steady case")
 
     # Partition time interval and create MeshSeq
     time_partition = TimePartition(
@@ -99,8 +112,14 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     ic = mesh_seq.initial_condition
     controls = [pyadjoint.Control(value) for key, value in ic.items()]
     sols = mesh_seq.solver(0, ic)
-    J = mesh_seq.J if qoi_type == 'time_integrated' else mesh_seq.qoi(sols)
-    pyadjoint.compute_gradient(J, controls)  # FIXME: gradient w.r.t. mixed function not correct
+    qoi = mesh_seq.get_qoi(0)
+    J = mesh_seq.J if qoi_type == 'time_integrated' else qoi(sols)
+    m = pyadjoint.enlisting.Enlist(controls)
+    tape = pyadjoint.get_working_tape()
+    with pyadjoint.stop_annotating():
+        with tape.marked_nodes(m):
+            tape.evaluate_adj(markings=True)
+    # FIXME: Using mixed Functions as Controls not correct
     J_expected = float(J)
 
     # Get expected adjoint solutions and values
@@ -115,12 +134,13 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
             adj_sols_expected[field] = solve_blocks[1].adj_sol.copy(deepcopy=True)
             for rk_block, wq in zip(*mesh_seq.get_rk_blocks(field, 0, 0, solve_blocks)):
                 adj_sols_expected[field] += wq*rk_block.adj_sol
-        adj_values_expected[field] = Function(
-            fs[0], val=solve_blocks[0]._dependencies[fwd_old_idx].adj_value
-        )
+        if not steady:
+            adj_values_expected[field] = Function(
+                fs[0], val=solve_blocks[0]._dependencies[fwd_old_idx].adj_value
+            )
 
     # Loop over having one or two subintervals
-    for N in range(1, 3):
+    for N in range(1, 2 if steady else 3):
         pyrint(f"\n--- Solving the adjoint problem on {N} subinterval"
                + f"{'' if N == 1 else 's'} using pyroteus\n")
 
@@ -134,7 +154,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
             test_case.get_initial_condition, test_case.get_solver,
             test_case.get_qoi, qoi_type=qoi_type,
         )
-        solutions = mesh_seq.solve_adjoint(get_adj_values=True, test_checkpoint_qoi=True)
+        solutions = mesh_seq.solve_adjoint(get_adj_values=not steady, test_checkpoint_qoi=True)
 
         # Check quantities of interest match
         assert np.isclose(J_expected, mesh_seq.J), f"QoIs do not match ({J_expected} vs." \
@@ -149,12 +169,13 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
                                          + f" (Error {err:.4e}.)"
 
         # Check adjoint actions at initial time match
-        for field in time_partition.fields:
-            adj_value_expected = adj_values_expected[field]
-            adj_value_computed = solutions[field].adj_value[0][0]
-            err = errornorm(adj_value_expected, adj_value_computed)/norm(adj_value_expected)
-            assert np.isclose(err, 0.0), "Adjoint values at initial time do not match." \
-                                         + f" (Error {err:.4e}.)"
+        if not steady:
+            for field in time_partition.fields:
+                adj_value_expected = adj_values_expected[field]
+                adj_value_computed = solutions[field].adj_value[0][0]
+                err = errornorm(adj_value_expected, adj_value_computed)/norm(adj_value_expected)
+                assert np.isclose(err, 0.0), "Adjoint values at initial time do not match." \
+                                             + f" (Error {err:.4e}.)"
 
 
 @pytest.mark.parallel
@@ -174,8 +195,6 @@ def plot_solutions(problem, qoi_type, debug=True):
     :kwarg debug: toggle debugging mode
     """
     import firedrake_adjoint  # noqa
-    import importlib
-    import os
 
     if debug:
         set_log_level(DEBUG)

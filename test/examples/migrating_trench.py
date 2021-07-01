@@ -37,6 +37,7 @@ end_time = 0.75*3600/morfac
 dt = 0.3
 dt_per_export = 5
 morfac = 300
+steady = False
 
 
 def get_function_spaces(mesh):
