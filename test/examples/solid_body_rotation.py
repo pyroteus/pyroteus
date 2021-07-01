@@ -19,6 +19,7 @@ required per timestep.
     flow' (1996).
 """
 from firedrake import *
+from pyroteus.runge_kutta import SSPRK33
 from pyroteus.utility import rotate
 
 
@@ -33,6 +34,8 @@ end_time = full_rotation
 dt = pi/300
 dt_per_export = 25
 steady = False
+wq = Constant(1.0)
+tableau = SSPRK33()
 
 
 def get_function_spaces(mesh):
@@ -49,6 +52,7 @@ def get_solver(self):
     using a strong stability preserving
     third order Runge-Kutta method.
     """
+
     def solver(i, ic, field='tracer_2d'):
         t_start, t_end = self.time_partition[i].subinterval
         dt = self.time_partition[i].timestep
@@ -62,23 +66,21 @@ def get_solver(self):
         un = 0.5*(dot(u, n) + abs(dot(u, n)))
 
         # Set initial condition
-        q = Function(V, name=field + '_old')
-        q.assign(ic[field])
+        sol = Function(V, name=field)
+        sol.assign(ic[field])
 
         # Set inflow condition value
         q_in = Constant(1.0)
 
         # Setup variational problem
-        dq_trial = TrialFunction(V)
+        q = [Function(V, name=field + '_old'), Function(V), Function(V)]
         phi = TestFunction(V)
-        a = phi*dq_trial*dx
-        L1 = dtc*q*div(phi*u)*dx \
+        lhs = dtc*sol*div(phi*u)*dx \
             - dtc*conditional(dot(u, n) < 0, phi*dot(u, n)*q_in, 0.0)*ds \
-            - dtc*conditional(dot(u, n) > 0, phi*dot(u, n)*q, 0.0)*ds \
-            - dtc*(phi('+') - phi('-'))*(un('+')*q('+') - un('-')*q('-'))*dS
-        q1, q2 = Function(V), Function(V)
-        L2, L3 = replace(L1, {q: q1}), replace(L1, {q: q2})
-        dq = Function(V)
+            - dtc*conditional(dot(u, n) > 0, phi*dot(u, n)*sol, 0.0)*ds \
+            - dtc*(phi('+') - phi('-'))*(un('+')*sol('+') - un('-')*sol('-'))*dS
+        lhs = [replace(lhs, {sol: qj}) for qj in q]
+        k = [Function(V), Function(V), Function(V)]
 
         # Setup SSPRK33 time integrator
         sp = {
@@ -86,36 +88,51 @@ def get_solver(self):
             "pc_type": "bjacobi",
             "sub_pc_type": "ilu",
         }
-        prob1 = LinearVariationalProblem(a, L1, dq)
-        solv1 = LinearVariationalSolver(prob1, solver_parameters=sp, options_prefix=field + '_1/6')
-        prob2 = LinearVariationalProblem(a, L2, dq)
-        solv2 = LinearVariationalSolver(prob2, solver_parameters=sp, options_prefix=field + '_1/6')
-        prob3 = LinearVariationalProblem(a, L3, dq)
-        solv3 = LinearVariationalSolver(prob3, solver_parameters=sp, options_prefix=field + '_2/3')
-        # TODO: Use SSPRK33 matrix  a = [[0, 0, 0], [1, 0, 0], [1/4, 1/4, 0]]
-        # TODO: use SSPRK33 weights b = [1/6, 1/6, 2/3]
-        # TODO: use SSPRK33 nodes   c = [0,   1,   1/2]
+        solvers = [
+            LinearVariationalSolver(
+                LinearVariationalProblem(phi*TrialFunction(V)*dx, L, k[j]),
+                solver_parameters=sp, options_prefix=field
+            ) for j, L in enumerate(lhs)
+        ]
 
         # Time integrate from t_start to t_end
         t = t_start
         qoi = self.get_qoi(i)
-        if self.qoi_type == 'time_integrated':
-            self.J += qoi({field: q}, t)
-        while t < t_end - 1.0e-05:
-            solv1.solve()
-            q1.assign(q + dq)
+        solutions = {field: Function(V)}
+        sum_k = np.dot(self.tableau.b, k)
+        while t < t_end - 0.5*dt:
+
+            # Apply RK method
+            for j in range(3):
+                if j == 0:
+                    q[j].assign(sol)
+                else:
+                    q[j].assign(sol + np.dot(self.tableau.a[j, :j], k[:j]))
+                solvers[j].solve()
+
+            # Evaluate QoI using Simpson's rule
             if self.qoi_type == 'time_integrated':
-                self.J += qoi({field: dq}, t + 0*dt, quadrature_weight=1/6)
-            solv2.solve()
-            q2.assign(0.75*q + 0.25*(q1 + dq))
-            if self.qoi_type == 'time_integrated':
-                self.J += qoi({field: dq}, t + 1*dt, quadrature_weight=1/6)
-            solv3.solve()
-            q.assign((1.0/3.0)*q + (2.0/3.0)*(q2 + dq))
-            if self.qoi_type == 'time_integrated':
-                self.J += qoi({field: dq}, t + 0.5*dt, quadrature_weight=2/3)
+
+                # 1/6*f(a)
+                wq.assign(1.0/6.0)
+                solutions[field].assign(sol)
+                self.J += qoi(solutions, t + 0.0*dt)
+
+                # 1/6*f(b)
+                wq.assign(1.0/6.0)
+                solutions[field].assign(sol + sum_k)
+                # solutions[field].assign(sol + 1.0*k[0])
+                self.J += qoi(solutions, t + 1.0*dt)
+
+                # 2/3*f(1/2*(a+b))
+                wq.assign(2.0/3.0)
+                solutions[field].assign(sol + 0.25*(k[0] + k[1]))
+                self.J += qoi(solutions, t + 0.5*dt)
+
+            # Update/increment
+            sol.assign(sol + sum_k)
             t += dt
-        return {field: q}
+        return {field: sol}
     return solver
 
 
@@ -155,7 +172,7 @@ def get_initial_condition(self, coordinates=None):
     return {'tracer_2d': interpolate(1.0 + bell + cone + slot_cyl, init_fs)}
 
 
-def get_qoi(self, i, exact=get_initial_condition):
+def get_qoi(self, i, exact=get_initial_condition, linear=True):
     """
     Quantity of interest which
     computes square L2 error of the
@@ -163,10 +180,8 @@ def get_qoi(self, i, exact=get_initial_condition):
     specified shape).
     """
     dtc = Constant(self.time_partition[i].timestep)
-    wq = Constant(1.0)
 
-    def time_integrated_qoi(sol, t, quadrature_weight=1.0):
-        wq.assign(quadrature_weight)
+    def time_integrated_qoi(sol, t):
         assert len(list(sol.keys())) == 1
         field = list(sol.keys())[0]
         q = sol[field]
@@ -188,8 +203,10 @@ def get_qoi(self, i, exact=get_initial_condition):
             raise ValueError(f"Tracer field {field} not recognised")
         x0, y0 = interpolate(rotate(as_vector([x0, y0]), theta), W)
         ball = conditional((x[0] - x0)**2 + (x[1] - y0)**2 < r0**2, 1.0, 0.0)
-        # return wq*dtc*ball*q*dx
-        return wq*dtc*ball*(q-q_exact[field])**2*dx
+        if linear:
+            return wq*dtc*ball*q*dx
+        else:
+            return wq*dtc*ball*(q-q_exact[field])**2*dx
 
     def end_time_qoi(sol):
         return sum(

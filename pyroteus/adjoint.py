@@ -242,8 +242,6 @@ class AdjointMeshSeq(MeshSeq):
                 if steady and 'adjoint_next' in sols:
                     sols.pop('adjoint_next')
 
-                # TODO: Accumulate adjoint values going backwards
-
                 # Extract solution data
                 sols = solutions[field]
                 stride = P.timesteps_per_export[i]*self.solves_per_timestep
@@ -252,7 +250,7 @@ class AdjointMeshSeq(MeshSeq):
                                  + f" {P.exports_per_subinterval[i]-1})")
                 for j, block in zip(range(P.exports_per_subinterval[i]-1), solve_blocks[::stride]):
 
-                    # Lagged forward solution
+                    # Lagged forward solution and adjoint values
                     if fwd_old_idx is not None:
                         dep = block._dependencies[fwd_old_idx]
                         sols.forward_old[i][j].assign(dep.saved_output)
@@ -266,12 +264,10 @@ class AdjointMeshSeq(MeshSeq):
                                 if solve_blocks[j*stride+1].adj_sol is not None:
                                     sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
                             else:
-                                if solve_blocks[j*stride+1].adj_sol is not None:
-                                    sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
-                            # else:  # TODO: see above
-                            #     for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks, offset=1)):
-                            #         if rk_block.adj_sol is not None:
-                            #             sols.adjoint_next[i][j] += wq*rk_block.adj_sol
+                                rk_blocks = self.get_rk_blocks(field, i, j, solve_blocks, offset=1)
+                                for rk_block, wq in zip(rk_blocks, self.tableau.b):
+                                    if rk_block.adj_sol is not None:
+                                        sols.adjoint_next[i][j] += wq*rk_block.adj_sol
                         elif j*stride+1 == num_solve_blocks:
                             if i+1 < num_subintervals:
                                 sols.adjoint_next[i][j].assign(
@@ -287,9 +283,9 @@ class AdjointMeshSeq(MeshSeq):
                             sols.adjoint[i][j].assign(block.adj_sol)
                     else:
                         assert fwd_old_idx is not None, "Need old solution for RK methods"
+                        assert self.tableau is not None, "Need Butcher tableau for RK methods"
                         sols.forward[i][j].assign(sols.forward_old[i][j])
-                        sols.adjoint[i][j].assign(sols.adjoint_next[i][j])
-                        for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks)):
+                        for rk_block, wq in zip(self.get_rk_blocks(field, i, j, solve_blocks), self.tableau.b):
                             sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
                             if rk_block.adj_sol is not None:
                                 sols.adjoint[i][j] += wq*rk_block.adj_sol

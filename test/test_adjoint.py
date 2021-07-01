@@ -104,7 +104,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     mesh_seq = AdjointMeshSeq(
         time_partition, test_case.mesh, test_case.get_function_spaces,
         test_case.get_initial_condition, test_case.get_solver,
-        test_case.get_qoi, qoi_type=qoi_type, steady=steady,
+        test_case.get_qoi, qoi_type=qoi_type, steady=steady, tableau=test_case.tableau,
     )
 
     # Solve forward and adjoint without solve_adjoint
@@ -131,8 +131,10 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         if mesh_seq.solves_per_timestep == 1:
             adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
         else:
-            adj_sols_expected[field] = solve_blocks[1].adj_sol.copy(deepcopy=True)
-            for rk_block, wq in zip(*mesh_seq.get_rk_blocks(field, 0, 0, solve_blocks)):
+            assert mesh_seq.tableau is not None, "Need Butcher tableau for RK methods"
+            rk_blocks = mesh_seq.get_rk_blocks(field, 0, 0, solve_blocks)
+            adj_sols_expected[field] = Function(fs[0])
+            for rk_block, wq in zip(rk_blocks, mesh_seq.tableau.b):
                 adj_sols_expected[field] += wq*rk_block.adj_sol
         if not steady:
             adj_values_expected[field] = Function(
@@ -152,7 +154,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         mesh_seq = AdjointMeshSeq(
             time_partition, test_case.mesh, test_case.get_function_spaces,
             test_case.get_initial_condition, test_case.get_solver,
-            test_case.get_qoi, qoi_type=qoi_type,
+            test_case.get_qoi, qoi_type=qoi_type, tableau=test_case.tableau,
         )
         solutions = mesh_seq.solve_adjoint(get_adj_values=not steady, test_checkpoint_qoi=True)
 
@@ -209,7 +211,7 @@ def plot_solutions(problem, qoi_type, debug=True):
     solutions = AdjointMeshSeq(
         time_partition, test_case.mesh, test_case.get_function_spaces,
         test_case.get_initial_condition, test_case.get_solver,
-        test_case.get_qoi, qoi_type=qoi_type, steady=steady,
+        test_case.get_qoi, qoi_type=qoi_type, steady=steady, tableau=test_case.tableau,
     ).solve_adjoint(get_adj_values=not steady, test_checkpoint_qoi=True)
     output_dir = os.path.join(os.path.dirname(__file__), 'outputs', problem)
     outfiles = AttrDict({

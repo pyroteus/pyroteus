@@ -20,7 +20,7 @@ class MeshSeq(object):
     temporal domain.
     """
     def __init__(self, time_partition, initial_meshes, get_function_spaces,
-                 get_initial_condition, get_solver, warnings=True):
+                 get_initial_condition, get_solver, warnings=True, **kwargs):
         """
         :arg time_partition: the :class:`TimePartition` which
             partitions the temporal domain
@@ -38,6 +38,8 @@ class MeshSeq(object):
             a :class:`MeshSeq`, which returns a function
             that integrates initial data over a subinterval
         :kwarg warnings: print warnings?
+        :kwarg tableau: :class:`ButcherTableau` object for RK
+            methods
         """
         self.time_partition = time_partition
         self.fields = time_partition.fields
@@ -54,6 +56,7 @@ class MeshSeq(object):
         if get_solver is not None:
             self._get_solver = get_solver
         self.warn = warnings
+        self.tableau = kwargs.get('tableau')
         self._lagged_dep_idx = {}
 
     def debug(self, msg):
@@ -261,22 +264,7 @@ class MeshSeq(object):
         assert hasattr(self, 'solves_per_timestep') and self.solves_per_timestep > 1
         stride = self.time_partition.timesteps_per_export[subinterval]*self.solves_per_timestep
         istart = index*stride + offset*self.solves_per_timestep
-        rk_blocks = solve_blocks[istart:istart + self.solves_per_timestep]
-        quadrature_weights = []
-        for rk_block in rk_blocks:
-            s = rk_block.options_prefix.split('_')
-            if '_'.join(s[:-1]) != field:
-                raise ValueError("Prefix should be '<field>_<quadrature_weight>', not"
-                                 + f" {rk_block.options_prefix}")
-            try:
-                if '/' in s[-1]:
-                    numerator, divisor = s[-1].split('/')
-                    quadrature_weights.append(float(numerator)/float(divisor))
-                else:
-                    quadrature_weights.append(float(s[-1]))
-            except Exception:
-                raise ValueError(f"Unintelligible quadrature weight {s[-1]}")
-        return rk_blocks, quadrature_weights
+        return solve_blocks[istart:istart + self.solves_per_timestep]
 
     def solve_forward(self, solver_kwargs={}):
         """
@@ -358,8 +346,9 @@ class MeshSeq(object):
                         sols.forward[i][j].assign(block._outputs[0].saved_output)
                     else:
                         assert fwd_old_idx is not None, "Need old solution for RK methods"
+                        assert self.tableau is not None, "Need Butcher tableau for RK methods"
                         sols.forward[i][j].assign(sols.forward_old[i][j])
-                        for rk_block, wq in zip(*self.get_rk_blocks(field, i, j, solve_blocks)):
+                        for rk_block, wq in zip(self.get_rk_blocks(field, i, j, solve_blocks), self.tableau.b):
                             sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
 
             # Clear tape

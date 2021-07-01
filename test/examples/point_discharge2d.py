@@ -23,6 +23,7 @@ computed.
     (1992).
 """
 from firedrake import *
+from pyroteus.runge_kutta import SteadyState
 
 
 # Problem setup
@@ -35,6 +36,7 @@ dt_per_export = 1
 src_x, src_y, src_r = 2.0, 5.0, 0.05606388
 rec_x, rec_y, rec_r = 20.0, 7.50, 0.5
 steady = True
+tableau = SteadyState()
 
 
 def get_function_spaces(mesh):
