@@ -2,7 +2,10 @@
 Drivers for goal-oriented error estimation on sequences of meshes.
 """
 from .adjoint import AdjointMeshSeq
+from .utility import classify_element
 from firedrake import FunctionSpace, MeshHierarchy
+from firedrake.cython.dmcommon import create_section
+import numpy as np
 
 
 __all__ = ["GoalOrientedMeshSeq"]
@@ -13,6 +16,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     An extension of :class:`AdjointMeshSeq` to account for
     goal-oriented problems.
     """
+    def __init__(self, *args, **kwargs):
+        super(GoalOrientedMeshSeq, self).__init__(self, *args, **kwargs)
+        self.sections = {}
+
     def global_enrichment(self, enrichment_method='p', num_enrichments_h=1,
                           num_enrichments_p=1, **kwargs):
         """
@@ -69,6 +76,26 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             qoi_type=self.qoi_type, steady=self.steady,
         )
         return adj_mesh_seq.solve_adjoint(**kwargs)
+
+    def get_vertices(self, i):
+        return self[i].topology_dm.getDepthStratum(0)
+
+    def get_elements(self, i):
+        return self[i].topology_dm.getHeightStratum(0)
+
+    def create_section(self, i, element):
+        """
+        Create a section associated with mesh ``i``
+        and some finite ``element``.
+
+        :arg i: the :class:`MeshSeq` index
+        :arg element: the :class:`FiniteElement`
+            for which a section is sought
+        """
+        d = self[i].topological_dimension()
+        label, entity_dofs = classify_element(element, d)
+        if label not in self.sections:
+            self.sections[label] = create_section(self[i], entity_dofs)
 
     def fixed_point_iteration(self, **kwargs):
         """
