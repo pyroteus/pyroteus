@@ -32,6 +32,7 @@ full_rotation = 2*pi
 end_time = full_rotation
 dt = pi/300
 dt_per_export = 25
+steady = False
 
 
 def get_function_spaces(mesh):

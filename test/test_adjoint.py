@@ -3,6 +3,12 @@ Test adjoint drivers.
 """
 from pyroteus_adjoint import *
 import pytest
+import importlib
+import os
+import sys
+
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "examples"))
 
 
 @pytest.fixture(autouse=True)
@@ -38,6 +44,7 @@ def handle_exit_annotation():
 # ---------------------------
 
 all_problems = [
+    "point_discharge2d",
     "burgers",
     "solid_body_rotation",
     "solid_body_rotation_split",
@@ -69,7 +76,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         or as a time integral?
     :kwarg debug: toggle debugging mode
     """
-    import importlib
     from firedrake_adjoint import pyadjoint
 
     # Debugging
@@ -82,6 +88,8 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     end_time = test_case.end_time
     if "solid_body_rotation" in problem:
         end_time /= 4  # Reduce testing time
+    elif test_case.steady and qoi_type == "time_integrated":
+        pytest.skip("Time integrated QoIs do not make sense for steady problems.")
 
     # Partition time interval and create MeshSeq
     time_partition = TimePartition(
@@ -99,7 +107,8 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     ic = mesh_seq.initial_condition
     controls = [pyadjoint.Control(value) for key, value in ic.items()]
     sols = mesh_seq.solver(0, ic)
-    J = mesh_seq.J if qoi_type == 'time_integrated' else mesh_seq.qoi(sols)
+    qoi = mesh_seq.get_qoi(0)
+    J = mesh_seq.J if qoi_type == 'time_integrated' else qoi(sols)
     pyadjoint.compute_gradient(J, controls)  # FIXME: gradient w.r.t. mixed function not correct
     J_expected = float(J)
 
@@ -120,7 +129,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         )
 
     # Loop over having one or two subintervals
-    for N in range(1, 3):
+    for N in range(1, 2 if test_case.steady else 3):
         pyrint(f"\n--- Solving the adjoint problem on {N} subinterval"
                + f"{'' if N == 1 else 's'} using pyroteus\n")
 
@@ -174,8 +183,6 @@ def plot_solutions(problem, qoi_type, debug=True):
     :kwarg debug: toggle debugging mode
     """
     import firedrake_adjoint  # noqa
-    import importlib
-    import os
 
     if debug:
         set_log_level(DEBUG)
