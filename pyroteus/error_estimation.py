@@ -28,7 +28,13 @@ def form2indicator(F):
             flux_terms += p0test('-')*integral.integrand()*dS(integral.subdomain_id())
     indicator = Function(P0)
     mass_term = TrialFunction(P0)*p0test*dx
-    sp = {"snes_type": "ksponly", "ksp_type": "preonly", "pc_type": "jacobi"}
+    sp = {
+        "mat_type": "matfree",
+        "snes_type": "ksponly",
+        "ksp_type": "preonly",
+        "pc_type": "python",
+        "pc_python_type": "firedrake.MassInvPC",
+    }
     solve(mass_term == flux_terms, indicator, solver_parameters=sp)
 
     # Contributions from volume integrals

@@ -19,16 +19,18 @@ class FlowSolver2d(thetis.solver2d.FlowSolver2d):
         names used by Pyroteus.
         """
         if not hasattr(self, 'timestepper'):
-            self.create_timesteppers()
+            self.create_timestepper()
         if hasattr(self.timestepper, 'timesteppers'):
             for field, ts in self.timestepper.timesteppers.items():
                 self.timestepper.timesteppers[field].name = field
                 self.timestepper.timesteppers[field].update_solver()
-                self.timestepper.timesteppers[field].solution_old.rename(field + '_old')
+                if self.options.timestepper_type != 'SteadyState':
+                    self.timestepper.timesteppers[field].solution_old.rename(field + '_old')
         else:
             self.timestepper.name = 'swe2d'
             self.timestepper.update_solver()
-            self.timestepper.solution_old.rename('swe2d_old')
+            if self.options.timestepper_type != 'SteadyState':
+                self.timestepper.solution_old.rename('swe2d_old')
 
     def iterate(self, **kwargs):
         """
