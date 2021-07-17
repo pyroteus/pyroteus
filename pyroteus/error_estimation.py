@@ -14,6 +14,8 @@ def form2indicator(F):
     """
     mesh = F.ufl_domain()
     P0 = FunctionSpace(mesh, "DG", 0)
+    p0test = TestFunction(P0)
+    indicator = Function(P0)
 
     # Contributions from surface integrals
     flux_terms = 0
@@ -26,16 +28,16 @@ def form2indicator(F):
         for integral in integrals:
             flux_terms += p0test('+')*integral.integrand()*dS(integral.subdomain_id())
             flux_terms += p0test('-')*integral.integrand()*dS(integral.subdomain_id())
-    indicator = Function(P0)
-    mass_term = TrialFunction(P0)*p0test*dx
-    sp = {
-        "mat_type": "matfree",
-        "snes_type": "ksponly",
-        "ksp_type": "preonly",
-        "pc_type": "python",
-        "pc_python_type": "firedrake.MassInvPC",
-    }
-    solve(mass_term == flux_terms, indicator, solver_parameters=sp)
+    if flux_terms != 0:
+        mass_term = TrialFunction(P0)*p0test*dx
+        sp = {
+            "mat_type": "matfree",
+            "snes_type": "ksponly",
+            "ksp_type": "preonly",
+            "pc_type": "python",
+            "pc_python_type": "firedrake.MassInvPC",
+        }
+        solve(mass_term == flux_terms, indicator, solver_parameters=sp)
 
     # Contributions from volume integrals
     cell_terms = 0
@@ -46,6 +48,10 @@ def form2indicator(F):
     indicator += assemble(cell_terms)
 
     return indicator
+
+
+def form2estimator(F):
+    return form2indicator(F).vector().gather().sum()
 
 
 def get_dwr_indicator(F, adjoint_error):
