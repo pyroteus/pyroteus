@@ -34,7 +34,7 @@ end_time = 20.0
 dt = 20.0
 dt_per_export = 1
 src_x, src_y, src_r = 2.0, 5.0, 0.05606388
-rec_x, rec_y, rec_r = 20.0, 7.50, 0.5
+rec_x, rec_y, rec_r = 20.0, 7.5, 0.5
 steady = True
 tableau = SteadyState()
 
@@ -83,8 +83,7 @@ def get_solver(self):
         psi = psi + tau*dot(u, grad(psi))
         F = S*psi*dx \
             - dot(u, grad(c))*psi*dx \
-            - inner(D*grad(c), grad(psi))*dx \
-            + dot(grad(c), n)*psi*ds(2)
+            - inner(D*grad(c), grad(psi))*dx
         bc = DirichletBC(fs, 0, 1)
 
         # Solve
