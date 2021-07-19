@@ -45,6 +45,7 @@ def handle_exit_annotation():
 
 all_problems = [
     "point_discharge2d",
+    "point_discharge3d",
     "steady_flow_past_cyl",
     "burgers",
     "solid_body_rotation",
