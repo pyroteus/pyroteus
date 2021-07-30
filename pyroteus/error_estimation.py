@@ -50,8 +50,22 @@ def form2indicator(F):
     return indicator
 
 
-def form2estimator(F):
-    return form2indicator(F).vector().gather().sum()
+def form2estimator(F, absolute_value=False):
+    """
+    Multiply throughout in a form,
+    assemble as a cellwise error
+    indicator and sum over all
+    mesh elements.
+
+    :arg F: the form
+    :kwarg absolute_value: toggle
+        whether to take the modulus
+        on each element
+    """
+    indicator = form2indicator(F)
+    if absolute_value:
+        indicator.interpolate(abs(indicator))
+    return indicator.vector().gather().sum()
 
 
 def get_dwr_indicator(F, adjoint_error):
