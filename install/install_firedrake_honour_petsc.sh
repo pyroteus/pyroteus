@@ -6,8 +6,7 @@
 #                                                                        #
 # The `install_petsc.sh` script should be run first.                     #
 #                                                                        #
-# Note that we use custom PETSc and Firedrake branches                   #
-# joe/adapt and joe/meshadapt_patched.                                   #
+# Note that we use the custom branch joe/meshadapt_patched.              #
 #                                                                        #
 # Most of the modifications were made by Nicolas Barral. Minor updates   #
 # by Joe Wallwork.                                                       #
@@ -38,20 +37,24 @@ echo "MPICC="$MPICC
 echo "MPICXX="$MPICXX
 echo "MPIF90="$MPIF90
 echo "MPIEXEC="$MPIEXEC
+echo "PETSC_DIR="$PETSC_DIR
+if [ ! -e "$PETSC_DIR" ]; then
+	echo "$PETSC_DIR does not exist. Please run install_petsc.sh."
+	exit 1
+fi
+echo "PETSC_ARCH="$PETSC_ARCH
 echo "FIREDRAKE_ENV="$FIREDRAKE_ENV
 echo "FIREDRAKE_DIR="$FIREDRAKE_DIR
 echo "python3="$(which python3)
 echo "Are these settings okay? Press enter to continue."
 read chk
 
-export PETSC_CONFIGURE_OPTIONS=$(echo '--with-debugging=0 --with-fortran-bindings=0 --with-cxx-dialect=C++11 --download-zlib --download-metis --download-parmetis --download-hdf5 --download-scalapack --download-mumps --download-triangle --download-chaco --download-hypre --download-eigen --download-pragmatic --with-mpiexec=$MPIEXEC --CC=$MPICC --CXX=$MPICXX --FC=$MPIF90')
-
 # Install Firedrake
 curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
-python3 firedrake-install --install thetis --venv-name $FIREDRAKE_ENV \
+python3 firedrake-install --honour-petsc-dir --install thetis --venv-name $FIREDRAKE_ENV \
 	--mpicc $MPICC --mpicxx $MPICXX --mpif90 $MPIF90 --mpiexec $MPIEXEC \
-	--package-branch firedrake joe/meshadapt_patched --package-branch petsc joe/adapt \
-    --disable-ssh --pip-install scipy
+	--package-branch firedrake joe/meshadapt_patched --disable-ssh \
+    --pip-install scipy
 source $FIREDRAKE_DIR/bin/activate
 
 # Reset PYTHONPATH
