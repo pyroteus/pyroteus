@@ -154,7 +154,6 @@ class MeshSeq(object):
         solve steps for prognostic solution ``field``
         on a given ``subinterval``.
         """
-        from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
         from firedrake.adjoint.solving import get_solve_blocks
         from pyadjoint import get_working_tape
 
