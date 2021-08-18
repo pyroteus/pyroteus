@@ -18,6 +18,7 @@ class FlowSolver2d(thetis.solver2d.FlowSolver2d):
         timesteppers so that they match the field
         names used by Pyroteus.
         """
+        raise NotImplementedError  # TODO: use ad_block_tag
         if not hasattr(self, 'timestepper'):
             self.create_timestepper()
         if hasattr(self.timestepper, 'timesteppers'):

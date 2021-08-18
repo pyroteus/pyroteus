@@ -72,7 +72,7 @@ def get_solver(self):
             "ksp_type": "preonly",
             "pc_type": "lu",
             "pc_factor_shift_type": "inblocks",
-        }, options_prefix='up')
+        }, ad_block_tag='up')
 
         return {'up': up}
 

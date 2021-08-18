@@ -55,7 +55,7 @@ def get_function_spaces(mesh):
 # applied to such a simple problem, but it comes in handy when
 # solving adjoint problems associated with coupled systems of
 # equations. It is important that the PDE solve is labelled
-# with an ``options_prefix`` which matches the corresponding
+# with an ``ad_block_tag`` which matches the corresponding
 # prognostic variable name. It is also important that the
 # lagged solution field be given a name which is the field name,
 # appended by ``'_old'``. ::
@@ -87,7 +87,7 @@ def get_solver(mesh_seq):
         # Time integrate from t_start to t_end
         t = t_start
         while t < t_end - 1.0e-05:
-            solve(F == 0, u, options_prefix='uv_2d')
+            solve(F == 0, u, ad_block_tag='uv_2d')
             u_.assign(u)
             t += dt
         return {'uv_2d': u}

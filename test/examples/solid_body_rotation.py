@@ -91,7 +91,7 @@ def get_solver(self):
         solvers = [
             LinearVariationalSolver(
                 LinearVariationalProblem(phi*TrialFunction(V)*dx, L, k[j]),
-                solver_parameters=sp, options_prefix=field
+                solver_parameters=sp, ad_block_tag=field
             ) for j, L in enumerate(lhs)
         ]
 

@@ -94,7 +94,7 @@ def get_solver(self):
             'pc_type': 'lu',
             'pc_factor_mat_solver_type': 'mumps',
         }
-        solve(F == 0, c, bcs=bc, solver_parameters=sp, options_prefix='tracer_2d')
+        solve(F == 0, c, bcs=bc, solver_parameters=sp, ad_block_tag='tracer_2d')
         return {'tracer_2d': c}
 
     return solver
