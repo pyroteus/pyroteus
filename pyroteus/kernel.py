@@ -254,9 +254,8 @@ void metric_from_hessian(double A_[%d], const double * B_) {
   int i,j;
   for (i=0; i<%d-1; i++) {
     for (j=i+1; i<%d; i++) {
-      mean_diag = 0.5*(B(i,j) + B(j,i));
-      B(i,j) = mean_diag;
-      B(j,i) = mean_diag;
+      B(i,j) = 0.5*(B(i,j) + B(j,i));
+      B(j,i) = B(i,j);
     }
   }
 
@@ -266,7 +265,7 @@ void metric_from_hessian(double A_[%d], const double * B_) {
   Vector%dd D = eigensolver.eigenvalues();
 
   // Take modulus of eigenvalues
-  for (i=0; i<%d; i++) D(i) = fmax(1e-10, abs(D(i)));
+  for (i=0; i<%d; i++) D(i) = fmin(1.0e+30, fmax(1.0e-30, abs(D(i))));
 
   // Build metric from eigendecomposition
   A += Q * D.asDiagonal() * Q.transpose();
