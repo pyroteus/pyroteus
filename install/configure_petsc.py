@@ -24,6 +24,7 @@ configure_options = [
     '--download-scalapack',
     '--download-mumps',
     '--download-triangle',
+    '--download-ctetgen',
     '--download-chaco',
     '--download-hypre',
     '--download-eigen',
