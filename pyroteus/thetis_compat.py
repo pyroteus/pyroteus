@@ -11,26 +11,29 @@ class FlowSolver2d(thetis.solver2d.FlowSolver2d):
     simulation on a new mesh and modifying
     options prefixes.
     """
-    def update_options_prefixes(self):
+    def update_tags(self):
         """
         Modify the options prefixes which Thetis
         gives to the solvers associated with its
         timesteppers so that they match the field
         names used by Pyroteus.
         """
-        raise NotImplementedError  # TODO: use ad_block_tag
+        self.options.swe_timestepper_options.ad_block_tag = 'swe2d'
+        self.options.tracer_timestepper_options.ad_block_tag = 'tracer_2d'
+        self.options.sediment_model_options.sediment_timestepper_options.ad_block_tag = 'sediment_2d'
+        self.options.sediment_model_options.sediment_timestepper_options.ad_block_tag = 'bathymetry_2d'
         if not hasattr(self, 'timestepper'):
             self.create_timestepper()
         if hasattr(self.timestepper, 'timesteppers'):
             for field, ts in self.timestepper.timesteppers.items():
                 self.timestepper.timesteppers[field].name = field
                 self.timestepper.timesteppers[field].update_solver()
-                if self.options.timestepper_type != 'SteadyState':
+                if self.options.swe_timestepper_type != 'SteadyState':
                     self.timestepper.timesteppers[field].solution_old.rename(field + '_old')
         else:
             self.timestepper.name = 'swe2d'
             self.timestepper.update_solver()
-            if self.options.timestepper_type != 'SteadyState':
+            if self.options.swe_timestepper_type != 'SteadyState':
                 self.timestepper.solution_old.rename('swe2d_old')
 
     def iterate(self, **kwargs):
@@ -39,7 +42,7 @@ class FlowSolver2d(thetis.solver2d.FlowSolver2d):
         additionally updates the options prefixes
         associated with its solvers.
         """
-        self.update_options_prefixes()
+        self.update_tags()
         super(FlowSolver2d, self).iterate(**kwargs)
 
     def correct_counters(self, ts_data):
