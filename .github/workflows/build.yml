@@ -1,0 +1,43 @@
+name: Build Pyroteus
+
+on:
+  # Push to master or PR
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    name: "Build Thetis"  
+    # The type of runner that the job will run on
+    runs-on: self-hosted
+    # The docker container to use.
+    container:
+      image: jwallwork/firedrake-pragmatic:latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          cd ..
+          rm -rf build
+      - name: Setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install Pyroteus
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          python -m pip install -r requirements.txt
+          python -m pip install -e .
+      - name: Test Pyroteus
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          python $(which firedrake-clean)
+          python -m pytest -n 3 -v test
+      - name: Lint
+        if: ${{ always() }}
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          make lint
