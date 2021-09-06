@@ -1,7 +1,7 @@
 name: Build Pyroteus
 
 on:
-  # Push to master or PR
+  # Push to main or PR
   push:
     branches:
       - main
@@ -9,9 +9,9 @@ on:
 
 jobs:
   build:
-    name: "Build Thetis"  
+    name: "Build Pyroteus"
     # The type of runner that the job will run on
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     # The docker container to use.
     container:
       image: jwallwork/firedrake-pragmatic:latest
