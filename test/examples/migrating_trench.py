@@ -91,8 +91,7 @@ def get_solver(self):
         sed_options.morphological_acceleration_factor = Constant(morfac)
 
         # Setup problem
-        options.timestepper_type = 'CrankNicolson'
-        options.timestepper_options.implicitness_theta = 1.0
+        options.set_timestepper_type('CrankNicolson', implicitness_theta=1.0)
         options.norm_smoother = Constant(0.1)
         options.timestep = dt
         options.simulation_export_time = dt*self.time_partition[i].timesteps_per_export

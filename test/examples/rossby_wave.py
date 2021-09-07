@@ -77,7 +77,7 @@ def get_solver(self):
         # Setup problem
         solver_obj = FlowSolver2d(mesh2d, bathymetry2d)
         options = solver_obj.options
-        options.timestepper_type = 'CrankNicolson'
+        options.swe_timestepper_type = 'CrankNicolson'
         options.timestep = dt
         options.element_family = 'dg-dg'
         options.simulation_export_time = 10.0

@@ -22,8 +22,7 @@ class FlowSolver2d(thetis.solver2d.FlowSolver2d):
         self.options.tracer_timestepper_options.ad_block_tag = 'tracer_2d'
         self.options.sediment_model_options.sediment_timestepper_options.ad_block_tag = 'sediment_2d'
         self.options.sediment_model_options.sediment_timestepper_options.ad_block_tag = 'bathymetry_2d'
-        if not hasattr(self, 'timestepper'):
-            self.create_timestepper()
+        self.create_timestepper()
         if hasattr(self.timestepper, 'timesteppers'):
             for field, ts in self.timestepper.timesteppers.items():
                 self.timestepper.timesteppers[field].name = field
