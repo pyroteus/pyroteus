@@ -1,0 +1,9 @@
+cff-version: 1.1.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: Joseph G.
+  given-names: Wallwork
+  orcid: https://orcid.org/0000-0002-3646-091X
+title: Pyroteus Goal-Oriented Mesh Adaptation Toolkit
+version: Pyroteus_20210907
+date-released: 2021-09-07
