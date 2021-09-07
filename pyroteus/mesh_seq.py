@@ -154,7 +154,7 @@ class MeshSeq(object):
         solve steps for prognostic solution ``field``
         on a given ``subinterval``.
         """
-        from firedrake.adjoint.blocks import GenericSolveBlock, ProjectBlock
+        from firedrake.adjoint.solving import get_solve_blocks
         from pyadjoint import get_working_tape
 
         # Get all blocks
@@ -164,12 +164,7 @@ class MeshSeq(object):
             return blocks
 
         # Restrict to solve blocks
-        solve_blocks = [
-            block
-            for block in blocks
-            if issubclass(block.__class__, GenericSolveBlock)
-            and not issubclass(block.__class__, ProjectBlock)
-        ]
+        solve_blocks = get_solve_blocks()
         if len(solve_blocks) == 0:
             self.warning("Tape has no solve blocks!")
             return solve_blocks
@@ -178,8 +173,8 @@ class MeshSeq(object):
         solve_blocks = [
             block
             for block in solve_blocks
-            if block.options_prefix is not None
-            and field in block.options_prefix
+            if block.tag is not None
+            and field in block.tag
         ]
         if len(solve_blocks) == 0:
             self.warning(f"Tape has no solve blocks associated with field {field}.\nHas the options"

@@ -47,7 +47,7 @@ def get_solver(mesh_seq):
         t = t_start
         qoi = mesh_seq.get_qoi(index)
         while t < t_end - 1.0e-05:
-            solve(F == 0, u, options_prefix='uv_2d')
+            solve(F == 0, u, ad_block_tag='uv_2d')
             mesh_seq.J += qoi({'uv_2d': u}, t)
             u_.assign(u)
             t += dt
