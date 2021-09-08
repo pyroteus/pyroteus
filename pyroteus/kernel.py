@@ -362,3 +362,47 @@ def get_area2d():
       Areas[0] = sqrt(s * (s - d12) * (s - d23) * (s - d13));
     }
 """
+
+def get_eskews2d():
+    """Compute the area of each cell
+    in a 2D triangular mesh.
+    """
+    return """
+    #include <Eigen/Dense>
+
+    using namespace Eigen;
+
+    double distance(Vector2d p1, Vector2d p2)  {
+      return sqrt(pow(p1[0] - p2[0], 2) + pow(p1[1] - p2[1], 2));
+    }
+
+    void get_area(double *ESkews, double *Coords) {
+      // Map coordinates onto Eigen objects
+      Map<Vector2d> P1((double *) &Coords[0]);
+      Map<Vector2d> P2((double *) &Coords[2]);
+      Map<Vector2d> P3((double *) &Coords[4]);
+
+      // Compute edge vectors and distances
+      Vector2d V12 = P2 - P1;
+      Vector2d V23 = P3 - P2;
+      Vector2d V13 = P3 - P1;
+      double d12 = distance(P1, P2);
+      double d23 = distance(P2, P3);
+      double d13 = distance(P1, P3);
+
+      // Compute angles from cosine formula
+      double a1 = acos (V12.dot(V13) / (d12 * d13));
+      double a2 = acos (-V12.dot(V23) / (d12 * d23));
+      double a3 = acos (V23.dot(V13) / (d23 * d13));
+      double pi = 3.14159265358979323846;
+      
+      // Plug values into equiangle skew formula as per:
+      // http://www.lcad.icmc.usp.br/~buscaglia/teaching/mfcpos2013/bakker_07-mesh.pdf
+      double aMin = std::min(a1, a2);
+      aMin = std::min(aMin, a3);
+      double aMax = std::max(a1, a2);
+      aMax = std::max(aMax, a3);
+      double aIdeal = pi / 3;
+      ESkews[0] = std::max((aMax - aIdeal / (pi - aIdeal)), (aIdeal - aMin) / aIdeal);
+    }
+"""
