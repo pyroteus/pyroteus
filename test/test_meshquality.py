@@ -56,14 +56,14 @@ def test_area2d(include_dirs, mesh, P0, coords):
     assert (np.isclose(sum(areas.dat.data), 1))
 
 
-def test_eskews2d(include_dirs, mesh, P0, coords):
+def test_eskew2d(include_dirs, mesh, P0, coords):
     """
     Check computation of equiangle skew for a 2D triangular mesh.
     For a uniform (isotropic) mesh, the equiangle skew should be
     equal for all elements.
     """
     eskews = Function(P0)
-    kernel = op2.Kernel(kernels.get_eskews2d(), "get_area", cpp=True, include_dirs=include_dirs)
+    kernel = op2.Kernel(kernels.get_eskew2d(), "get_eskew", cpp=True, include_dirs=include_dirs)
     op2.par_loop(kernel, mesh.cell_set, eskews.dat(op2.WRITE, eskews.cell_node_map()),
                  coords.dat(op2.READ, coords.cell_node_map()))
     true_vals = np.array([eskews.dat.data[0] for _ in eskews.dat.data])

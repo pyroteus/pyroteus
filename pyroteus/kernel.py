@@ -363,7 +363,7 @@ def get_area2d():
     }
 """
 
-def get_eskews2d():
+def get_eskew2d():
     """Compute the area of each cell
     in a 2D triangular mesh.
     """
@@ -376,7 +376,7 @@ def get_eskews2d():
       return sqrt(pow(p1[0] - p2[0], 2) + pow(p1[1] - p2[1], 2));
     }
 
-    void get_area(double *ESkews, double *Coords) {
+    void get_eskew(double *ESkews, double *Coords) {
       // Map coordinates onto Eigen objects
       Map<Vector2d> P1((double *) &Coords[0]);
       Map<Vector2d> P2((double *) &Coords[2]);
