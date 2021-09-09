@@ -360,6 +360,7 @@ def get_area2d():
       double d23 = distance(P2, P3);
       double d13 = distance(P1, P3);
       double s = (d12 + d23 + d13) / 2;
+      // Compute area using Heron's formula
       Areas[0] = sqrt(s * (s - d12) * (s - d23) * (s - d13));
     }
 """
@@ -438,6 +439,8 @@ def get_aspect_ratio2d():
       double d13 = distance(P1, P3);
       double s = (d12 + d23 + d13) / 2;
 
+      // Calculate aspect ratio based on the circumradius and inradius as per:
+      // https://stackoverflow.com/questions/10289752/aspect-ratio-of-a-triangle-of-a-meshed-surface
       AspectRatios[0] = (d12 * d23 * d13) / (8 * (s - d12) * (s - d23) * (s - d13));
     }
 """
