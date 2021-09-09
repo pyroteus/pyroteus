@@ -300,7 +300,8 @@ void set_eigendecomposition(double M_[%d], const double * EVecs_, const double *
 
 
 def get_min_angle2d():
-    """Compute the minimum angle of each cell
+    """
+    Compute the minimum angle of each cell
     in a 2D triangular mesh.
     """
     return """
@@ -337,7 +338,8 @@ def get_min_angle2d():
 
 
 def get_area2d():
-    """Compute the area of each cell
+    """
+    Compute the area of each cell
     in a 2D triangular mesh.
     """
     return """
@@ -367,7 +369,8 @@ def get_area2d():
 
 
 def get_eskew2d():
-    """Compute the area of each cell
+    """
+    Compute the area of each cell
     in a 2D triangular mesh.
     """
     return """
@@ -412,7 +415,8 @@ def get_eskew2d():
 
 
 def get_aspect_ratio2d():
-    """Compute the area of each cell
+    """
+    Compute the area of each cell
     in a 2D triangular mesh.
     """
     return """
@@ -442,5 +446,45 @@ def get_aspect_ratio2d():
       // Calculate aspect ratio based on the circumradius and inradius as per:
       // https://stackoverflow.com/questions/10289752/aspect-ratio-of-a-triangle-of-a-meshed-surface
       AspectRatios[0] = (d12 * d23 * d13) / (8 * (s - d12) * (s - d23) * (s - d13));
+    }
+"""
+
+
+def get_scaled_jacobian2d():
+    """
+    Compute the scaled jacobian of each
+    cell in a 2D triangular mesh.
+    """
+    return """
+    #include <Eigen/Dense>
+
+    using namespace Eigen;
+
+    double distance(Vector2d P1, Vector2d P2)  {
+      return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
+    }
+
+    void get_scaled_jacobian(double *SJacobians, double *Coords) {
+      // Map coordinates onto Eigen objects
+      Map<Vector2d> P1((double *) &Coords[0]);
+      Map<Vector2d> P2((double *) &Coords[2]);
+      Map<Vector2d> P3((double *) &Coords[4]);
+
+      // Compute edge vectors and distances
+      Vector2d V12 = P2 - P1;
+      Vector2d V23 = P3 - P2;
+      Vector2d V13 = P3 - P1;
+      double d12 = distance(P1, P2);
+      double d23 = distance(P2, P3);
+      double d13 = distance(P1, P3);
+
+      // Definition and calculation reference:
+      // https://cubit.sandia.gov/15.5/help_manual/WebHelp/mesh_generation/mesh_quality_assessment/triangular_metrics.htm
+      // https://www.osti.gov/biblio/5009
+      double sj1 = std::abs(V12[0] * V13[1] - V13[0]*V12[1]) / (d12 * d13);
+      double sj2 = std::abs(V12[0] * V23[1] - V23[0]*V12[1]) / (d12 * d23);
+      double sj3 = std::abs(V23[0] * V13[1] - V13[0]*V23[1]) / (d13 * d23);
+      SJacobians[0] = std::min(sj1, sj2);
+      SJacobians[0] = std::min(sj3, SJacobians[0]);
     }
 """

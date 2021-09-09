@@ -74,7 +74,7 @@ def test_eskew2d(include_dirs, mesh, P0, coords):
 def test_aspect_ratio2d(include_dirs, mesh, P0, coords):
     """
     Check computation of aspect ratio for a 2D triangular mesh.
-    For a uniform (isotropic) mesh, the equiangle skew should be
+    For a uniform (isotropic) mesh, the aspect ratio should be
     equal for all elements.
     """
     aspect_ratios = Function(P0)
@@ -83,3 +83,17 @@ def test_aspect_ratio2d(include_dirs, mesh, P0, coords):
                  coords.dat(op2.READ, coords.cell_node_map()))
     true_vals = np.array([aspect_ratios.dat.data[0] for _ in aspect_ratios.dat.data])
     assert np.allclose(true_vals, aspect_ratios.dat.data)
+
+
+def test_scaled_jacobian2d(include_dirs, mesh, P0, coords):
+    """
+    Check computation of scaled Jacobian for a 2D triangular mesh.
+    For a uniform (isotropic) mesh, the scaled Jacobian should be
+    equal for all elements.
+    """
+    scaled_jacobians = Function(P0)
+    kernel = op2.Kernel(kernels.get_scaled_jacobian2d(), "get_scaled_jacobian", cpp=True, include_dirs=include_dirs)
+    op2.par_loop(kernel, mesh.cell_set, scaled_jacobians.dat(op2.WRITE, scaled_jacobians.cell_node_map()),
+                 coords.dat(op2.READ, coords.cell_node_map()))
+    true_vals = np.array([scaled_jacobians.dat.data[0] for _ in scaled_jacobians.dat.data])
+    assert np.allclose(true_vals, scaled_jacobians.dat.data)
