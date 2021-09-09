@@ -313,7 +313,7 @@ double distance(Vector2d P1, Vector2d P2)  {
   return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
 }
 
-void get_min_angle(double *MinAngles, double *Coords) {
+void get_min_angle2d(double *MinAngles, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector2d> P1((double *) &Coords[0]);
   Map<Vector2d> P2((double *) &Coords[2]);
@@ -351,7 +351,7 @@ double distance(Vector2d P1, Vector2d P2)  {
   return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
 }
 
-void get_area(double *Areas, double *Coords) {
+void get_area2d(double *Areas, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector2d> P1((double *) &Coords[0]);
   Map<Vector2d> P2((double *) &Coords[2]);
@@ -382,7 +382,7 @@ double distance(Vector2d P1, Vector2d P2)  {
   return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
 }
 
-void get_eskew(double *ESkews, double *Coords) {
+void get_eskew2d(double *ESkews, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector2d> P1((double *) &Coords[0]);
   Map<Vector2d> P2((double *) &Coords[2]);
@@ -428,7 +428,7 @@ double distance(Vector2d P1, Vector2d P2)  {
   return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
 }
 
-void get_aspect_ratio(double *AspectRatios, double *Coords) {
+void get_aspect_ratio2d(double *AspectRatios, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector2d> P1((double *) &Coords[0]);
   Map<Vector2d> P2((double *) &Coords[2]);
@@ -464,7 +464,7 @@ double distance(Vector2d P1, Vector2d P2)  {
   return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
 }
 
-void get_scaled_jacobian(double *SJacobians, double *Coords) {
+void get_scaled_jacobian2d(double *SJacobians, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector2d> P1((double *) &Coords[0]);
   Map<Vector2d> P2((double *) &Coords[2]);
@@ -504,7 +504,7 @@ double distance(Vector2d P1, Vector2d P2)  {
   return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
 }
 
-void get_skewness(double *Skews, double *Coords) {
+void get_skewness2d(double *Skews, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector2d> P1((double *) &Coords[0]);
   Map<Vector2d> P2((double *) &Coords[2]);
@@ -558,7 +558,7 @@ double distance(Vector2d P1, Vector2d P2)  {
   return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
 }
 
-void get_metric(double *Metrics, const double *T_, double *Coords) {
+void get_metric2d(double *Metrics, const double *T_, double *Coords) {
     // Map coordinates onto Eigen objects
     Map<Vector2d> P1((double *) &Coords[0]);
     Map<Vector2d> P2((double *) &Coords[2]);
