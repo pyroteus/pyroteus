@@ -305,35 +305,35 @@ def get_min_angle2d():
     in a 2D triangular mesh.
     """
     return """
-    #include <Eigen/Dense>
+#include <Eigen/Dense>
 
-    using namespace Eigen;
+using namespace Eigen;
 
-    double distance(Vector2d P1, Vector2d P2)  {
-      return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
-    }
+double distance(Vector2d P1, Vector2d P2)  {
+  return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
+}
 
-    void get_min_angle(double *MinAngles, double *Coords) {
-      // Map coordinates onto Eigen objects
-      Map<Vector2d> P1((double *) &Coords[0]);
-      Map<Vector2d> P2((double *) &Coords[2]);
-      Map<Vector2d> P3((double *) &Coords[4]);
+void get_min_angle(double *MinAngles, double *Coords) {
+  // Map coordinates onto Eigen objects
+  Map<Vector2d> P1((double *) &Coords[0]);
+  Map<Vector2d> P2((double *) &Coords[2]);
+  Map<Vector2d> P3((double *) &Coords[4]);
 
-      // Compute edge vectors and distances
-      Vector2d V12 = P2 - P1;
-      Vector2d V23 = P3 - P2;
-      Vector2d V13 = P3 - P1;
-      double d12 = distance(P1, P2);
-      double d23 = distance(P2, P3);
-      double d13 = distance(P1, P3);
+  // Compute edge vectors and distances
+  Vector2d V12 = P2 - P1;
+  Vector2d V23 = P3 - P2;
+  Vector2d V13 = P3 - P1;
+  double d12 = distance(P1, P2);
+  double d23 = distance(P2, P3);
+  double d13 = distance(P1, P3);
 
-      // Compute angles from cosine formula
-      double a1 = acos (V12.dot(V13) / (d12 * d13));
-      double a2 = acos (-V12.dot(V23) / (d12 * d23));
-      double a3 = acos (V23.dot(V13) / (d23 * d13));
-      double aMin = std::min(a1, a2);
-      MinAngles[0] = std::min(aMin, a3);
-    }
+  // Compute angles from cosine formula
+  double a1 = acos (V12.dot(V13) / (d12 * d13));
+  double a2 = acos (-V12.dot(V23) / (d12 * d23));
+  double a3 = acos (V23.dot(V13) / (d23 * d13));
+  double aMin = std::min(a1, a2);
+  MinAngles[0] = std::min(aMin, a3);
+}
 """
 
 
@@ -343,28 +343,28 @@ def get_area2d():
     in a 2D triangular mesh.
     """
     return """
-    #include <Eigen/Dense>
+#include <Eigen/Dense>
 
-    using namespace Eigen;
+using namespace Eigen;
 
-    double distance(Vector2d P1, Vector2d P2)  {
-      return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
-    }
+double distance(Vector2d P1, Vector2d P2)  {
+  return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
+}
 
-    void get_area(double *Areas, double *Coords) {
-      // Map coordinates onto Eigen objects
-      Map<Vector2d> P1((double *) &Coords[0]);
-      Map<Vector2d> P2((double *) &Coords[2]);
-      Map<Vector2d> P3((double *) &Coords[4]);
+void get_area(double *Areas, double *Coords) {
+  // Map coordinates onto Eigen objects
+  Map<Vector2d> P1((double *) &Coords[0]);
+  Map<Vector2d> P2((double *) &Coords[2]);
+  Map<Vector2d> P3((double *) &Coords[4]);
 
-      // Compute edge lengths
-      double d12 = distance(P1, P2);
-      double d23 = distance(P2, P3);
-      double d13 = distance(P1, P3);
-      double s = (d12 + d23 + d13) / 2;
-      // Compute area using Heron's formula
-      Areas[0] = sqrt(s * (s - d12) * (s - d23) * (s - d13));
-    }
+  // Compute edge lengths
+  double d12 = distance(P1, P2);
+  double d23 = distance(P2, P3);
+  double d13 = distance(P1, P3);
+  double s = (d12 + d23 + d13) / 2;
+  // Compute area using Heron's formula
+  Areas[0] = sqrt(s * (s - d12) * (s - d23) * (s - d13));
+}
 """
 
 
@@ -374,43 +374,43 @@ def get_eskew2d():
     in a 2D triangular mesh.
     """
     return """
-    #include <Eigen/Dense>
+#include <Eigen/Dense>
 
-    using namespace Eigen;
+using namespace Eigen;
 
-    double distance(Vector2d P1, Vector2d P2)  {
-      return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
-    }
+double distance(Vector2d P1, Vector2d P2)  {
+  return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
+}
 
-    void get_eskew(double *ESkews, double *Coords) {
-      // Map coordinates onto Eigen objects
-      Map<Vector2d> P1((double *) &Coords[0]);
-      Map<Vector2d> P2((double *) &Coords[2]);
-      Map<Vector2d> P3((double *) &Coords[4]);
+void get_eskew(double *ESkews, double *Coords) {
+  // Map coordinates onto Eigen objects
+  Map<Vector2d> P1((double *) &Coords[0]);
+  Map<Vector2d> P2((double *) &Coords[2]);
+  Map<Vector2d> P3((double *) &Coords[4]);
 
-      // Compute edge vectors and distances
-      Vector2d V12 = P2 - P1;
-      Vector2d V23 = P3 - P2;
-      Vector2d V13 = P3 - P1;
-      double d12 = distance(P1, P2);
-      double d23 = distance(P2, P3);
-      double d13 = distance(P1, P3);
+  // Compute edge vectors and distances
+  Vector2d V12 = P2 - P1;
+  Vector2d V23 = P3 - P2;
+  Vector2d V13 = P3 - P1;
+  double d12 = distance(P1, P2);
+  double d23 = distance(P2, P3);
+  double d13 = distance(P1, P3);
 
-      // Compute angles from cosine formula
-      double a1 = acos (V12.dot(V13) / (d12 * d13));
-      double a2 = acos (-V12.dot(V23) / (d12 * d23));
-      double a3 = acos (V23.dot(V13) / (d23 * d13));
-      double pi = 3.14159265358979323846;
+  // Compute angles from cosine formula
+  double a1 = acos (V12.dot(V13) / (d12 * d13));
+  double a2 = acos (-V12.dot(V23) / (d12 * d23));
+  double a3 = acos (V23.dot(V13) / (d23 * d13));
+  double pi = 3.14159265358979323846;
 
-      // Plug values into equiangle skew formula as per:
-      // http://www.lcad.icmc.usp.br/~buscaglia/teaching/mfcpos2013/bakker_07-mesh.pdf
-      double aMin = std::min(a1, a2);
-      aMin = std::min(aMin, a3);
-      double aMax = std::max(a1, a2);
-      aMax = std::max(aMax, a3);
-      double aIdeal = pi / 3;
-      ESkews[0] = std::max((aMax - aIdeal / (pi - aIdeal)), (aIdeal - aMin) / aIdeal);
-    }
+  // Plug values into equiangle skew formula as per:
+  // http://www.lcad.icmc.usp.br/~buscaglia/teaching/mfcpos2013/bakker_07-mesh.pdf
+  double aMin = std::min(a1, a2);
+  aMin = std::min(aMin, a3);
+  double aMax = std::max(a1, a2);
+  aMax = std::max(aMax, a3);
+  double aIdeal = pi / 3;
+  ESkews[0] = std::max((aMax - aIdeal / (pi - aIdeal)), (aIdeal - aMin) / aIdeal);
+}
 """
 
 
@@ -420,33 +420,33 @@ def get_aspect_ratio2d():
     in a 2D triangular mesh.
     """
     return """
-    #include <Eigen/Dense>
+#include <Eigen/Dense>
 
-    using namespace Eigen;
+using namespace Eigen;
 
-    double distance(Vector2d P1, Vector2d P2)  {
-      return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
-    }
+double distance(Vector2d P1, Vector2d P2)  {
+  return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
+}
 
-    void get_aspect_ratio(double *AspectRatios, double *Coords) {
-      // Map coordinates onto Eigen objects
-      Map<Vector2d> P1((double *) &Coords[0]);
-      Map<Vector2d> P2((double *) &Coords[2]);
-      Map<Vector2d> P3((double *) &Coords[4]);
+void get_aspect_ratio(double *AspectRatios, double *Coords) {
+  // Map coordinates onto Eigen objects
+  Map<Vector2d> P1((double *) &Coords[0]);
+  Map<Vector2d> P2((double *) &Coords[2]);
+  Map<Vector2d> P3((double *) &Coords[4]);
 
-      // Compute edge vectors and distances
-      Vector2d V12 = P2 - P1;
-      Vector2d V23 = P3 - P2;
-      Vector2d V13 = P3 - P1;
-      double d12 = distance(P1, P2);
-      double d23 = distance(P2, P3);
-      double d13 = distance(P1, P3);
-      double s = (d12 + d23 + d13) / 2;
+  // Compute edge vectors and distances
+  Vector2d V12 = P2 - P1;
+  Vector2d V23 = P3 - P2;
+  Vector2d V13 = P3 - P1;
+  double d12 = distance(P1, P2);
+  double d23 = distance(P2, P3);
+  double d13 = distance(P1, P3);
+  double s = (d12 + d23 + d13) / 2;
 
-      // Calculate aspect ratio based on the circumradius and inradius as per:
-      // https://stackoverflow.com/questions/10289752/aspect-ratio-of-a-triangle-of-a-meshed-surface
-      AspectRatios[0] = (d12 * d23 * d13) / (8 * (s - d12) * (s - d23) * (s - d13));
-    }
+  // Calculate aspect ratio based on the circumradius and inradius as per:
+  // https://stackoverflow.com/questions/10289752/aspect-ratio-of-a-triangle-of-a-meshed-surface
+  AspectRatios[0] = (d12 * d23 * d13) / (8 * (s - d12) * (s - d23) * (s - d13));
+}
 """
 
 
@@ -456,37 +456,37 @@ def get_scaled_jacobian2d():
     cell in a 2D triangular mesh.
     """
     return """
-    #include <Eigen/Dense>
+#include <Eigen/Dense>
 
-    using namespace Eigen;
+using namespace Eigen;
 
-    double distance(Vector2d P1, Vector2d P2)  {
-      return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
-    }
+double distance(Vector2d P1, Vector2d P2)  {
+  return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
+}
 
-    void get_scaled_jacobian(double *SJacobians, double *Coords) {
-      // Map coordinates onto Eigen objects
-      Map<Vector2d> P1((double *) &Coords[0]);
-      Map<Vector2d> P2((double *) &Coords[2]);
-      Map<Vector2d> P3((double *) &Coords[4]);
+void get_scaled_jacobian(double *SJacobians, double *Coords) {
+  // Map coordinates onto Eigen objects
+  Map<Vector2d> P1((double *) &Coords[0]);
+  Map<Vector2d> P2((double *) &Coords[2]);
+  Map<Vector2d> P3((double *) &Coords[4]);
 
-      // Compute edge vectors and distances
-      Vector2d V12 = P2 - P1;
-      Vector2d V23 = P3 - P2;
-      Vector2d V13 = P3 - P1;
-      double d12 = distance(P1, P2);
-      double d23 = distance(P2, P3);
-      double d13 = distance(P1, P3);
+  // Compute edge vectors and distances
+  Vector2d V12 = P2 - P1;
+  Vector2d V23 = P3 - P2;
+  Vector2d V13 = P3 - P1;
+  double d12 = distance(P1, P2);
+  double d23 = distance(P2, P3);
+  double d13 = distance(P1, P3);
 
-      // Definition and calculation reference:
-      // https://cubit.sandia.gov/15.5/help_manual/WebHelp/mesh_generation/mesh_quality_assessment/triangular_metrics.htm
-      // https://www.osti.gov/biblio/5009
-      double sj1 = std::abs(V12[0] * V13[1] - V13[0]*V12[1]) / (d12 * d13);
-      double sj2 = std::abs(V12[0] * V23[1] - V23[0]*V12[1]) / (d12 * d23);
-      double sj3 = std::abs(V23[0] * V13[1] - V13[0]*V23[1]) / (d13 * d23);
-      SJacobians[0] = std::min(sj1, sj2);
-      SJacobians[0] = std::min(sj3, SJacobians[0]);
-    }
+  // Definition and calculation reference:
+  // https://cubit.sandia.gov/15.5/help_manual/WebHelp/mesh_generation/mesh_quality_assessment/triangular_metrics.htm
+  // https://www.osti.gov/biblio/5009
+  double sj1 = std::abs(V12[0] * V13[1] - V13[0]*V12[1]) / (d12 * d13);
+  double sj2 = std::abs(V12[0] * V23[1] - V23[0]*V12[1]) / (d12 * d23);
+  double sj3 = std::abs(V23[0] * V13[1] - V13[0]*V23[1]) / (d13 * d23);
+  SJacobians[0] = std::min(sj1, sj2);
+  SJacobians[0] = std::min(sj3, SJacobians[0]);
+}
 """
 
 
@@ -496,52 +496,53 @@ def get_skewness2d():
     in a 2D triangular mesh.
     """
     return """
-    #include <Eigen/Dense>
+#include <Eigen/Dense>
 
-    using namespace Eigen;
+using namespace Eigen;
 
-    double distance(Vector2d P1, Vector2d P2)  {
-      return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
-    }
+double distance(Vector2d P1, Vector2d P2)  {
+  return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
+}
 
-    void get_skewness(double *Skews, double *Coords) {
-      double pi = 3.14159265358979323846;
-      // Map coordinates onto Eigen objects
-      Map<Vector2d> P1((double *) &Coords[0]);
-      Map<Vector2d> P2((double *) &Coords[2]);
-      Map<Vector2d> P3((double *) &Coords[4]);
+void get_skewness(double *Skews, double *Coords) {
+  // Map coordinates onto Eigen objects
+  Map<Vector2d> P1((double *) &Coords[0]);
+  Map<Vector2d> P2((double *) &Coords[2]);
+  Map<Vector2d> P3((double *) &Coords[4]);
 
-      // Calculating in accordance with:
-      // https://www.engmorph.com/skewness-finite-elemnt
-      Vector2d midPoint1 = P2 + (P3 - P2) / 2;
-      Vector2d midPoint2 = P3 + (P1 - P3) / 2;
-      Vector2d midPoint3 = P1 + (P2 - P1) / 2;
+  // Calculating in accordance with:
+  // https://www.engmorph.com/skewness-finite-elemnt
+  Vector2d midPoint1 = P2 + (P3 - P2) / 2;
+  Vector2d midPoint2 = P3 + (P1 - P3) / 2;
+  Vector2d midPoint3 = P1 + (P2 - P1) / 2;
+  double pi = 3.14159265358979323846;
 
-      Vector2d lineNormal1 = midPoint1 - P1;
-      Vector2d lineOrth1 = midPoint3 - midPoint2;
-      double t1 = acos (lineNormal1.dot(lineOrth1) / (distance(P1, midPoint1) * distance(midPoint2, midPoint3)));
-      double t2 = pi - t1;
-      double tMin = std::min(t1, t2);
+  Vector2d lineNormal1 = midPoint1 - P1;
+  Vector2d lineOrth1 = midPoint3 - midPoint2;
+  double t1 = acos (lineNormal1.dot(lineOrth1) / (distance(P1, midPoint1) * distance(midPoint2, midPoint3)));
+  double t2 = pi - t1;
+  double tMin = std::min(t1, t2);
 
-      Vector2d lineNormal2 = midPoint2 - P2;
-      Vector2d lineOrth2 = midPoint1 - midPoint3;
-      double t3 = acos (lineNormal2.dot(lineOrth2) / (distance(P2, midPoint2) * distance(midPoint1, midPoint3)));
-      double t4 = std::min(t3, pi - t3);
-      tMin = std::min(tMin, t4);
+  Vector2d lineNormal2 = midPoint2 - P2;
+  Vector2d lineOrth2 = midPoint1 - midPoint3;
+  double t3 = acos (lineNormal2.dot(lineOrth2) / (distance(P2, midPoint2) * distance(midPoint1, midPoint3)));
+  double t4 = std::min(t3, pi - t3);
+  tMin = std::min(tMin, t4);
 
-      Vector2d lineNormal3 = midPoint3 - P3;
-      Vector2d lineOrth3 = midPoint2 - midPoint1;
-      double t5 = acos (lineNormal3.dot(lineOrth3) / (distance(P3, midPoint3) * distance(midPoint1, midPoint2)));
-      double t6 = std::min(t3, pi - t5);
-      tMin = std::min(tMin, t6);
+  Vector2d lineNormal3 = midPoint3 - P3;
+  Vector2d lineOrth3 = midPoint2 - midPoint1;
+  double t5 = acos (lineNormal3.dot(lineOrth3) / (distance(P3, midPoint3) * distance(midPoint1, midPoint2)));
+  double t6 = std::min(t3, pi - t5);
+  tMin = std::min(tMin, t6);
 
-      Skews[0] = pi/2 - tMin;
-    }
+  Skews[0] = pi/2 - tMin;
+}
 """
+
 
 def get_metric2d():
     """
-    Given a matrix M, a linear function in 2 dimensions, 
+    Given a matrix M, a linear function in 2 dimensions,
     this function outputs the value of the Quality metric Q_M
     based on the transformation encoded in M.
     The suggested use case is to create the matrix M,
@@ -549,45 +550,46 @@ def get_metric2d():
     its corresponding cell_node_map() to this kernel.
     """
     return """
-    #include <Eigen/Dense>
+#include <Eigen/Dense>
 
-    using namespace Eigen;
+using namespace Eigen;
 
-    double distance(Vector2d P1, Vector2d P2)  {
-      return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
-    }
+double distance(Vector2d P1, Vector2d P2)  {
+  return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
+}
 
-    void get_metric(double *Metrics, const double *T_, double *Coords) {
-        // Map coordinates onto Eigen objects
-        Map<Vector2d> P1((double *) &Coords[0]);
-        Map<Vector2d> P2((double *) &Coords[2]);
-        Map<Vector2d> P3((double *) &Coords[4]);
-        
-        // Compute edge vectors and distances
-        Vector2d V12 = P2 - P1;
-        Vector2d V23 = P3 - P2;
-        Vector2d V13 = P3 - P1;
-        double d12 = distance(P1, P2);
-        double d23 = distance(P2, P3);
-        double d13 = distance(P1, P3);
-        double s = (d12 + d23 + d13) / 2;
-        double area = sqrt(s * (s-d12) * (s-d13) * (s-d23));
+void get_metric(double *Metrics, const double *T_, double *Coords) {
+    // Map coordinates onto Eigen objects
+    Map<Vector2d> P1((double *) &Coords[0]);
+    Map<Vector2d> P2((double *) &Coords[2]);
+    Map<Vector2d> P3((double *) &Coords[4]);
 
-        // Map tensor  function as 2x2 Matrices
-        Map<Matrix2d> M1((double *) &T_[0]);
-        Map<Matrix2d> M2((double *) &T_[4]);
-        Map<Matrix2d> M3((double *) &T_[8]);
+    // Compute edge vectors and distances
+    Vector2d V12 = P2 - P1;
+    Vector2d V23 = P3 - P2;
+    Vector2d V13 = P3 - P1;
+    double d12 = distance(P1, P2);
+    double d23 = distance(P2, P3);
+    double d13 = distance(P1, P3);
+    double s = (d12 + d23 + d13) / 2;
+    double area = sqrt(s * (s-d12) * (s-d13) * (s-d23));
 
-        // Compute M(x, y) at centroid x_c to get area_M
-        Matrix2d Mxc = (M1 + M2 + M3) / 3;
-        double areaM = area * sqrt(Mxc.determinant());
-        
-        // Compute edge lengths in metric
-        double l1 = V23.dot(((M2 + M3)/2) * V23);
-        double l2 = V13.dot(((M1 + M3)/2) * V13);
-        double l3 = V12.dot(((M1 + M2)/2) * V12);
+    // Map tensor  function as 2x2 Matrices
+    Map<Matrix2d> M1((double *) &T_[0]);
+    Map<Matrix2d> M2((double *) &T_[4]);
+    Map<Matrix2d> M3((double *) &T_[8]);
 
-        // Calculated using Q_M formula in 2D
-        Metrics[0] = sqrt(3) * (l1 + l2 + l3) / (2 * areaM);
-    }
+    // Compute M(x, y) at centroid x_c to get area_M
+    Matrix2d Mxc = (M1 + M2 + M3) / 3;
+    double areaM = area * sqrt(Mxc.determinant());
+
+    // Compute (squared) edge lengths in metric space
+    double L1 = V23.dot(((M2 + M3)/2) * V23);
+    double L2 = V13.dot(((M1 + M3)/2) * V13);
+    double L3 = V12.dot(((M1 + M2)/2) * V12);
+
+    // Calculated using Q_M formula in 2D, reference:
+    // https://epubs.siam.org/doi/10.1137/090754078
+    Metrics[0] = sqrt(3) * (L1 + L2 + L3) / (2 * areaM);
+}
 """
