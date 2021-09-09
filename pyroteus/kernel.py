@@ -488,3 +488,106 @@ def get_scaled_jacobian2d():
       SJacobians[0] = std::min(sj3, SJacobians[0]);
     }
 """
+
+
+def get_skewness2d():
+    """
+    Compute the skewness of each cell
+    in a 2D triangular mesh.
+    """
+    return """
+    #include <Eigen/Dense>
+
+    using namespace Eigen;
+
+    double distance(Vector2d P1, Vector2d P2)  {
+      return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
+    }
+
+    void get_skewness(double *Skews, double *Coords) {
+      double pi = 3.14159265358979323846;
+      // Map coordinates onto Eigen objects
+      Map<Vector2d> P1((double *) &Coords[0]);
+      Map<Vector2d> P2((double *) &Coords[2]);
+      Map<Vector2d> P3((double *) &Coords[4]);
+
+      // Calculating in accordance with:
+      // https://www.engmorph.com/skewness-finite-elemnt
+      Vector2d midPoint1 = P2 + (P3 - P2) / 2;
+      Vector2d midPoint2 = P3 + (P1 - P3) / 2;
+      Vector2d midPoint3 = P1 + (P2 - P1) / 2;
+
+      Vector2d lineNormal1 = midPoint1 - P1;
+      Vector2d lineOrth1 = midPoint3 - midPoint2;
+      double t1 = acos (lineNormal1.dot(lineOrth1) / (distance(P1, midPoint1) * distance(midPoint2, midPoint3)));
+      double t2 = pi - t1;
+      double tMin = std::min(t1, t2);
+
+      Vector2d lineNormal2 = midPoint2 - P2;
+      Vector2d lineOrth2 = midPoint1 - midPoint3;
+      double t3 = acos (lineNormal2.dot(lineOrth2) / (distance(P2, midPoint2) * distance(midPoint1, midPoint3)));
+      double t4 = std::min(t3, pi - t3);
+      tMin = std::min(tMin, t4);
+
+      Vector2d lineNormal3 = midPoint3 - P3;
+      Vector2d lineOrth3 = midPoint2 - midPoint1;
+      double t5 = acos (lineNormal3.dot(lineOrth3) / (distance(P3, midPoint3) * distance(midPoint1, midPoint2)));
+      double t6 = std::min(t3, pi - t5);
+      tMin = std::min(tMin, t6);
+
+      Skews[0] = pi/2 - tMin;
+    }
+"""
+
+def get_metric2d():
+    """
+    Given a matrix M, a linear function in 2 dimensions, 
+    this function outputs the value of the Quality metric Q_M
+    based on the transformation encoded in M.
+    The suggested use case is to create the matrix M,
+    interpolate to all vertices of the mesh and pass it with
+    its corresponding cell_node_map() to this kernel.
+    """
+    return """
+    #include <Eigen/Dense>
+
+    using namespace Eigen;
+
+    double distance(Vector2d P1, Vector2d P2)  {
+      return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2));
+    }
+
+    void get_metric(double *Metrics, const double *T_, double *Coords) {
+        // Map coordinates onto Eigen objects
+        Map<Vector2d> P1((double *) &Coords[0]);
+        Map<Vector2d> P2((double *) &Coords[2]);
+        Map<Vector2d> P3((double *) &Coords[4]);
+        
+        // Compute edge vectors and distances
+        Vector2d V12 = P2 - P1;
+        Vector2d V23 = P3 - P2;
+        Vector2d V13 = P3 - P1;
+        double d12 = distance(P1, P2);
+        double d23 = distance(P2, P3);
+        double d13 = distance(P1, P3);
+        double s = (d12 + d23 + d13) / 2;
+        double area = sqrt(s * (s-d12) * (s-d13) * (s-d23));
+
+        // Map tensor  function as 2x2 Matrices
+        Map<Matrix2d> M1((double *) &T_[0]);
+        Map<Matrix2d> M2((double *) &T_[4]);
+        Map<Matrix2d> M3((double *) &T_[8]);
+
+        // Compute M(x, y) at centroid x_c to get area_M
+        Matrix2d Mxc = (M1 + M2 + M3) / 3;
+        double areaM = area * sqrt(Mxc.determinant());
+        
+        // Compute edge lengths in metric
+        double l1 = V23.dot(((M2 + M3)/2) * V23);
+        double l2 = V13.dot(((M1 + M3)/2) * V13);
+        double l3 = V12.dot(((M1 + M2)/2) * V12);
+
+        // Calculated using Q_M formula in 2D
+        Metrics[0] = sqrt(3) * (l1 + l2 + l3) / (2 * areaM);
+    }
+"""
