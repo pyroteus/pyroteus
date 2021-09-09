@@ -38,7 +38,6 @@ def get_areas2d(mesh):
     return areas
 
 
-
 def get_aspect_ratios2d(mesh):
     """
     Computes the aspect ratio of each cell in a 2D triangular mesh
@@ -113,8 +112,8 @@ def get_scaled_jacobians2d(mesh):
 
 def get_quality_metrics2d(mesh, M):
     """
-    Given a matrix M, a linear function in 2 dimensions, this function 
-    outputs the value of the Quality metric Q_M based on the 
+    Given a matrix M, a linear function in 2 dimensions, this function
+    outputs the value of the Quality metric Q_M based on the
     transformation encoded in M.
 
     :param mesh: the input mesh to do computations on
