@@ -450,7 +450,7 @@ void get_volume3d(double *Volumes, double *Coords) {
   Map<Vector3d> P3((double *) &Coords[6]);
   Map<Vector3d> P4((double *) &Coords[9]);
 
-  // Compute edge vectors and distances
+  // Compute edge vectors
   Vector3d V12 = P2 - P1;
   Vector3d V13 = P3 - P1;
   Vector3d V14 = P4 - P1;
@@ -522,7 +522,6 @@ def get_eskew3d():
     """
     return """
 #include <Eigen/Dense>
-#include <iostream>
 
 using namespace Eigen;
 
@@ -612,6 +611,72 @@ void get_aspect_ratio2d(double *AspectRatios, double *Coords) {
   // Calculate aspect ratio based on the circumradius and inradius as per:
   // https://stackoverflow.com/questions/10289752/aspect-ratio-of-a-triangle-of-a-meshed-surface
   AspectRatios[0] = (d12 * d23 * d13) / (8 * (s - d12) * (s - d23) * (s - d13));
+}
+"""
+
+
+def get_aspect_ratio3d():
+    """
+    Compute the aspect ratio of each cell
+    in a 3D tetrahedral mesh.
+    """
+    return """
+#include <Eigen/Dense>
+
+using namespace Eigen;
+
+double distance(Vector3d P1, Vector3d P2) {
+  return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2) + pow(P1[2] - P2[2], 2));
+}
+
+void get_aspect_ratio3d(double *AspectRatios, double *Coords) {
+  // Map coordinates onto Eigen objects
+  Map<Vector3d> P1((double *) &Coords[0]);
+  Map<Vector3d> P2((double *) &Coords[3]);
+  Map<Vector3d> P3((double *) &Coords[6]);
+  Map<Vector3d> P4((double *) &Coords[9]);
+
+  // Compute edge vectors and distances
+  Vector3d V12 = P2 - P1;
+  Vector3d V13 = P3 - P1;
+  Vector3d V14 = P4 - P1;
+  Vector3d V23 = P3 - P2;
+  Vector3d V24 = P4 - P2;
+  Vector3d V34 = P4 - P3;
+
+  double d12 = distance(P1, P2);
+  double d13 = distance(P1, P3);
+  double d14 = distance(P1, P4);
+  double d23 = distance(P2, P3);
+  double d24 = distance(P2, P4);
+  double d34 = distance(P3, P4);
+
+  Matrix3d volumeMatrix;
+  for (int i = 0; i < 3; i++) {
+    volumeMatrix(0, i) = V12[i];
+    volumeMatrix(1, i) = V13[i];
+    volumeMatrix(2, i) = V14[i];
+  }
+  double volume = std::abs(volumeMatrix.determinant() / 6);
+
+  // Reference for inradius and circumradius calculations on the tetrahedron
+  // https://en.wikipedia.org/wiki/Tetrahedron#Inradius
+  double cir_radius = sqrt((d12 * d34 + d13 * d24 + d14 * d23) *
+                           (d12 * d34 + d13 * d24 - d14 * d23) *
+                           (d12 * d34 - d13 * d24 + d14 * d23) *
+                           (-d12 * d34 + d13 * d24 + d14 * d23)) / (24 * volume);
+  
+  double s1 = (d23 + d24 + d34) / 2;
+  double s2 = (d13 + d14 + d34) / 2;
+  double s3 = (d12 + d14 + d24) / 2;
+  double s4 = (d12 + d13 + d23) / 2;
+  double f_area1 = sqrt(s1 * (s1 - d23) * (s1 - d24) * (s1 - d34));
+  double f_area2 = sqrt(s2 * (s2 - d13) * (s2 - d14) * (s2 - d34));
+  double f_area3 = sqrt(s3 * (s3 - d12) * (s3 - d14) * (s3 - d24));
+  double f_area4 = sqrt(s4 * (s4 - d12) * (s4 - d13) * (s4 - d23));
+  double in_radius = 3 * volume / (f_area1 + f_area2 + f_area3 + f_area4);
+  
+  AspectRatios[0] = cir_radius / (3 * in_radius);
 }
 """
 

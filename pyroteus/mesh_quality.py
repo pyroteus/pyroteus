@@ -120,6 +120,28 @@ def get_aspect_ratios2d(mesh, python=False):
     return aspect_ratios
 
 
+def get_aspect_ratios3d(mesh, python=False):
+    """
+    Computes the aspect ratio of each cell in a 2D triangular mesh
+
+    :arg mesh: the input mesh to do computations on
+    :kwarg python: compute the measure using Python?
+
+    :rtype: firedrake.function.Function aspect_ratios with
+    aspect ratio data
+    """
+    P0 = FunctionSpace(mesh, "DG", 0)
+    if python:
+        raise NotImplementedError
+    else:
+        coords = mesh.coordinates
+        aspect_ratios = Function(P0)
+        kernel = eigen_kernel(get_aspect_ratio3d)
+        op2.par_loop(kernel, mesh.cell_set, aspect_ratios.dat(op2.WRITE, aspect_ratios.cell_node_map()),
+                     coords.dat(op2.READ, coords.cell_node_map()))
+    return aspect_ratios
+
+
 def get_eskews2d(mesh, python=False):
     """
     Computes the equiangle skew of each cell in a 2D triangular mesh
