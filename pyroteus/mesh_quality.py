@@ -176,14 +176,3 @@ def get_quality_metrics2d(mesh, metric, python=False):
                      metric.dat(op2.READ, metric.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
     return quality
-
-
-if __name__ == "__main__":
-    mesh = UnitSquareMesh(4, 4)
-    mesh.coordinates.dat.data[:] += np.random.rand(*mesh.coordinates.dat.data.shape)
-    f = get_aspect_ratios2d
-    q = np.array(f(mesh).dat.data, dtype=float)
-    qp = np.array(f(mesh, python=True).dat.data, dtype=float)
-    print(q)
-    print(qp)
-    print(np.allclose(q, qp))
