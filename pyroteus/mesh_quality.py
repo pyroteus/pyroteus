@@ -153,14 +153,14 @@ def get_scaled_jacobians2d(mesh, python=False):
     return scaled_jacobians
 
 
-def get_quality_metrics2d(mesh, M, python=False):
+def get_quality_metrics2d(mesh, metric, python=False):
     """
-    Given a matrix M, a linear function in 2 dimensions, this function
+    Given a Riemannian metric, M, this function
     outputs the value of the Quality metric Q_M based on the
     transformation encoded in M.
 
     :arg mesh: the input mesh to do computations on
-    :arg M: the (2 x 2) matrix representing the metric space transformation
+    :arg M: the (2 x 2) matrix field representing the metric space transformation
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function metrics with metric data.
@@ -169,15 +169,13 @@ def get_quality_metrics2d(mesh, M, python=False):
     if python:
         raise NotImplementedError
     else:
-        P1_ten = TensorFunctionSpace(mesh, "CG", 1)
         coords = mesh.coordinates
-        tensor = interpolate(as_matrix(M), P1_ten)
-        metrics = Function(P0)
+        quality = Function(P0)
         kernel = eigen_kernel(get_metric2d)
-        op2.par_loop(kernel, mesh.cell_set, metrics.dat(op2.WRITE, metrics.cell_node_map()),
-                     tensor.dat(op2.READ, tensor.cell_node_map()),
+        op2.par_loop(kernel, mesh.cell_set, quality.dat(op2.WRITE, quality.cell_node_map()),
+                     metric.dat(op2.READ, metric.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
-    return metrics
+    return quality
 
 
 if __name__ == "__main__":
