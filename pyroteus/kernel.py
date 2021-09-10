@@ -337,6 +337,67 @@ void get_min_angle2d(double *MinAngles, double *Coords) {
 """
 
 
+def get_min_angle3d():
+    """
+    Compute the minimum angle of each cell
+    in a 3D tetrahedral mesh.
+    """
+    return """
+#include <Eigen/Dense>
+
+using namespace Eigen;
+
+double distance(Vector3d P1, Vector3d P2) {
+  return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2) + pow(P1[2] - P2[2], 2));
+}
+
+void get_min_angle3d(double *MinAngles, double *Coords) {
+  // Map coordinates onto Eigen objects
+  Map<Vector3d> P1((double *) &Coords[0]);
+  Map<Vector3d> P2((double *) &Coords[3]);
+  Map<Vector3d> P3((double *) &Coords[6]);
+  Map<Vector3d> P4((double *) &Coords[9]);
+
+  // Compute edge vectors and distances
+  Vector3d V12 = P2 - P1;
+  Vector3d V13 = P3 - P1;
+  Vector3d V14 = P4 - P1;
+  Vector3d V23 = P3 - P2;
+  Vector3d V24 = P4 - P2;
+  Vector3d V34 = P4 - P3;
+
+  double d12 = distance(P1, P2);
+  double d13 = distance(P1, P3);
+  double d14 = distance(P1, P4);
+  double d23 = distance(P2, P3);
+  double d24 = distance(P2, P4);
+  double d34 = distance(P3, P4);
+
+  double angles[12];
+  // Compute angles from cosine formula
+  angles[0] = acos(V13.dot(V14) / (d13 * d14));
+  angles[1] = acos(V12.dot(V14) / (d12 * d14));
+  angles[2] = acos(V13.dot(V12) / (d13 * d12));
+  angles[3] = acos(V23.dot(V24) / (d23 * d24));
+  angles[4] = acos(-V12.dot(V24) / (d12 * d24));
+  angles[5] = acos(-V12.dot(V23) / (d12 * d23));
+  angles[6] = acos(-V23.dot(V34) / (d23 * d34));
+  angles[7] = acos(-V13.dot(V34) / (d13 * d34));
+  angles[8] = acos(V13.dot(V23) / (d13 * d23));
+  angles[9] = acos(V24.dot(V34) / (d24 * d34));
+  angles[10] = acos(V14.dot(V34) / (d14 * d34));
+  angles[11] = acos(V14.dot(V24) / (d14 * d24));
+
+  double aMin = 3.14;
+  for (int i = 0; i < 12; i++) {
+    aMin = std::min(aMin, angles[i]);
+  }
+
+  MinAngles[0] = aMin;
+}
+"""
+
+
 def get_area2d():
     """
     Compute the area of each cell

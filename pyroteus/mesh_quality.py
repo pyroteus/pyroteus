@@ -24,6 +24,28 @@ def get_min_angles2d(mesh, python=False):
     return min_angles
 
 
+def get_min_angles3d(mesh, python=False):
+    """
+    Computes the minimum angle of each cell in a 3D tetrahedral mesh
+
+    :arg mesh: the input mesh to do computations on
+    :kwarg python: compute the measure using Python?
+
+    :rtype: firedrake.function.Function min_angles with
+    minimum angle data
+    """
+    P0 = FunctionSpace(mesh, "DG", 0)
+    if python:
+        raise NotImplementedError
+    else:
+        coords = mesh.coordinates
+        min_angles = Function(P0)
+        kernel = eigen_kernel(get_min_angle3d)
+        op2.par_loop(kernel, mesh.cell_set, min_angles.dat(op2.WRITE, min_angles.cell_node_map()),
+                     coords.dat(op2.READ, coords.cell_node_map()))
+    return min_angles
+
+
 def get_areas2d(mesh, python=False):
     """
     Computes the area of each cell in a 2D triangular mesh

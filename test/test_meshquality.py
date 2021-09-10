@@ -30,7 +30,7 @@ def test_uniform_quality_2d(measure, expected):
     """
     measure = getattr(mq, measure)
     mesh = UnitSquareMesh(10, 10)
-    if measure == "get_quality_metrics2d":
+    if measure.__name__ == "get_quality_metrics2d":
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
         M = interpolate(Identity(2), P1_ten)
         q = measure(mesh, M)
@@ -38,8 +38,29 @@ def test_uniform_quality_2d(measure, expected):
         q = measure(mesh)
     true_vals = np.array([expected for _ in q.dat.data])
     assert np.allclose(true_vals, q.dat.data)
-    if measure == "get_areas2d":
+    if measure.__name__ == "get_areas2d":
         assert np.isclose(sum(q.dat.data), 1)
+
+
+@pytest.mark.parametrize("measure, expected",
+                        [
+                           ("get_min_angles3d", 0.61547971)
+                        ],
+                        ids=[
+                           "minimum_angle_2d"
+                        ]
+                        )
+def test_uniform_quality_3d(measure, expected):
+    """
+    Check that the computation of each quality measure
+    gives the expected value for a uniform (isotropic)
+    2D triangular mesh.
+    """
+    measure = getattr(mq, measure)
+    mesh = UnitCubeMesh(4, 4, 4)
+    q = measure(mesh)
+    true_vals = np.array([expected for _ in q.dat.data])
+    assert np.allclose(true_vals, q.dat.data)
 
 
 @pytest.mark.parametrize("measure",
