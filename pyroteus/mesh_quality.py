@@ -68,6 +68,28 @@ def get_areas2d(mesh, python=False):
     return areas
 
 
+def get_volumes3d(mesh, python=False):
+    """
+    Computes the area of each cell in a 3D tetrahedral mesh
+
+    :arg mesh: the input mesh to do computations on
+    :kwarg python: compute the measure using Python?
+
+    :rtype: firedrake.function.Function volumes with
+    volume data
+    """
+    P0 = FunctionSpace(mesh, "DG", 0)
+    if python:
+        volumes = interpolate(CellVolume(mesh), P0)
+    else:
+        coords = mesh.coordinates
+        volumes = Function(P0)
+        kernel = eigen_kernel(get_volume3d)
+        op2.par_loop(kernel, mesh.cell_set, volumes.dat(op2.WRITE, volumes.cell_node_map()),
+                     coords.dat(op2.READ, coords.cell_node_map()))
+    return volumes
+
+
 def get_aspect_ratios2d(mesh, python=False):
     """
     Computes the aspect ratio of each cell in a 2D triangular mesh

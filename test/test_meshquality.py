@@ -44,11 +44,13 @@ def test_uniform_quality_2d(measure, expected):
 
 @pytest.mark.parametrize("measure, expected",
                         [
-                           ("get_min_angles3d", 0.61547971)
+                           ("get_min_angles3d", 0.61547971),
+                           ("get_volumes3d", 0.00260417)
                         ],
                         ids=[
-                           "minimum_angle_2d"
-                        ]
+                           "minimum_angle_3d",
+                           "volume3d"
+                            ]
                         )
 def test_uniform_quality_3d(measure, expected):
     """

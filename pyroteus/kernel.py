@@ -429,6 +429,46 @@ void get_area2d(double *Areas, double *Coords) {
 """
 
 
+def get_volume3d():
+    """
+    Compute the volume of each cell in
+    a 3D tetrahedral mesh.
+    """
+    return """
+#include <Eigen/Dense>
+
+using namespace Eigen;
+
+double distance(Vector3d P1, Vector3d P2) {
+  return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2) + pow(P1[2] - P2[2], 2));
+}
+
+void get_volume3d(double *Volumes, double *Coords) {
+  // Map coordinates onto Eigen objects
+  Map<Vector3d> P1((double *) &Coords[0]);
+  Map<Vector3d> P2((double *) &Coords[3]);
+  Map<Vector3d> P3((double *) &Coords[6]);
+  Map<Vector3d> P4((double *) &Coords[9]);
+
+  // Compute edge vectors and distances
+  Vector3d V12 = P2 - P1;
+  Vector3d V13 = P3 - P1;
+  Vector3d V14 = P4 - P1;
+  Vector3d V23 = P3 - P2;
+  Vector3d V24 = P4 - P2;
+  Vector3d V34 = P4 - P3;
+
+  Matrix3d volumeMatrix;
+  for (int i = 0; i < 3; i++) {
+    volumeMatrix(0, i) = V12[i];
+    volumeMatrix(1, i) = V13[i];
+    volumeMatrix(2, i) = V14[i];
+  }
+  Volumes[0] = std::abs(volumeMatrix.determinant() / 6);
+}
+"""
+
+
 def get_eskew2d():
     """
     Compute the area of each cell
