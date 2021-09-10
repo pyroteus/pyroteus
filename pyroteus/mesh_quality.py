@@ -142,6 +142,28 @@ def get_eskews2d(mesh, python=False):
     return eskews
 
 
+def get_eskews3d(mesh, python=False):
+    """
+    Computes the equiangle skew of each cell in a 3D tetrahedral mesh
+
+    :arg mesh: the input mesh to do computations on
+    :kwarg python: compute the measure using Python?
+
+    :rtype: firedrake.function.Function eskews with equiangle skew
+    data.
+    """
+    P0 = FunctionSpace(mesh, "DG", 0)
+    if python:
+        raise NotImplementedError
+    else:
+        coords = mesh.coordinates
+        eskews = Function(P0)
+        kernel = eigen_kernel(get_eskew3d)
+        op2.par_loop(kernel, mesh.cell_set, eskews.dat(op2.WRITE, eskews.cell_node_map()),
+                     coords.dat(op2.READ, coords.cell_node_map()))
+    return eskews
+
+
 def get_skewnesses2d(mesh, python=False):
     """
     Computes the skewness of each cell in a 2D triangular mesh

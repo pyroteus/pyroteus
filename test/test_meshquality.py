@@ -45,13 +45,14 @@ def test_uniform_quality_2d(measure, expected):
 @pytest.mark.parametrize("measure, expected",
                         [
                            ("get_min_angles3d", 0.61547971),
-                           ("get_volumes3d", 0.00260417)
+                           ("get_volumes3d", 0.00260417),
+                           ("get_eskews3d", 0.41226017)
                         ],
                         ids=[
                            "minimum_angle_3d",
-                           "volume3d"
-                            ]
-                        )
+                           "volume3d",
+                           "eskew3d"
+                        ])
 def test_uniform_quality_3d(measure, expected):
     """
     Check that the computation of each quality measure
