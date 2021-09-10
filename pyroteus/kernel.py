@@ -721,6 +721,76 @@ void get_scaled_jacobian2d(double *SJacobians, double *Coords) {
 """
 
 
+def get_scaled_jacobian3d():
+    """
+    Compute the scaled jacobian of each cell
+    in a 3D tetrahedral mesh.
+    """
+    return """
+#include <Eigen/Dense>
+#include <iostream>
+
+using namespace Eigen;
+
+double distance(Vector3d P1, Vector3d P2) {
+  return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2) + pow(P1[2] - P2[2], 2));
+}
+
+void get_scaled_jacobian3d(double *SJacobians, double *Coords) {
+  // Map coordinates onto Eigen objects
+  Map<Vector3d> P1((double *) &Coords[0]);
+  Map<Vector3d> P2((double *) &Coords[3]);
+  Map<Vector3d> P3((double *) &Coords[6]);
+  Map<Vector3d> P4((double *) &Coords[9]);
+
+  // Compute edge vectors and distances
+  Vector3d V12 = P2 - P1;
+  Vector3d V13 = P3 - P1;
+  Vector3d V14 = P4 - P1;
+  Vector3d V23 = P3 - P2;
+  Vector3d V24 = P4 - P2;
+  Vector3d V34 = P4 - P3;
+
+  double d12 = distance(P1, P2);
+  double d13 = distance(P1, P3);
+  double d14 = distance(P1, P4);
+  double d23 = distance(P2, P3);
+  double d24 = distance(P2, P4);
+  double d34 = distance(P3, P4);
+
+  Matrix3d M1, M2, M3, M4;
+  double sj[4];
+  for (int i = 0; i < 3; i++) {
+    M1(0, i) = V12[i];
+    M1(1, i) = V13[i];
+    M1(2, i) = V14[i];
+
+    M2(0, i) = -V12[i];
+    M2(1, i) = V23[i];
+    M2(2, i) = V24[i];
+
+    M3(0, i) = -V13[i];
+    M3(1, i) = -V23[i];
+    M3(2, i) = V34[i];
+
+    M4(0, i) = -V14[i];
+    M4(1, i) = -V24[i];
+    M4(2, i) = -V34[i];
+  }
+  sj[0] = std::abs(M1.determinant()) / (d12 * d13 * d14);
+  sj[1] = std::abs(M2.determinant()) / (d12 * d23 * d24);
+  sj[2] = std::abs(M3.determinant()) / (d13 * d23 * d34);
+  sj[3] = std::abs(M4.determinant()) / (d14 * d24 * d34);
+  
+  std::cout << V12[0] << std::endl;
+
+  SJacobians[0] = std::min(sj[0], sj[1]);
+  SJacobians[0] = std::min(SJacobians[0], sj[2]);
+  SJacobians[0] = std::min(SJacobians[0], sj[3]);
+}
+"""
+
+
 def get_skewness2d():
     """
     Compute the skewness of each cell

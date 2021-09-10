@@ -47,13 +47,15 @@ def test_uniform_quality_2d(measure, expected):
                            ("get_min_angles3d", 0.61547971),
                            ("get_volumes3d", 0.00260417),
                            ("get_eskews3d", 0.41226017),
-                           ("get_aspect_ratios3d", 1.39384685)
+                           ("get_aspect_ratios3d", 1.39384685),
+                           ("get_scaled_jacobians3d", 0.40824829)
                         ],
                         ids=[
                            "minimum_angle_3d",
                            "volume3d",
                            "eskew3d",
-                           "aspect_ratio3d"
+                           "aspect_ratio3d",
+                           "scaled_jacobian3d"
                         ])
 def test_uniform_quality_3d(measure, expected):
     """

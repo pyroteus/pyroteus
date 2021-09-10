@@ -241,6 +241,28 @@ def get_scaled_jacobians2d(mesh, python=False):
     return scaled_jacobians
 
 
+def get_scaled_jacobians3d(mesh, python=False):
+    """
+    Computes the scaled Jacobian of each cell in a 3D tetrahedral
+
+    :arg mesh: the input mesh to do computations on
+    :kwarg python: compute the measure using Python?
+
+    :rtype: firedrake.function.Function scaled_jacobians with scaled
+    jacobian data.
+    """
+    P0 = FunctionSpace(mesh, "DG", 0)
+    if python:
+        raise NotImplementedError
+    else:
+        coords = mesh.coordinates
+        scaled_jacobians = Function(P0)
+        kernel = eigen_kernel(get_scaled_jacobian3d)
+        op2.par_loop(kernel, mesh.cell_set, scaled_jacobians.dat(op2.WRITE, scaled_jacobians.cell_node_map()),
+                     coords.dat(op2.READ, coords.cell_node_map()))
+    return scaled_jacobians
+
+
 def get_quality_metrics2d(mesh, metric, python=False):
     """
     Given a Riemannian metric, M, this function
