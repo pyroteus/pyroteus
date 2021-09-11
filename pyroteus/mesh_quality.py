@@ -208,6 +208,19 @@ def get_skewnesses2d(mesh, python=False):
     return skews
 
 
+def get_skewnesses3d(mesh, python=False):
+    """
+    Computes the skewness of each cell in a 2D triangular mesh
+
+    :arg mesh: the input mesh to do computations on
+    :kwarg python: compute the measure using Python?
+
+    :rtype: firedrake.function.Function skews with skewness
+    data.
+    """
+    raise NotImplementedError
+
+
 def get_scaled_jacobians2d(mesh, python=False):
     """
     Computes the scaled Jacobian of each cell in a 2D triangular mesh
@@ -282,6 +295,31 @@ def get_quality_metrics2d(mesh, metric, python=False):
         coords = mesh.coordinates
         quality = Function(P0)
         kernel = eigen_kernel(get_metric2d)
+        op2.par_loop(kernel, mesh.cell_set, quality.dat(op2.WRITE, quality.cell_node_map()),
+                     metric.dat(op2.READ, metric.cell_node_map()),
+                     coords.dat(op2.READ, coords.cell_node_map()))
+    return quality
+
+
+def get_quality_metrics3d(mesh, metric, python=False):
+    """
+    Given a Riemannian metric, M, this function
+    outputs the value of the Quality metric Q_M based on the
+    transformation encoded in M.
+
+    :arg mesh: the input mesh to do computations on
+    :arg M: the (3 x 3) matrix field representing the metric space transformation
+    :kwarg python: compute the measure using Python?
+
+    :rtype: firedrake.function.Function metrics with metric data.
+    """
+    P0 = FunctionSpace(mesh, "DG", 0)
+    if python:
+        raise NotImplementedError
+    else:
+        coords = mesh.coordinates
+        quality = Function(P0)
+        kernel = eigen_kernel(get_metric3d)
         op2.par_loop(kernel, mesh.cell_set, quality.dat(op2.WRITE, quality.cell_node_map()),
                      metric.dat(op2.READ, metric.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))

@@ -517,7 +517,7 @@ void get_eskew2d(double *ESkews, double *Coords) {
 
 def get_eskew3d():
     """
-    Compute the equiangle skew of each 
+    Compute the equiangle skew of each
     cell in a 3D tetrahedral mesh.
     """
     return """
@@ -665,7 +665,7 @@ void get_aspect_ratio3d(double *AspectRatios, double *Coords) {
                            (d12 * d34 + d13 * d24 - d14 * d23) *
                            (d12 * d34 - d13 * d24 + d14 * d23) *
                            (-d12 * d34 + d13 * d24 + d14 * d23)) / (24 * volume);
-  
+
   double s1 = (d23 + d24 + d34) / 2;
   double s2 = (d13 + d14 + d34) / 2;
   double s3 = (d12 + d14 + d24) / 2;
@@ -675,7 +675,7 @@ void get_aspect_ratio3d(double *AspectRatios, double *Coords) {
   double f_area3 = sqrt(s3 * (s3 - d12) * (s3 - d14) * (s3 - d24));
   double f_area4 = sqrt(s4 * (s4 - d12) * (s4 - d13) * (s4 - d23));
   double in_radius = 3 * volume / (f_area1 + f_area2 + f_area3 + f_area4);
-  
+
   AspectRatios[0] = cir_radius / (3 * in_radius);
 }
 """
@@ -728,7 +728,6 @@ def get_scaled_jacobian3d():
     """
     return """
 #include <Eigen/Dense>
-#include <iostream>
 
 using namespace Eigen;
 
@@ -781,8 +780,6 @@ void get_scaled_jacobian3d(double *SJacobians, double *Coords) {
   sj[1] = std::abs(M2.determinant()) / (d12 * d23 * d24);
   sj[2] = std::abs(M3.determinant()) / (d13 * d23 * d34);
   sj[3] = std::abs(M4.determinant()) / (d14 * d24 * d34);
-  
-  std::cout << V12[0] << std::endl;
 
   SJacobians[0] = std::min(sj[0], sj[1]);
   SJacobians[0] = std::min(SJacobians[0], sj[2]);
@@ -892,5 +889,77 @@ void get_metric2d(double *Metrics, const double *T_, double *Coords) {
     // Calculated using Q_M formula in 2D, reference:
     // https://epubs.siam.org/doi/10.1137/090754078
     Metrics[0] = sqrt(3) * (L1 + L2 + L3) / (2 * areaM);
+}
+"""
+
+
+def get_metric3d():
+    """
+    Given a matrix M, a linear function in 3 dimensions,
+    this function outputs the value of the Quality metric Q_M
+    based on the transformation encoded in M.
+    The suggested use case is to create the matrix M,
+    interpolate to all vertices of the mesh and pass it with
+    its corresponding cell_node_map() to this kernel.
+    """
+    return """
+#include <Eigen/Dense>
+
+using namespace Eigen;
+
+double distance(Vector3d P1, Vector3d P2) {
+  return sqrt(pow(P1[0] - P2[0], 2) + pow(P1[1] - P2[1], 2) + pow(P1[2] - P2[2], 2));
+}
+
+void get_metric3d(double *Metrics, const double *T_, double *Coords) {
+  // Map vertices as vectors
+  Map<Vector3d> P1((double *) &Coords[0]);
+  Map<Vector3d> P2((double *) &Coords[3]);
+  Map<Vector3d> P3((double *) &Coords[6]);
+  Map<Vector3d> P4((double *) &Coords[9]);
+
+  // Precompute some vectors, and distances
+  Vector3d V12 = P2 - P1;
+  Vector3d V13 = P3 - P1;
+  Vector3d V14 = P4 - P1;
+  Vector3d V23 = P3 - P2;
+  Vector3d V24 = P4 - P2;
+  Vector3d V34 = P4 - P3;
+
+  double d12 = distance(P1, P2);
+  double d13 = distance(P1, P3);
+  double d14 = distance(P1, P4);
+  double d23 = distance(P2, P3);
+  double d24 = distance(P2, P4);
+  double d34 = distance(P3, P4);
+
+  Matrix3d volMatrix;
+  for (int i = 0; i < 3; i++) {
+    volMatrix(0, i) = V12[i];
+    volMatrix(1, i) = V13[i];
+    volMatrix(2, i) = V14[i];
+  }
+
+  double volume = std::abs(volMatrix.determinant()) / 6;
+
+  // Map tensor as 3x3 Matrices
+  Map<Matrix3d> M1((double *) &T_[0]);
+  Map<Matrix3d> M2((double *) &T_[9]);
+  Map<Matrix3d> M3((double *) &T_[18]);
+  Map<Matrix3d> M4((double *) &T_[27]);
+
+  // Compute M(x, y) at centroid x_c to get area_M
+  Matrix3d Mxc = (M1 + M2 + M3 + M4) / 3;
+  double volumeM = volume * sqrt(Mxc.determinant());
+
+  // Compute (squared) edge lengths in metric
+  double L1 = V12.dot(((M1 + M2)/2) * V12);
+  double L2 = V13.dot(((M1 + M3)/2) * V13);
+  double L3 = V14.dot(((M1 + M4)/2) * V14);
+  double L4 = V23.dot(((M2 + M3)/2) * V23);
+  double L5 = V24.dot(((M2 + M4)/2) * V24);
+  double L6 = V34.dot(((M3 + M4)/2) * V34);
+
+  Metrics[0] = sqrt(3) * (L1 + L2 + L3 + L4 + L5 + L6) / (216 * volumeM);
 }
 """
