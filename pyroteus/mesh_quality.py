@@ -70,7 +70,7 @@ def get_areas2d(mesh, python=False):
 
 def get_volumes3d(mesh, python=False):
     """
-    Computes the area of each cell in a 3D tetrahedral mesh
+    Computes the volume of each cell in a 3D tetrahedral mesh
 
     :arg mesh: the input mesh to do computations on
     :kwarg python: compute the measure using Python?
@@ -122,7 +122,7 @@ def get_aspect_ratios2d(mesh, python=False):
 
 def get_aspect_ratios3d(mesh, python=False):
     """
-    Computes the aspect ratio of each cell in a 2D triangular mesh
+    Computes the aspect ratio of each cell in a 3D tetrahedral mesh
 
     :arg mesh: the input mesh to do computations on
     :kwarg python: compute the measure using Python?

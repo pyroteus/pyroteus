@@ -63,7 +63,7 @@ def test_uniform_quality_3d(measure, expected):
     """
     Check that the computation of each quality measure
     gives the expected value for a uniform (isotropic)
-    2D triangular mesh.
+    3D tetrahedral mesh.
     """
     measure = getattr(mq, measure)
     mesh = UnitCubeMesh(4, 4, 4)
