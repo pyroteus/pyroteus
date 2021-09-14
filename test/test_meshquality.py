@@ -103,3 +103,25 @@ def test_consistency_2d(measure):
     quality_cpp = measure(mesh)
     quality_py = measure(mesh, python=True)
     assert np.allclose(quality_cpp.dat.data, quality_py.dat.data)
+
+
+@pytest.mark.parametrize("measure",
+                         [
+                             ("get_volumes3d")
+                         ],
+                         ids=[
+                             ("volume_3d")
+                         ])
+def test_consistency_3d(measure):
+    """
+    Check that the C++ and Python implementations of the
+    quality measures are consistent for a non-uniform
+    3D tetrahedral mesh.
+    """
+    np.random.seed(0)
+    measure = getattr(mq, measure)
+    mesh = UnitCubeMesh(4, 4, 4)
+    mesh.coordinates.dat.data[:] += np.random.rand(*mesh.coordinates.dat.data.shape)
+    quality_cpp = measure(mesh)
+    quality_py = measure(mesh, python=True)
+    assert np.allclose(quality_cpp.dat.data, quality_py.dat.data)
