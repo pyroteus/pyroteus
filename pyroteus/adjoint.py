@@ -115,7 +115,8 @@ class AdjointMeshSeq(MeshSeq):
             self.J = qoi(sols, **solver_kwargs.get('qoi_kwargs', {}))
         return checkpoints
 
-    def solve_adjoint(self, solver_kwargs={}, get_adj_values=False,
+    def solve_adjoint(self, solver_kwargs={}, adj_solver_kwargs={},
+                      get_adj_values=False,
                       test_checkpoint_qoi=False):
         """
         Solve an adjoint problem on a sequence of subintervals.
@@ -140,6 +141,8 @@ class AdjointMeshSeq(MeshSeq):
         :kwarg solver_kwargs: a dictionary providing parameters
             to the solver. Any keyword arguments for the QoI
             should be included as a subdict with label 'qoi_kwargs'
+        :kwarg adj_solver_kwargs: a dictionary providing parameters
+            to the adjoint solver.
         :kwarg get_adj_values: additionally output adjoint
             actions at exported timesteps
         :kwarg test_checkpoint_qoi: solve over the final
@@ -210,6 +213,11 @@ class AdjointMeshSeq(MeshSeq):
                 with pyadjoint.stop_annotating():
                     for field, fs in function_spaces.items():
                         sols[field].block_variable.adj_value = project(seeds[field], fs[i], adjoint=True)
+
+            # Update adjoint solver kwargs
+            for field in self.fields:
+                for block in self.get_solve_blocks(field, subinterval=i):
+                    block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
             m = pyadjoint.enlisting.Enlist(self.controls)
