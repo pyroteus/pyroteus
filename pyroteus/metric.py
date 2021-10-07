@@ -421,8 +421,9 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     :arg metrics: the metrics to be combined
     :kwarg function_space: the :class:`FunctionSpace`
         the intersected metric should live in
-    :kwarg boundary_tag: boundary segment physical
-        ID for boundary intersection
+    :kwarg boundary_tag: optional boundary segment physical
+        ID for boundary intersection. Otherwise, the
+        intersection is over the whole domain
     """
     n = len(metrics)
     assert n > 0, "Nothing to combine"
@@ -431,7 +432,12 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
         if not isinstance(metric, Function) or metric.function_space() != fs:
             metric = interpolate(metric, function_space)
     intersected_metric = Function(metrics[0])
-    node_set = fs.node_set if boundary_tag is None else DirichletBC(fs, 0, boundary_tag).node_set
+    if boundary_tag is None:
+        node_set = fs.node_set
+    elif boundary_tag == []:
+        raise ValueError(f"It is unclear what to do with an empty list of boundary tags.")
+    else:
+        node_set = DirichletBC(fs, 0, boundary_tag).node_set  # TODO: is there a cleaner way?
     dim = fs.mesh().topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
 
