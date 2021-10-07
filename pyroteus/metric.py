@@ -276,7 +276,7 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
 
 # --- Normalisation
 
-def space_normalise(metric, target, p):
+def space_normalise(metric, target, p, global_factor=None, boundary=False):
     """
     Apply :math:`L^p` normalisation in space alone.
 
@@ -284,18 +284,26 @@ def space_normalise(metric, target, p):
         metric to be normalised.
     :arg target: target metric complexity *in space alone*.
     :arg p: normalisation order.
+    :kwarg global_factor: optional pre-computed global
+        normalisation factor.
+    :kwarg boundary: is the normalisation over the domain
+        boundary?
     """
     assert p == 'inf' or p >= 1.0, f"Norm order {p} not valid"
     d = metric.function_space().mesh().topological_dimension()
+    if boundary:
+        d -= 1
 
     # Compute global normalisation factor
     detM = det(metric)
-    integral = assemble(sqrt(detM)*dx if p == 'inf' else pow(detM, p/(2*p + d))*dx)
-    global_norm = Constant(pow(target/integral, 2/d))
+    if global_factor is None:
+        dX = ds if boundary else dx
+        integral = assemble(sqrt(detM)*dX if p == 'inf' else pow(detM, p/(2*p + d))*dX
+        global_factor = Constant(pow(target/integral, 2/d))
 
     # Normalise
     determinant = 1 if p == 'inf' else pow(det(metric), -1/(2*p + d))
-    metric.interpolate(global_norm*determinant*metric)
+    metric.interpolate(global_factor*determinant*metric)
     return metric
 
 
