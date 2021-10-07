@@ -14,7 +14,7 @@ from . import kernel as kernels
 __all__ = ["metric_complexity", "isotropic_metric", "anisotropic_metric", "hessian_metric",
            "enforce_element_constraints", "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
-           "density_and_quotients", "check_spd"]
+           "determine_metric_complexity", "density_and_quotients", "check_spd"]
 
 
 # --- General
@@ -331,6 +331,41 @@ def space_time_normalise(metrics, end_time, timesteps, target, p):
         determinant = 1 if p == 'inf' else pow(tau**2*det(metric), -1/(2*p + d))
         metric.interpolate(global_norm*determinant*metric)
     return metrics
+
+
+def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
+    """
+    Solve an algebraic problem to obtain coefficients
+    for the interior and boundary metrics to obtain a
+    given metric complexity.
+
+    See [Loseille et al. 2011] for details.
+
+    :arg H_interior: Hessian component from domain interior
+    :arg H_boundary: Hessian component from domain boundary
+    :arg target: target metric complexity
+    :arg p: normalisation order
+    :kwarg H_interior_scaling: optional scaling for interior component
+    :kwarg H_boundary_scaling: optional scaling for boundary component
+    """
+    import sympy
+
+    d = H_interior.function_space().mesh().topological_dimension()
+    assert d in (2, 3)
+    g = kwargs.get('H_interior_scaling', Constant(1.0))
+    gbar = kwargs.get('H_boundary_scaling', Constant(1.0))
+
+    if p == 'inf':
+        a = metric_complexity(H_interior, boundary=False)
+        b = metric_complexity(H_boundary, boundary=True)
+    else:
+        a = assemble(pow(g, d/(2*p + d))*pow(det(H_interior), p/(2*p + d))*dx)
+        b = assemble(pow(gbar, d/(2*p + d - 1))*pow(det(H_boundary), p/(2*p + d - 1))*dx)
+
+    # Solve algebraic problem  # TODO: Explain why this formulation is used
+    c = sympy.Symbol('c')
+    # return float(sympy.solve(a*pow(c, -d/(2*p + d)) + b*pow(c, -d/(2*p + d-1)) - target, c)[0])
+    return float(sympy.solve(a*pow(c, d/2) + b*pow(c, (d-1)/2) - target, c)[0])
 
 
 # --- Combination
