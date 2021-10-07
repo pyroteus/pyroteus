@@ -435,7 +435,7 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     if boundary_tag is None:
         node_set = fs.node_set
     elif boundary_tag == []:
-        raise ValueError(f"It is unclear what to do with an empty list of boundary tags.")
+        raise ValueError("It is unclear what to do with an empty list of boundary tags.")
     else:
         node_set = DirichletBC(fs, 0, boundary_tag).node_set  # TODO: is there a cleaner way?
     dim = fs.mesh().topological_dimension()

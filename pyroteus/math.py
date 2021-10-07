@@ -1,7 +1,7 @@
 from firedrake import *
 
 
-__all__ = ["bessi0", "bessk0"]
+__all__ = ["bessi0", "bessk0", "gram_schmidt", "construct_orthonormal_basis"]
 
 
 def bessi0(x):
@@ -47,3 +47,46 @@ def bessk0(x):
     expr2 = exp(-x)/sqrt(x)*(1.25331414 + y2*(-0.7832358e-1 + y2*(0.2189568e-1 + y2*(
         -0.1062446e-1 + y2*(0.587872e-2 + y2*(-0.251540e-2 + y2*0.53208e-3))))))
     return conditional(ge(x, 2), expr2, expr1)
+
+
+def gram_schmidt(*v, normalise=False):
+    """
+    Given some vectors, construct an orthogonal basis
+    using Gram-Schmidt orthogonalisation.
+
+    :args v: the vectors to orthogonalise
+    :kwargs normalise: do we want an orthonormal basis?
+    """
+    if isinstance(v[0], np.ndarray):
+        from numpy import dot, sqrt
+    else:
+        from ufl import dot, sqrt
+    u = []
+    proj = lambda x, y: dot(x, y)/dot(x, x)*x
+    for i, vi in enumerate(v):
+        if i > 0:
+            vi -= sum([proj(uj, vi) for uj in u])
+        u.append(vi/sqrt(dot(vi, vi)) if normalise else vi)
+    if isinstance(v[0], np.ndarray):
+        u = [np.array(ui) for ui in u]
+    return u
+
+
+def construct_orthonormal_basis(v, dim=None, seed=0):
+    """
+    Starting from a single vector in UFL, construct
+    a set of vectors which are orthonormal w.r.t. it.
+
+    :arg v: the vector
+    :kwarg dim: its dimension
+    :kwarg seed: seed for random number generator
+    """
+    np.random.seed(seed)
+    dim = dim or v.ufl_domain().topological_dimension()
+    if dim == 2:
+        return [perp(v)]
+    elif dim > 2:
+        vectors = [as_vector(np.random.rand(dim)) for i in range(dim-1)]  # (arbitrary)
+        return gram_schmidt(v, *vectors, normalise=True)[1:]  # (orthonormal)
+    else:
+        raise ValueError(f"Dimension {dim} not supported.")
