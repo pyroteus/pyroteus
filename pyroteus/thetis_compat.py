@@ -27,7 +27,7 @@ class FlowSolver2d(thetis.solver2d.FlowSolver2d):
             for field, ts in self.timestepper.timesteppers.items():
                 self.timestepper.timesteppers[field].name = field
                 self.timestepper.timesteppers[field].update_solver()
-                if self.options.swe_timestepper_type != 'SteadyState':
+                if (self.options.swe_timestepper_type != 'SteadyState' and self.options.tracer_timestepper_type != 'SteadyState'):
                     self.timestepper.timesteppers[field].solution_old.rename(field + '_old')
         else:
             self.timestepper.name = 'swe2d'
