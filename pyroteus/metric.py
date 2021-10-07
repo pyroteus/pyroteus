@@ -403,10 +403,12 @@ def combine_metrics(*metrics, average=True, **kwargs):
     :kwarg average: combination by averaging or intersection?
     """
     if average:
-        kwargs.pop('boundary_tag')
+        if 'boundary_tag' in kwargs:
+            kwargs.pop('boundary_tag')
         return metric_relaxation(*metrics, **kwargs)
     else:
-        kwargs.pop('weights')
+        if 'weights' in kwargs:
+            kwargs.pop('weights')
         return metric_intersection(*metrics, **kwargs)
 
 
