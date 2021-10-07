@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from .utility import *
 
 
-__all__ = ["recover_hessian"]
+__all__ = ["recover_hessian", "recover_boundary_hessian"]
 
 
 def recover_hessian(f, method='L2', **kwargs):
@@ -78,3 +78,79 @@ def double_l2_projection(f, mesh=None, target_spaces=None):
         sp["fieldsplit_1_mg_levels_sub_pc_type"] = "ilu"
     solve(a == L, l2_projection, solver_parameters=sp)
     return l2_projection.split()
+
+
+def recover_boundary_hessian(f, mesh, method='L2', **kwargs):
+    """
+    Recover the Hessian of a scalar field
+    on the domain boundary.
+
+    :arg f: dictionary of boundary tags and corresponding
+        fields, which we seek to recover
+    :arg mesh: the mesh
+    :kwarg method: recovery method
+    """
+    # from math import gram_schmidt  # TODO
+
+    if method.upper() != 'L2':
+        raise NotImplementedError
+    d = mesh.topological_dimension()
+    assert d in (2, 3)
+
+    # Apply Gram-Schmidt to get tangent vectors
+    n = FacetNormal(mesh)
+    # s = gram_schmidt(n)
+    s = [perp(n)]
+    ns = as_vector([n, *s])
+
+    # Setup
+    P1 = FunctionSpace(mesh, "CG", 1)
+    P1_ten = TensorFunctionSpace(mesh, "CG", 1)
+    boundary_tag = kwargs.get('boundary_tag', 'on_boundary')
+    Hs, v = TrialFunction(P1), TestFunction(P1)
+    l2_proj = [[Function(P1) for i in range(d-1)] for j in range(d-1)]
+    h = interpolate(CellSize(mesh), FunctionSpace(mesh, "DG", 0))
+    h = Constant(1/h.vector().gather().max()**2)
+
+    # Arbitrary value on domain interior
+    a = v*Hs*dx
+    L = v*h*dx
+
+    # Hessian on boundary
+    nullspace = VectorSpaceBasis(constant=True)
+    sp = {
+        "ksp_type": "gmres",
+        "ksp_gmres_restart": 20,
+        "ksp_rtol": 1.0e-05,
+        "pc_type": "sor",
+    }
+    for j, s1 in enumerate(s):
+        for i, s0 in enumerate(s):
+            bcs = []
+            for tag, fi in f.items():
+                a_bc = v*Hs*ds(tag)
+                L_bc = -dot(s0, grad(v))*dot(s1, grad(fi))*ds(tag)
+                bcs.append(EquationBC(a_bc == L_bc, l2_proj[i][j], tag))
+            solve(a == L, l2_proj[i][j], bcs=bcs,
+                  nullspace=nullspace, solver_parameters=sp)
+
+    # Construct tensor field
+    Hbar = Function(P1_ten)
+    if d == 2:
+        Hsub = abs(l2_proj[i][j])
+        H = as_matrix([[h, 0],
+                       [0, Hsub]])
+    else:
+        raise NotImplementedError  # TODO
+
+    # Arbitrary value in domain interior
+    sigma, tau = TrialFunction(P1_ten), TestFunction(P1_ten)
+    a = inner(tau, sigma)*dx
+    L = inner(tau, h*Identity(d))*dx
+
+    # Boundary values imposed as in [Loseille et al. 2011]
+    a_bc = inner(tau, sigma)*ds
+    L_bc = inner(tau, dot(transpose(ns), dot(H, ns)))*ds
+    bcs = EquationBC(a_bc == L_bc, Hbar, boundary_tag)
+    solve(a == L, Hbar, bcs=bcs, solver_parameters=sp)
+    return Hbar

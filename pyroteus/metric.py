@@ -298,7 +298,7 @@ def space_normalise(metric, target, p, global_factor=None, boundary=False):
     detM = det(metric)
     if global_factor is None:
         dX = ds if boundary else dx
-        integral = assemble(sqrt(detM)*dX if p == 'inf' else pow(detM, p/(2*p + d))*dX
+        integral = assemble(sqrt(detM)*dX if p == 'inf' else pow(detM, p/(2*p + d))*dX)
         global_factor = Constant(pow(target/integral, 2/d))
 
     # Normalise
