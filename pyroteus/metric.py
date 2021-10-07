@@ -108,14 +108,16 @@ def anisotropic_metric(error_indicator, hessian, **kwargs):
     :kwarg target_space: :class:`TensorFunctionSpace` in
         which the metric will exist
     """
-    element_wise = kwargs.pop('element_wise', True)
-    if element_wise:
-        return element_wise_anisotropic_metric(error_indicator, hessian, **kwargs)
+    approach = kwargs.pop('approach', 'anisotropic_dwr')
+    if approach == 'anisotropic_dwr':
+        return anisotropic_dwr_metric(error_indicator, hessian, **kwargs)
+    elif approach == 'weighted_hessian':
+        return weighted_hessian_metric(error_indicator, hessian, **kwargs)
     else:
-        return vertex_wise_anisotropic_metric(error_indicator, hessian, **kwargs)
+        raise ValueError(f"Anisotropic metric approach {approach} not recognised.")
 
 
-def element_wise_anisotropic_metric(error_indicator, hessian, target_space=None, **kwargs):
+def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs):
     r"""
     Compute an anisotropic metric from some error
     indicator, given a Hessian field.
@@ -138,6 +140,11 @@ def element_wise_anisotropic_metric(error_indicator, hessian, target_space=None,
     :kwarg target_complexity: target metric complexity
     :kwarg convergence rate: normalisation parameter
     """
+    from collections.abc import Iterable
+    if isinstance(error_indicator, Iterable):
+        assert len(error_indicator) == len(hessian)
+        error_indicator = error_indicator[0]
+        hessian = hessian[0]
     target_complexity = kwargs.get('target_complexity', None)
     assert target_complexity > 0.0, "Target complexity must be positive"
     mesh = hessian.function_space().mesh()
@@ -192,7 +199,7 @@ def element_wise_anisotropic_metric(error_indicator, hessian, target_space=None,
     return hessian_metric(project(P0_metric, target_space))
 
 
-def vertex_wise_anisotropic_metric(error_indicators, hessians, target_space=None, **kwargs):
+def weighted_hessian_metric(error_indicators, hessians, target_space=None, **kwargs):
     r"""
     Compute a vertex-wise anisotropic metric from a (list
     of) error indicator(s), given a (list of) Hessian
