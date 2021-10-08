@@ -140,8 +140,7 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
     :kwarg target_complexity: target metric complexity
     :kwarg convergence rate: normalisation parameter
     """
-    from collections.abc import Iterable
-    if isinstance(error_indicator, Iterable):
+    if isinstance(error_indicator, list):  # FIXME: This is hacky
         assert len(error_indicator) == len(hessian)
         error_indicator = error_indicator[0]
         hessian = hessian[0]
