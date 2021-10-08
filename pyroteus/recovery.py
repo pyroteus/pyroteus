@@ -76,7 +76,13 @@ def double_l2_projection(f, mesh=None, target_spaces=None):
         sp["fieldsplit_1_mg_levels_pc_type"] = "bjacobi"
         sp["fieldsplit_1_mg_levels_sub_ksp_type"] = "preonly"
         sp["fieldsplit_1_mg_levels_sub_pc_type"] = "ilu"
-    solve(a == L, l2_projection, solver_parameters=sp)
+    try:
+        solve(a == L, l2_projection, solver_parameters=sp)
+    except ConvergenceError:
+        PETSc.Sys.Print("L2 projection failed to converge with"
+                        " iterative solver parameters, trying direct.")
+        sp = {"pc_mat_factor_solver_type": "mumps"}
+        solve(a == L, l2_projection, solver_parameters=sp)
     return l2_projection.split()
 
 
