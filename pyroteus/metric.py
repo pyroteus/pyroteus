@@ -77,14 +77,19 @@ def hessian_metric(hessian):
     """
     fs = hessian.function_space()
     mesh = fs.mesh()
-    dim = mesh.topological_dimension()
-    if fs.ufl_element().value_shape() != (dim, dim):
+    shape = fs.ufl_element().value_shape()
+    if len(shape) != 2:
         raise ValueError(
-            f"Expected {(dim,dim)} tensor field, "
-            + f"got {fs.ufl_element().value_shape()}."
+            "Expected a rank 2 tensor, "
+            f"got rank {len(shape)}."
+        )
+    if shape[0] != shape[1]:
+        raise ValueError(
+            "Expected a square tensor field, "
+            f"got {fs.ufl_element().value_shape()}."
         )
     metric = Function(fs)
-    kernel = kernels.eigen_kernel(kernels.metric_from_hessian, dim)
+    kernel = kernels.eigen_kernel(kernels.metric_from_hessian, shape[0])
     op2.par_loop(kernel, fs.node_set, metric.dat(op2.RW), hessian.dat(op2.READ))
     return metric
 
