@@ -14,7 +14,7 @@ from . import kernel as kernels
 __all__ = ["metric_complexity", "isotropic_metric", "anisotropic_metric", "hessian_metric",
            "enforce_element_constraints", "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
-           "density_and_quotients", "check_spd"]
+           "determine_metric_complexity", "density_and_quotients", "check_spd"]
 
 
 # --- General
@@ -77,14 +77,19 @@ def hessian_metric(hessian):
     """
     fs = hessian.function_space()
     mesh = fs.mesh()
-    dim = mesh.topological_dimension()
-    if fs.ufl_element().value_shape() != (dim, dim):
+    shape = fs.ufl_element().value_shape()
+    if len(shape) != 2:
         raise ValueError(
-            f"Expected {(dim,dim)} tensor field, "
-            + f"got {fs.ufl_element().value_shape()}."
+            "Expected a rank 2 tensor, "
+            f"got rank {len(shape)}."
+        )
+    if shape[0] != shape[1]:
+        raise ValueError(
+            "Expected a square tensor field, "
+            f"got {fs.ufl_element().value_shape()}."
         )
     metric = Function(fs)
-    kernel = kernels.eigen_kernel(kernels.metric_from_hessian, dim)
+    kernel = kernels.eigen_kernel(kernels.metric_from_hessian, shape[0])
     op2.par_loop(kernel, fs.node_set, metric.dat(op2.RW), hessian.dat(op2.READ))
     return metric
 
@@ -140,8 +145,7 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
     :kwarg target_complexity: target metric complexity
     :kwarg convergence rate: normalisation parameter
     """
-    from collections.abc import Iterable
-    if isinstance(error_indicator, Iterable):
+    if isinstance(error_indicator, list):  # FIXME: This is hacky
         assert len(error_indicator) == len(hessian)
         error_indicator = error_indicator[0]
         hessian = hessian[0]
@@ -276,7 +280,7 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
 
 # --- Normalisation
 
-def space_normalise(metric, target, p):
+def space_normalise(metric, target, p, global_factor=None, boundary=False):
     """
     Apply :math:`L^p` normalisation in space alone.
 
@@ -284,18 +288,26 @@ def space_normalise(metric, target, p):
         metric to be normalised.
     :arg target: target metric complexity *in space alone*.
     :arg p: normalisation order.
+    :kwarg global_factor: optional pre-computed global
+        normalisation factor.
+    :kwarg boundary: is the normalisation over the domain
+        boundary?
     """
     assert p == 'inf' or p >= 1.0, f"Norm order {p} not valid"
     d = metric.function_space().mesh().topological_dimension()
+    if boundary:
+        d -= 1
 
     # Compute global normalisation factor
-    detM = det(metric)
-    integral = assemble(sqrt(detM)*dx if p == 'inf' else pow(detM, p/(2*p + d))*dx)
-    global_norm = Constant(pow(target/integral, 2/d))
+    if global_factor is None:
+        detM = det(metric)
+        dX = ds if boundary else dx
+        integral = assemble(pow(detM, 0.5 if p == 'inf' else p/(2*p + d))*dX)
+        global_factor = Constant(pow(target/integral, 2/d))
 
     # Normalise
     determinant = 1 if p == 'inf' else pow(det(metric), -1/(2*p + d))
-    metric.interpolate(global_norm*determinant*metric)
+    metric.interpolate(global_factor*determinant*metric)
     return metric
 
 
@@ -331,6 +343,41 @@ def space_time_normalise(metrics, end_time, timesteps, target, p):
         determinant = 1 if p == 'inf' else pow(tau**2*det(metric), -1/(2*p + d))
         metric.interpolate(global_norm*determinant*metric)
     return metrics
+
+
+def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
+    """
+    Solve an algebraic problem to obtain coefficients
+    for the interior and boundary metrics to obtain a
+    given metric complexity.
+
+    See :cite:`LD10` for details.
+
+    :arg H_interior: Hessian component from domain interior
+    :arg H_boundary: Hessian component from domain boundary
+    :arg target: target metric complexity
+    :arg p: normalisation order
+    :kwarg H_interior_scaling: optional scaling for interior component
+    :kwarg H_boundary_scaling: optional scaling for boundary component
+    """
+    import sympy
+
+    d = H_interior.function_space().mesh().topological_dimension()
+    assert d in (2, 3)
+    g = kwargs.get('H_interior_scaling', Constant(1.0))
+    gbar = kwargs.get('H_boundary_scaling', Constant(1.0))
+
+    if p == 'inf':
+        a = metric_complexity(H_interior, boundary=False)
+        b = metric_complexity(H_boundary, boundary=True)
+    else:
+        a = assemble(pow(g, d/(2*p + d))*pow(det(H_interior), p/(2*p + d))*dx)
+        b = assemble(pow(gbar, d/(2*p + d - 1))*pow(det(H_boundary), p/(2*p + d - 1))*dx)
+
+    # Solve algebraic problem  # TODO: Explain why this formulation is used
+    c = sympy.Symbol('c')
+    # return float(sympy.solve(a*pow(c, -d/(2*p + d)) + b*pow(c, -d/(2*p + d-1)) - target, c)[0])
+    return float(sympy.solve(a*pow(c, d/2) + b*pow(c, (d-1)/2) - target, c)[0])
 
 
 # --- Combination
@@ -378,8 +425,9 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     :arg metrics: the metrics to be combined
     :kwarg function_space: the :class:`FunctionSpace`
         the intersected metric should live in
-    :kwarg boundary_tag: boundary segment physical
-        ID for boundary intersection
+    :kwarg boundary_tag: optional boundary segment physical
+        ID for boundary intersection. Otherwise, the
+        intersection is over the whole domain
     """
     n = len(metrics)
     assert n > 0, "Nothing to combine"
@@ -388,7 +436,12 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
         if not isinstance(metric, Function) or metric.function_space() != fs:
             metric = interpolate(metric, function_space)
     intersected_metric = Function(metrics[0])
-    node_set = fs.node_set if boundary_tag is None else DirichletBC(fs, 0, boundary_tag).node_set
+    if boundary_tag is None:
+        node_set = fs.node_set
+    elif boundary_tag == []:
+        raise ValueError("It is unclear what to do with an empty list of boundary tags.")
+    else:
+        node_set = DirichletBC(fs, 0, boundary_tag).node_set  # TODO: is there a cleaner way?
     dim = fs.mesh().topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
 

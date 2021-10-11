@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from .utility import *
 
 
-__all__ = ["recover_hessian"]
+__all__ = ["recover_hessian", "recover_boundary_hessian"]
 
 
 def recover_hessian(f, method='L2', **kwargs):
@@ -76,5 +76,95 @@ def double_l2_projection(f, mesh=None, target_spaces=None):
         sp["fieldsplit_1_mg_levels_pc_type"] = "bjacobi"
         sp["fieldsplit_1_mg_levels_sub_ksp_type"] = "preonly"
         sp["fieldsplit_1_mg_levels_sub_pc_type"] = "ilu"
-    solve(a == L, l2_projection, solver_parameters=sp)
+    try:
+        solve(a == L, l2_projection, solver_parameters=sp)
+    except ConvergenceError:
+        PETSc.Sys.Print("L2 projection failed to converge with"
+                        " iterative solver parameters, trying direct.")
+        sp = {"pc_mat_factor_solver_type": "mumps"}
+        solve(a == L, l2_projection, solver_parameters=sp)
     return l2_projection.split()
+
+
+def recover_boundary_hessian(f, mesh, method='L2', **kwargs):
+    """
+    Recover the Hessian of a scalar field
+    on the domain boundary.
+
+    :arg f: dictionary of boundary tags and corresponding
+        fields, which we seek to recover, as well as an
+        'interior' entry for the domain interior
+    :arg mesh: the mesh
+    :kwarg method: recovery method
+    """
+    from pyroteus.math import construct_orthonormal_basis
+    from pyroteus.metric import hessian_metric
+
+    if method.upper() != 'L2':
+        raise NotImplementedError
+    d = mesh.topological_dimension()
+    assert d in (2, 3)
+
+    # Apply Gram-Schmidt to get tangent vectors
+    n = FacetNormal(mesh)
+    s = construct_orthonormal_basis(n)
+    ns = as_vector([n, *s])
+
+    # Setup
+    P1 = FunctionSpace(mesh, "CG", 1)
+    P1_ten = TensorFunctionSpace(mesh, "CG", 1)
+    boundary_tag = kwargs.get('boundary_tag', 'on_boundary')
+    Hs, v = TrialFunction(P1), TestFunction(P1)
+    l2_proj = [[Function(P1) for i in range(d-1)] for j in range(d-1)]
+    h = interpolate(CellSize(mesh), FunctionSpace(mesh, "DG", 0))
+    h = Constant(1/h.vector().gather().max()**2)
+    fint = f.pop('interior')
+
+    # Arbitrary value on domain interior
+    a = v*Hs*dx
+    L = -inner(grad(v), grad(fint))*dx
+
+    # Hessian on boundary
+    nullspace = VectorSpaceBasis(constant=True)
+    x = SpatialCoordinate(mesh)
+    sp = {
+        "ksp_type": "gmres",
+        "ksp_gmres_restart": 20,
+        "ksp_rtol": 1.0e-05,
+        "pc_type": "sor",
+    }
+    for j, s1 in enumerate(s):
+        for i, s0 in enumerate(s):
+            bcs = []
+            for tag, fi in f.items():
+                a_bc = v*Hs*ds(tag)
+                L_bc = -dot(s0, grad(v))*dot(s1, grad(fi))*ds(tag)
+                bcs.append(EquationBC(a_bc == L_bc, l2_proj[i][j], tag))
+            solve(a == L, l2_proj[i][j], bcs=bcs,
+                  nullspace=nullspace, solver_parameters=sp)
+
+    # Construct tensor field
+    Hbar = Function(P1_ten)
+    if d == 2:
+        Hsub = interpolate(abs(l2_proj[0][0]), P1)
+        H = as_matrix([[h, 0],
+                       [0, Hsub]])
+    else:
+        Hsub = Function(TensorFunctionSpace(mesh, "CG", 1, shape=(2, 2)))
+        Hsub.interpolate(as_matrix([[l2_proj[0][0], l2_proj[0][1]],
+                                    [l2_proj[1][0], l2_proj[1][1]]]))
+        Hsub = hessian_metric(Hsub)
+        H = as_matrix([[h, 0, 0],
+                       [0, Hsub[0, 0], Hsub[0, 1]],
+                       [0, Hsub[1, 0], Hsub[1, 1]]])
+
+    sigma, tau = TrialFunction(P1_ten), TestFunction(P1_ten)
+    a = inner(tau, sigma)*dx
+    L = -inner(div(tau), grad(fint))*dx
+
+    # Boundary values imposed as in [Loseille et al. 2011]
+    a_bc = inner(tau, sigma)*ds
+    L_bc = inner(tau, dot(transpose(ns), dot(H, ns)))*ds
+    bcs = EquationBC(a_bc == L_bc, Hbar, boundary_tag)
+    solve(a == L, Hbar, bcs=bcs, solver_parameters=sp)
+    return Hbar

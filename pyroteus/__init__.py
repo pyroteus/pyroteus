@@ -3,6 +3,7 @@ from pyroteus.utility import *           # noqa
 from pyroteus.time_partition import *    # noqa
 from pyroteus.recovery import *          # noqa
 from pyroteus.plot import *              # noqa
+from pyroteus.math import *              # noqa
 from pyroteus.metric import *            # noqa
 from pyroteus.mesh_seq import *          # noqa
 from pyroteus.log import *               # noqa
