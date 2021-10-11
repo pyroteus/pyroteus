@@ -294,10 +294,10 @@ def space_normalise(metric, target, p, global_factor=None, boundary=False):
         d -= 1
 
     # Compute global normalisation factor
-    detM = det(metric)
     if global_factor is None:
+        detM = det(metric)
         dX = ds if boundary else dx
-        integral = assemble(sqrt(detM)*dX if p == 'inf' else pow(detM, p/(2*p + d))*dX)
+        integral = assemble(pow(detM, 0.5 if p == 'inf' else p/(2*p + d))*dX)
         global_factor = Constant(pow(target/integral, 2/d))
 
     # Normalise
