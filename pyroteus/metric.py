@@ -346,7 +346,7 @@ def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
     for the interior and boundary metrics to obtain a
     given metric complexity.
 
-    See [Loseille et al. 2011] for details.
+    See :cite:`LD10` for details.
 
     :arg H_interior: Hessian component from domain interior
     :arg H_boundary: Hessian component from domain boundary
