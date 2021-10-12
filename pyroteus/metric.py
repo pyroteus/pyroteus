@@ -372,12 +372,18 @@ def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
         b = metric_complexity(H_boundary, boundary=True)
     else:
         a = assemble(pow(g, d/(2*p + d))*pow(det(H_interior), p/(2*p + d))*dx)
-        b = assemble(pow(gbar, d/(2*p + d - 1))*pow(det(H_boundary), p/(2*p + d - 1))*dx)
+        b = assemble(pow(gbar, d/(2*p + d - 1))*pow(det(H_boundary), p/(2*p + d - 1))*ds)
 
-    # Solve algebraic problem  # TODO: Explain why this formulation is used
+    # Solve algebraic problem
     c = sympy.Symbol('c')
-    # return float(sympy.solve(a*pow(c, -d/(2*p + d)) + b*pow(c, -d/(2*p + d-1)) - target, c)[0])
-    return float(sympy.solve(a*pow(c, d/2) + b*pow(c, (d-1)/2) - target, c)[0])
+    c = sympy.solve(a*pow(c, d/2) + b*pow(c, (d-1)/2) - target, c)
+    eq = f"{a}*c^{d/2} + {b}*c^{(d-1)/2} = {target}"
+    if len(c) == 0:
+        raise ValueError(f"No solutions found for equation {eq}.")
+    elif len(c) > 1:
+        raise ValueError(f"A unique solution could not be found for equation {eq}.")
+    else:
+        return float(c[0])
 
 
 # --- Combination
