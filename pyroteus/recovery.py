@@ -122,7 +122,7 @@ def recover_boundary_hessian(f, mesh, method='L2', **kwargs):
 
     # Arbitrary value on domain interior
     a = v*Hs*dx
-    L = -inner(grad(v), grad(fint))*dx
+    L = v*h*dx
 
     # Hessian on boundary
     nullspace = VectorSpaceBasis(constant=True)
@@ -158,9 +158,10 @@ def recover_boundary_hessian(f, mesh, method='L2', **kwargs):
                        [0, Hsub[0, 0], Hsub[0, 1]],
                        [0, Hsub[1, 0], Hsub[1, 1]]])
 
+    # Arbitrary value on domain interior
     sigma, tau = TrialFunction(P1_ten), TestFunction(P1_ten)
     a = inner(tau, sigma)*dx
-    L = -inner(div(tau), grad(fint))*dx
+    L = inner(tau, h*Identity(d))*dx
 
     # Boundary values imposed as in [Loseille et al. 2011]
     a_bc = inner(tau, sigma)*ds
