@@ -351,7 +351,8 @@ def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
     for the interior and boundary metrics to obtain a
     given metric complexity.
 
-    See :cite:`LD10` for details.
+    See :cite:`LD10` for details. Note that we use a
+    slightly different formulation here.
 
     :arg H_interior: Hessian component from domain interior
     :arg H_boundary: Hessian component from domain boundary
@@ -366,13 +367,12 @@ def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
     assert d in (2, 3)
     g = kwargs.get('H_interior_scaling', Constant(1.0))
     gbar = kwargs.get('H_boundary_scaling', Constant(1.0))
-
     if p == 'inf':
-        a = metric_complexity(H_interior, boundary=False)
-        b = metric_complexity(H_boundary, boundary=True)
-    else:
-        a = assemble(pow(g, d/(2*p + d))*pow(det(H_interior), p/(2*p + d))*dx)
-        b = assemble(pow(gbar, d/(2*p + d - 1))*pow(det(H_boundary), p/(2*p + d - 1))*ds)
+        raise NotImplementedError  # TODO
+
+    # Compute coefficients for the algebraic problem
+    a = assemble(pow(g, d/(2*p + d))*pow(det(H_interior), p/(2*p + d))*dx)
+    b = assemble(pow(gbar, d/(2*p + d - 1))*pow(det(H_boundary), p/(2*p + d - 1))*ds)
 
     # Solve algebraic problem
     c = sympy.Symbol('c')
