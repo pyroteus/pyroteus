@@ -101,3 +101,16 @@ def check_empty_tape(request):
             assert len(tape.get_blocks()) == 0
 
     request.addfinalizer(fin)
+
+
+def pytest_runtest_teardown(item, nextitem):
+    """
+    Clear caches after running a test
+    """
+    from firedrake.tsfc_interface import TSFCKernel
+    from pyop2.op2 import Kernel
+    from pyop2.parloop import JITModule
+
+    Kernel._cache.clear()
+    TSFCKernel._cache.clear()
+    JITModule._cache.clear()
