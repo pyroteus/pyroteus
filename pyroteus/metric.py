@@ -61,7 +61,13 @@ def isotropic_metric(error_indicator, target_space=None, **kwargs):
     if family == 'Lagrange' and degree == 1:
         M_diag = interpolate(max_value(abs(error_indicator), f_min), fs)
     else:
-        M_diag = project(error_indicator, FunctionSpace(mesh, "CG", 1))
+        M_diag = Function(FunctionSpace(mesh, "CG", 1))
+        try:
+            M_diag.project(error_indicator)
+        except ConvergenceError:  # Sometimes the projection step fails
+            PETSc.Sys.Print("Failed to project the error indicator into P1 space."
+                            " Interpolating it instead.")
+            M_diag.interpolate(error_indicator)
         M_diag.interpolate(max_value(abs(M_diag), f_min))
 
     # Assemble full metric
