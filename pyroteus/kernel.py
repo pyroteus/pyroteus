@@ -37,30 +37,32 @@ using namespace Eigen;
 
 void postproc_metric(double A_[%d], const double * h_min_, const double * h_max_)
 {
+  const int d = %d;
+  double l_max = pow(*h_min_, -2);
+  double l_min = pow(*h_max_, -2);
+  double la_min = pow(%f, -2);
 
   // Map input/output metric onto an Eigen object and map h_min/h_max to doubles
-  Map<Matrix<double, %d, %d, RowMajor> > A((double *)A_);
-  double h_min = *h_min_;
-  double h_max = *h_max_;
+  Map<Matrix<double, d, d, RowMajor> > A((double *)A_);
 
   // Solve eigenvalue problem
-  SelfAdjointEigenSolver<Matrix<double, %d, %d, RowMajor>> eigensolver(A);
-  Matrix<double, %d, %d, RowMajor> Q = eigensolver.eigenvectors();
+  SelfAdjointEigenSolver<Matrix<double, d, d, RowMajor>> eigensolver(A);
+  Matrix<double, d, d, RowMajor> Q = eigensolver.eigenvectors();
   Vector%dd D = eigensolver.eigenvalues();
 
   // Scale eigenvalues appropriately
   int i;
   double max_eig = 0.0;
-  for (i=0; i<%d; i++) {
-    D(i) = fmin(pow(h_min, -2), fmax(pow(h_max, -2), abs(D(i))));
+  for (i=0; i<d; i++) {
+    D(i) = fmin(l_max, fmax(l_min, abs(D(i))));
     max_eig = fmax(max_eig, D(i));
   }
-  for (i=0; i<%d; i++) D(i) = fmax(D(i), pow(%f, -2) * max_eig);
+  for (i=0; i<d; i++) D(i) = fmax(D(i), la_min * max_eig);
 
   // Build metric from eigendecomposition
   A = Q * D.asDiagonal() * Q.transpose();
 }
-""" % (d*d, d, d, d, d, d, d, d, d, d, a_max)
+""" % (d*d, d, a_max, d)
 
 
 def intersect(d):
@@ -75,30 +77,31 @@ def intersect(d):
 using namespace Eigen;
 
 void intersect(double M_[%d], const double * A_, const double * B_) {
+  const int d = %d;
 
   // Map inputs and outputs onto Eigen objects
-  Map<Matrix<double, %d, %d, RowMajor> > M((double *)M_);
-  Map<Matrix<double, %d, %d, RowMajor> > A((double *)A_);
-  Map<Matrix<double, %d, %d, RowMajor> > B((double *)B_);
+  Map<Matrix<double, d, d, RowMajor> > M((double *)M_);
+  Map<Matrix<double, d, d, RowMajor> > A((double *)A_);
+  Map<Matrix<double, d, d, RowMajor> > B((double *)B_);
 
   // Solve eigenvalue problem of first metric, taking square root of eigenvalues
-  SelfAdjointEigenSolver<Matrix<double, %d, %d, RowMajor>> eigensolver(A);
-  Matrix<double, %d, %d, RowMajor> Q = eigensolver.eigenvectors();
-  Matrix<double, %d, %d, RowMajor> D = eigensolver.eigenvalues().array().sqrt().matrix().asDiagonal();
+  SelfAdjointEigenSolver<Matrix<double, d, d, RowMajor>> eigensolver(A);
+  Matrix<double, d, d, RowMajor> Q = eigensolver.eigenvectors();
+  Matrix<double, d, d, RowMajor> D = eigensolver.eigenvalues().array().sqrt().matrix().asDiagonal();
 
   // Compute square root and inverse square root metrics
-  Matrix<double, %d, %d, RowMajor> Sq = Q * D * Q.transpose();
-  Matrix<double, %d, %d, RowMajor> Sqi = Q * D.inverse() * Q.transpose();
+  Matrix<double, d, d, RowMajor> Sq = Q * D * Q.transpose();
+  Matrix<double, d, d, RowMajor> Sqi = Q * D.inverse() * Q.transpose();
 
   // Solve eigenvalue problem for triple product of inverse square root metric and the second metric
-  SelfAdjointEigenSolver<Matrix<double, %d, %d, RowMajor>> eigensolver2(Sqi.transpose() * B * Sqi);
+  SelfAdjointEigenSolver<Matrix<double, d, d, RowMajor>> eigensolver2(Sqi.transpose() * B * Sqi);
   Q = eigensolver2.eigenvectors();
   D = eigensolver2.eigenvalues().array().max(1).matrix().asDiagonal();
 
   // Compute metric intersection
   M = Sq.transpose() * Q * D * Q.transpose() * Sq;
 }
-""" % (d*d, d, d, d, d, d, d, d, d, d, d, d, d, d, d, d, d, d, d)
+""" % (d*d, d)
 
 
 def get_eigendecomposition(d):
@@ -114,18 +117,19 @@ def get_eigendecomposition(d):
 using namespace Eigen;
 
 void get_eigendecomposition(double EVecs_[%d], double EVals_[%d], const double * M_) {
+  const int d = %d;
 
   // Map inputs and outputs onto Eigen objects
-  Map<Matrix<double, %d, %d, RowMajor> > EVecs((double *)EVecs_);
+  Map<Matrix<double, d, d, RowMajor> > EVecs((double *)EVecs_);
   Map<Vector%dd> EVals((double *)EVals_);
-  Map<Matrix<double, %d, %d, RowMajor> > M((double *)M_);
+  Map<Matrix<double, d, d, RowMajor> > M((double *)M_);
 
   // Solve eigenvalue problem
-  SelfAdjointEigenSolver<Matrix<double, %d, %d, RowMajor>> eigensolver(M);
+  SelfAdjointEigenSolver<Matrix<double, d, d, RowMajor>> eigensolver(M);
   EVecs = eigensolver.eigenvectors();
   EVals = eigensolver.eigenvalues();
 }
-""" % (d*d, d, d, d, d, d, d, d, d)
+""" % (d*d, d, d, d)
 
 
 def get_reordered_eigendecomposition(d):
@@ -244,33 +248,34 @@ def metric_from_hessian(d):
 using namespace Eigen;
 
 void metric_from_hessian(double A_[%d], const double * B_) {
+  const int d = %d;
 
   // Map inputs and outputs onto Eigen objects
-  Map<Matrix<double, %d, %d, RowMajor> > A((double *)A_);
-  Map<Matrix<double, %d, %d, RowMajor> > B((double *)B_);
+  Map<Matrix<double, d, d, RowMajor> > A((double *)A_);
+  Map<Matrix<double, d, d, RowMajor> > B((double *)B_);
 
   // Compute mean diagonal and set values appropriately
   double mean_diag;
   int i,j;
-  for (i=0; i<%d-1; i++) {
-    for (j=i+1; i<%d; i++) {
+  for (i=0; i<d-1; i++) {
+    for (j=i+1; i<d; i++) {
       B(i,j) = 0.5*(B(i,j) + B(j,i));
       B(j,i) = B(i,j);
     }
   }
 
   // Solve eigenvalue problem
-  SelfAdjointEigenSolver<Matrix<double, %d, %d, RowMajor>> eigensolver(B);
-  Matrix<double, %d, %d, RowMajor> Q = eigensolver.eigenvectors();
+  SelfAdjointEigenSolver<Matrix<double, d, d, RowMajor>> eigensolver(B);
+  Matrix<double, d, d, RowMajor> Q = eigensolver.eigenvectors();
   Vector%dd D = eigensolver.eigenvalues();
 
   // Take modulus of eigenvalues
-  for (i=0; i<%d; i++) D(i) = fmin(1.0e+30, fmax(1.0e-30, abs(D(i))));
+  for (i=0; i<d; i++) D(i) = fmin(1.0e+30, fmax(1.0e-30, abs(D(i))));
 
   // Build metric from eigendecomposition
   A += Q * D.asDiagonal() * Q.transpose();
 }
-""" % (d*d, d, d, d, d, d, d, d, d, d, d, d, d)
+""" % (d*d, d, d)
 
 
 def set_eigendecomposition(d):
