@@ -1,5 +1,5 @@
 """
-Functions which generate C kernels for dense numerical linear algebra.
+Functions which generate C++ kernels for dense numerical linear algebra.
 """
 from firedrake import op2
 import os
