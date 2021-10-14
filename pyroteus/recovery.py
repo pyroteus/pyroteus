@@ -18,7 +18,7 @@ def recover_hessian(f, method='L2', **kwargs):
     if method.upper() == 'L2':
         return double_l2_projection(f, **kwargs)[1]
     else:
-        raise NotImplementedError
+        raise NotImplementedError  # TODO: Double Clement
 
 
 def double_l2_projection(f, mesh=None, target_spaces=None):
