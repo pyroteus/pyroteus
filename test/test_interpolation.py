@@ -1,81 +1,38 @@
 """
 Test interpolation schemes.
-
-**Disclaimer: `test_project_parallel` and its is associated fixtures are
-    copied from firedrake/tests/supermesh/test_nonnested_project_no_hierarchy.py
 """
 from pyroteus import *
-from itertools import product
 import pytest
-import weakref
 
 
-spaces = [("CG", 1), ("CG", 2), ("DG", 0), ("DG", 1)]
-
-
-@pytest.fixture(params=[(c, f) for c, f in product(spaces, spaces) if c[1] <= f[1]],
-                ids=lambda x: "%s%s-%s%s" % (*x[0], *x[1]))
-def pairs(request):
+@pytest.fixture(params=['scalar', 'vector', 'tensor'])
+def shape(request):
     return request.param
 
 
-@pytest.fixture
-def coarse(pairs):
-    return pairs[0]
-
-
-@pytest.fixture
-def fine(pairs):
-    return pairs[1]
-
-
-def test_project(coarse, fine):
+def test_clement_interpolant(shape):
     """
-    **Disclaimer: this test and its is associated fixtures are copied from
-        firedrake/tests/supermesh/test_nonnested_project_no_hierarchy.py
+    Check that volume averaging over two
+    elements gives the average at vertices
+    on the shared edge and the element-wise
+    values elsewhere.
+
+    :arg shape: choose from 'scalar', 'vector', 'tensor'
     """
-    distribution_parameters = {
-        "partition": True,
-        "overlap_type": (DistributedMeshOverlapType.VERTEX, 10),
-    }
-    cmesh = RectangleMesh(2, 2, 1, 1, diagonal="left",
-                          distribution_parameters=distribution_parameters)
-    fmesh = RectangleMesh(5, 5, 1, 1, diagonal="right",
-                          distribution_parameters=distribution_parameters)
-    fmesh._parallel_compatible = {weakref.ref(cmesh)}
-
-    Vc = FunctionSpace(cmesh, *coarse)
-    Vf = FunctionSpace(fmesh, *fine)
-
-    c = Function(Vc)
-    c.interpolate(SpatialCoordinate(cmesh)**2)
-    expect = assemble(c*dx)
-
-    actual = assemble(project(c, Vf)*dx)
-
-    assert np.isclose(expect, actual)
-
-
-@pytest.mark.parallel(nprocs=3)
-def test_project_parallel(coarse, fine):
-    test_project(coarse, fine)
-
-
-def test_adjoint_project(coarse, fine):
-    """
-    Test adjoint supermesh projection operator
-    applied to a mixed function space.
-    """
-    cmesh = RectangleMesh(2, 2, 1, 1, diagonal="left")
-    fmesh = RectangleMesh(5, 5, 1, 1, diagonal="right")
-
-    Vc = FunctionSpace(cmesh, *coarse)
-    vVc = VectorFunctionSpace(cmesh, *coarse)
-    Vf = FunctionSpace(fmesh, *fine)
-    vVf = VectorFunctionSpace(fmesh, *fine)
-
-    c = Function(Vc*vVc)
-    c1, c2 = c.split()
-    c1.interpolate(SpatialCoordinate(cmesh)**2)
-
-    project(c, Vf*vVf, adjoint=True)
+    mesh = UnitSquareMesh(1, 1)
+    if shape == 'scalar':
+        fs = FunctionSpace
+    elif shape == 'vector':
+        fs = VectorFunctionSpace
+    elif shape == 'tensor':
+        fs = TensorFunctionSpace
+    else:
+        raise ValueError(f"Shape '{shape} not recognised.")
+    P0 = fs(mesh, "DG", 0)
+    source = Function(P0)
+    source.dat.data[0] += 1.0
+    target = clement_interpolant(source)
+    assert np.allclose(target.dat.data[0], 0.5)
+    assert np.allclose(target.dat.data[1], 1.0)
+    assert np.allclose(target.dat.data[2], 0.5)
+    assert np.allclose(target.dat.data[3], 0.0)
