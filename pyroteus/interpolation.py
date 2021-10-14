@@ -5,7 +5,66 @@ from __future__ import absolute_import
 from .utility import *
 
 
-__all__ = ["project"]
+__all__ = ["clement_interpolant", "project"]
+
+
+def clement_interpolant(source):
+    r"""
+    Compute the Clement interpolant of a :math:`\mathbb P0`
+    source field, i.e. take the volume average over
+    neighbouring cells at each vertex.
+
+    :arg source: the :math:`\mathbb P0` source field
+    """
+    V = source.function_space()
+    assert V.ufl_element().family() == 'Discontinuous Lagrange'
+    assert V.ufl_element().degree() == 0
+    mesh = V.mesh()
+    dim = mesh.topological_dimension()
+    P0 = FunctionSpace(mesh, "DG", 0)
+    P1 = FunctionSpace(mesh, "CG", 1)
+
+    # Compute the patch volume at each vertex
+    volume = assemble(TestFunction(P0)*dx(domain=mesh))
+    patch_volume = Function(P1)
+    kernel = "for (int i=0; i < p.dofs; i++) p[i] += v[0];"
+    par_loop(kernel, dx, {'v': (volume, READ), 'p': (patch_volume, INC)})
+
+    # Volume average
+    rank = len(V.ufl_element().value_shape())
+    if rank == 0:
+        target = Function(P1)
+        par_loop("for (int i=0; i < t.dofs; i++) t[i] += s[0]*v[0];", dx,
+                 {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
+        target /= patch_volume
+    elif rank == 1:
+        target = Function(VectorFunctionSpace(mesh, "CG", 1))
+        par_loop("""
+            int d = %d;
+            for (int i=0; i < t.dofs; i++) {
+              for (int j=0; j < d; j++) {
+                t[i*d + j] += s[j]*v[0];
+              }
+            }
+            """ % dim, dx, {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
+        target.interpolate(target/patch_volume)
+    elif rank == 2:
+        target = Function(TensorFunctionSpace(mesh, "CG", 1))
+        par_loop("""
+            int d = %d;
+            int Nd = d*d;
+            for (int i=0; i < t.dofs; i++) {
+              for (int j=0; j < d; j++) {
+                for (int k=0; k < d; k++) {
+                  t[i*Nd + j*d + k] += s[j*d + k]*v[0];
+                }
+              }
+            }
+            """ % dim, dx, {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
+        target.interpolate(target/patch_volume)
+    else:
+        raise ValueError(f"Rank-{rank} tensors are not supported.")
+    return target
 
 
 # --- Linear interpolation

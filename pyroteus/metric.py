@@ -8,6 +8,7 @@ Driver functions for metric-based mesh adaptation.
 """
 from __future__ import absolute_import
 from .utility import *
+from .interpolation import clement_interpolant
 from . import kernel as kernels
 
 
@@ -61,13 +62,7 @@ def isotropic_metric(error_indicator, target_space=None, **kwargs):
     if family == 'Lagrange' and degree == 1:
         M_diag = interpolate(max_value(abs(error_indicator), f_min), fs)
     else:
-        M_diag = Function(FunctionSpace(mesh, "CG", 1))
-        try:
-            M_diag.project(error_indicator)
-        except ConvergenceError:  # Sometimes the projection step fails
-            PETSc.Sys.Print("Failed to project the error indicator into P1 space."
-                            " Interpolating it instead.")
-            M_diag.interpolate(error_indicator)
+        M_diag = clement_interpolant(error_indicator)
         M_diag.interpolate(max_value(abs(M_diag), f_min))
 
     # Assemble full metric
@@ -205,8 +200,13 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
     )
 
     # Project metric into target space and ensure SPD
-    target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
-    return hessian_metric(project(P0_metric, target_space))
+    P1_ten = TensorFunctionSpace(mesh, "CG", 1)
+    target_space = target_space or P1_ten
+    if target_space == P1_ten:
+        metric = clement_interpolant(P0_metric)
+    else:
+        metric = project(P0_metric, target_space)
+    return hessian_metric(metric)
 
 
 def weighted_hessian_metric(error_indicators, hessians, target_space=None, **kwargs):
@@ -236,9 +236,14 @@ def weighted_hessian_metric(error_indicators, hessians, target_space=None, **kwa
 
     # Project error indicators into P1 space and use them to weight Hessians
     P1 = FunctionSpace(mesh, "CG", 1)
+    target_space = target_space or P1
     metrics = [Function(hessian, name="Metric") for hessian in hessians]
     for error_indicator, hessian, metric in zip(error_indicators, hessians, metrics):
-        metric.interpolate(abs(project(error_indicator, P1))*hessian)
+        if target_space == P1:
+            ee = clement_interpolant(error_indicator)
+        else:
+            ee = project(error_indicator, target_space)
+        metric.interpolate(abs(ee)*hessian)
     return combine_metrics(*metrics, average=kwargs.get('average', True))
 
 
