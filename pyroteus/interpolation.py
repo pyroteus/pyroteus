@@ -31,13 +31,13 @@ def clement_interpolant(source):
     par_loop(kernel, dx, {'v': (volume, READ), 'p': (patch_volume, INC)})
 
     # Volume average
-    shape = len(V.ufl_element().value_shape())
-    if shape == 0:
+    rank = len(V.ufl_element().value_shape())
+    if rank == 0:
         target = Function(P1)
         par_loop("for (int i=0; i < t.dofs; i++) t[i] += s[0]*v[0];", dx,
                  {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
         target /= patch_volume
-    elif shape == 1:
+    elif rank == 1:
         target = Function(VectorFunctionSpace(mesh, "CG", 1))
         par_loop("""
             int d = %d;
@@ -48,7 +48,7 @@ def clement_interpolant(source):
             }
             """ % dim, dx, {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
         target.interpolate(target/patch_volume)
-    elif shape == 2:
+    elif rank == 2:
         target = Function(TensorFunctionSpace(mesh, "CG", 1))
         par_loop("""
             int d = %d;
@@ -63,7 +63,7 @@ def clement_interpolant(source):
             """ % dim, dx, {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
         target.interpolate(target/patch_volume)
     else:
-        raise ValueError(f"Value shape {shape} not supported.")
+        raise ValueError(f"Rank-{rank} tensors are not supported.")
     return target
 
 
