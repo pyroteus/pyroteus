@@ -242,7 +242,7 @@ def weighted_hessian_metric(error_indicators, hessians, target_space=None, **kwa
     return combine_metrics(*metrics, average=kwargs.get('average', True))
 
 
-def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
+def enforce_element_constraints(metrics, h_min, h_max, a_max, optimise=False):
     """
     Post-process a list of metrics to enforce minimum and
     maximum element sizes, as well as maximum anisotropy.
@@ -252,35 +252,44 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
         which could be a :class:`Function` or a number.
     :arg h_max: maximum tolerated element size,
         which could be a :class:`Function` or a number.
-    :kwarg a_max: maximum tolerated element anisotropy
-        (default 1000).
+    :arg a_max: maximum tolerated element anisotropy,
+        which could be a :class:`Function` or a number.
+    :kwarg optimise: is this a timed run?
     """
     from collections.abc import Iterable
-    if a_max <= 0:
-        raise ValueError(f"Max tolerated anisotropy {a_max} not valid")
     if isinstance(metrics, Function):
         metrics = [metrics]
     if not isinstance(h_min, Iterable):
         h_min = [Constant(h_min)]*len(metrics)
     if not isinstance(h_max, Iterable):
         h_max = [Constant(h_max)]*len(metrics)
-    for metric, hmin, hmax in zip(metrics, h_min, h_max):
+    if not isinstance(a_max, Iterable):
+        a_max = [Constant(a_max)]*len(metrics)
+    for metric, hmin, hmax, amax in zip(metrics, h_min, h_max, a_max):
         fs = metric.function_space()
         mesh = fs.mesh()
 
-        # Convert and validate h_min and h_max
+        # Convert and validate parameters  # TODO: Use Clement
         P1 = FunctionSpace(mesh, "CG", 1)
         hmin = project(hmin, P1)
         hmin.interpolate(abs(hmin))
         hmax = project(hmax, P1)
         hmax.interpolate(abs(hmax))
-        assert np.isclose(assemble(conditional(hmax < hmin, 1, 0)*dx(domain=mesh)), 0.0)
+        amax = project(amax, P1)
+        amax.interpolate(abs(amax))
+        if not optimise:
+            _hmin = hmin.vector().gather().min()
+            assert _hmin > 0.0
+            assert hmax.vector().gather().min() > _hmin
+            assert np.isclose(assemble(conditional(hmax < hmin, 1, 0)*dx(domain=mesh)), 0.0)
+            assert amax.vector().gather().min() > 1.0
 
         # Enforce constraints
         dim = fs.mesh().topological_dimension()
-        kernel = kernels.eigen_kernel(kernels.postproc_metric, dim, a_max)
+        kernel = kernels.eigen_kernel(kernels.postproc_metric, dim)
         op2.par_loop(kernel, fs.node_set,
-                     metric.dat(op2.RW), hmin.dat(op2.READ), hmax.dat(op2.READ))
+                     metric.dat(op2.RW), hmin.dat(op2.READ),
+                     hmax.dat(op2.READ), amax.dat(op2.READ))
     return metrics
 
 

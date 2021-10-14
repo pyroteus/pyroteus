@@ -35,14 +35,16 @@ def postproc_metric(d, a_max):
 
 using namespace Eigen;
 
-void postproc_metric(double A_[%d], const double * h_min_, const double * h_max_)
+void postproc_metric(double A_[%d], const double * h_min, const double * h_max, const double * a_max)
 {
   const int d = %d;
-  double l_max = pow(*h_min_, -2);
-  double l_min = pow(*h_max_, -2);
-  double la_min = pow(%f, -2);
+  int i;
+  double l_max = pow(*h_min, -2);
+  double l_min = pow(*h_max, -2);
+  double la_min = pow(*a_max, -2);
+  double max_eig = 0.0;
 
-  // Map input/output metric onto an Eigen object and map h_min/h_max to doubles
+  // Map input/output metric onto an Eigen object
   Map<Matrix<double, d, d, RowMajor> > A((double *)A_);
 
   // Solve eigenvalue problem
@@ -62,7 +64,7 @@ void postproc_metric(double A_[%d], const double * h_min_, const double * h_max_
   // Build metric from eigendecomposition
   A = Q * D.asDiagonal() * Q.transpose();
 }
-""" % (d*d, d, a_max, d)
+""" % (d*d, d, d)
 
 
 def intersect(d):
