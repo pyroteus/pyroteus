@@ -8,6 +8,7 @@ from .utility import *
 __all__ = ["clement_interpolant", "project"]
 
 
+@PETSc.Log.EventDecorator("pyroteus.clement_interpolant")
 def clement_interpolant(source, boundary_tag=None):
     r"""
     Compute the Clement interpolant of a :math:`\mathbb P0`
@@ -113,6 +114,7 @@ def project(source, target_space, adjoint=False, **kwargs):
         return mesh2mesh_project(source, target, adjoint=adjoint, **kwargs)
 
 
+@PETSc.Log.EventDecorator("pyroteus.mesh2mesh_project")
 def mesh2mesh_project(source, target, adjoint=False, **kwargs):
     """
     Apply a mesh-to-mesh conservative projection to some
@@ -146,6 +148,7 @@ def mesh2mesh_project(source, target, adjoint=False, **kwargs):
     return target
 
 
+@PETSc.Log.EventDecorator("pyroteus.mesh2mesh_project_adjoint")
 def mesh2mesh_project_adjoint(target_b, source_b, **kwargs):
     """
     Apply the adjoint of a mesh-to-mesh conservative

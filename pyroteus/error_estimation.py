@@ -1,9 +1,11 @@
 from firedrake import *
+from firedrake.petsc import PETSc
 
 
 __all__ = ["get_dwr_indicator"]
 
 
+@PETSc.Log.EventDecorator("pyroteus.form2indicator")
 def form2indicator(F):
     """
     Multiply throughout in a form and
@@ -50,6 +52,7 @@ def form2indicator(F):
     return indicator
 
 
+@PETSc.Log.EventDecorator("pyroteus.form2estimator")
 def form2estimator(F, absolute_value=False):
     """
     Multiply throughout in a form,
@@ -68,6 +71,7 @@ def form2estimator(F, absolute_value=False):
     return indicator.vector().gather().sum()
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_dwr_indicator")
 def get_dwr_indicator(F, adjoint_error):
     """
     Generate a dual weighted residual (DWR)

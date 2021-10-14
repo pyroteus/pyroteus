@@ -20,6 +20,7 @@ __all__ = ["metric_complexity", "isotropic_metric", "anisotropic_metric", "hessi
 
 # --- General
 
+@PETSc.Log.EventDecorator("pyroteus.metric_complexity")
 def metric_complexity(metric, boundary=False):
     """
     Compute the complexity of a metric.
@@ -34,6 +35,7 @@ def metric_complexity(metric, boundary=False):
     return assemble(sqrt(det(metric))*differential)
 
 
+@PETSc.Log.EventDecorator("pyroteus.isotropic_metric")
 def isotropic_metric(error_indicator, target_space=None, **kwargs):
     r"""
     Compute an isotropic metric from some error indicator.
@@ -65,6 +67,7 @@ def isotropic_metric(error_indicator, target_space=None, **kwargs):
     return interpolate(abs(error_indicator)*Identity(dim), target_space)
 
 
+@PETSc.Log.EventDecorator("pyroteus.hessian_metric")
 def hessian_metric(hessian):
     """
     Modify the eigenvalues of a Hessian matrix so
@@ -118,6 +121,7 @@ def anisotropic_metric(error_indicator, hessian, **kwargs):
         raise ValueError(f"Anisotropic metric approach {approach} not recognised.")
 
 
+@PETSc.Log.EventDecorator("pyroteus.anisotropic_dwr_metric")
 def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs):
     r"""
     Compute an anisotropic metric from some error
@@ -204,6 +208,7 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
     return hessian_metric(metric)
 
 
+@PETSc.Log.EventDecorator("pyroteus.weighted_hessian_metric")
 def weighted_hessian_metric(error_indicators, hessians, target_space=None, **kwargs):
     r"""
     Compute a vertex-wise anisotropic metric from a (list
@@ -242,6 +247,7 @@ def weighted_hessian_metric(error_indicators, hessians, target_space=None, **kwa
     return combine_metrics(*metrics, average=kwargs.get('average', True))
 
 
+@PETSc.Log.EventDecorator("pyroteus.enforce_element_constraints")
 def enforce_element_constraints(metrics, h_min, h_max, a_max, optimise=False):
     """
     Post-process a list of metrics to enforce minimum and
@@ -295,6 +301,7 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max, optimise=False):
 
 # --- Normalisation
 
+@PETSc.Log.EventDecorator("pyroteus.space_normalise")
 def space_normalise(metric, target, p, global_factor=None, boundary=False):
     """
     Apply :math:`L^p` normalisation in space alone.
@@ -326,6 +333,7 @@ def space_normalise(metric, target, p, global_factor=None, boundary=False):
     return metric
 
 
+@PETSc.Log.EventDecorator("pyroteus.space_time_normalise")
 def space_time_normalise(metrics, end_time, timesteps, target, p):
     """
     Apply :math:`L^p` normalisation in both space and time.
@@ -360,6 +368,7 @@ def space_time_normalise(metrics, end_time, timesteps, target, p):
     return metrics
 
 
+@PETSc.Log.EventDecorator("pyroteus.determine_metric_complexity")
 def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
     """
     Solve an algebraic problem to obtain coefficients
@@ -403,6 +412,7 @@ def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
 
 # --- Combination
 
+@PETSc.Log.EventDecorator("pyroteus.metric_relaxation")
 def metric_relaxation(*metrics, weights=None, function_space=None):
     """
     Combine a list of metrics with a weighted average.
@@ -439,6 +449,7 @@ def metric_average(*metrics, function_space=None):
     return metric_relaxation(*metrics, function_space=function_space)
 
 
+@PETSc.Log.EventDecorator("pyroteus.metric_intersection")
 def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     """
     Combine a list of metrics by intersection.
@@ -495,6 +506,7 @@ def combine_metrics(*metrics, average=True, **kwargs):
 
 # --- Metric decompositions and properties
 
+@PETSc.Log.EventDecorator("pyroteus.density_and_quotients")
 def density_and_quotients(metric, reorder=False):
     r"""
     Extract the density and anisotropy quotients from a
@@ -567,6 +579,7 @@ def density_and_quotients(metric, reorder=False):
     return density, quotients
 
 
+@PETSc.Log.EventDecorator("pyroteus.is_symmetric")
 def is_symmetric(M, rtol=1.0e-08):
     """
     Determine whether a tensor field is symmetric.
@@ -578,6 +591,7 @@ def is_symmetric(M, rtol=1.0e-08):
     return err/assemble(abs(det(M))*dx) < rtol
 
 
+@PETSc.Log.EventDecorator("pyroteus.is_pos_def")
 def is_pos_def(M):
     """
     Determine whether a tensor field is positive-definite.

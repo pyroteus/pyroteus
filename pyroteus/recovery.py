@@ -29,6 +29,7 @@ def recover_hessian(f, method='L2', **kwargs):
     return H
 
 
+@PETSc.Log.EventDecorator("pyroteus.double_l2_projection")
 def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
     r"""
     Recover the gradient and Hessian of a scalar field using a
@@ -99,6 +100,7 @@ def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
     return l2_projection.split()
 
 
+@PETSc.Log.EventDecorator("pyroteus.recovery_boundary_hessian")
 def recover_boundary_hessian(f, mesh, method='Clement', **kwargs):
     """
     Recover the Hessian of a scalar field
