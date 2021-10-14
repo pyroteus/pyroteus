@@ -257,26 +257,26 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max, optimise=False):
     :kwarg optimise: is this a timed run?
     """
     from collections.abc import Iterable
+
     if isinstance(metrics, Function):
         metrics = [metrics]
     if not isinstance(h_min, Iterable):
-        h_min = [Constant(h_min)]*len(metrics)
+        h_min = [h_min]*len(metrics)
     if not isinstance(h_max, Iterable):
-        h_max = [Constant(h_max)]*len(metrics)
+        h_max = [h_max]*len(metrics)
     if not isinstance(a_max, Iterable):
-        a_max = [Constant(a_max)]*len(metrics)
+        a_max = [a_max]*len(metrics)
     for metric, hmin, hmax, amax in zip(metrics, h_min, h_max, a_max):
         fs = metric.function_space()
         mesh = fs.mesh()
 
-        # Convert and validate parameters  # TODO: Use Clement
+        # Interpolate hmin, hmax and amax into P1
         P1 = FunctionSpace(mesh, "CG", 1)
-        hmin = project(hmin, P1)
-        hmin.interpolate(abs(hmin))
-        hmax = project(hmax, P1)
-        hmax.interpolate(abs(hmax))
-        amax = project(amax, P1)
-        amax.interpolate(abs(amax))
+        hmin = (clement_interpolant if isinstance(hmin, Function) else Function(P1).assign)(hmin)
+        hmax = (clement_interpolant if isinstance(hmax, Function) else Function(P1).assign)(hmax)
+        amax = (clement_interpolant if isinstance(amax, Function) else Function(P1).assign)(amax)
+
+        # Check the values are okay
         if not optimise:
             _hmin = hmin.vector().gather().min()
             assert _hmin > 0.0
