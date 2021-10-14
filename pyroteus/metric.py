@@ -73,7 +73,6 @@ def hessian_metric(hessian):
     :arg hessian: the Hessian matrix
     """
     fs = hessian.function_space()
-    mesh = fs.mesh()
     shape = fs.ufl_element().value_shape()
     if len(shape) != 2:
         raise ValueError(
