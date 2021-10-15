@@ -4,7 +4,12 @@ Test derivative recovery techniques.
 from pyroteus import *
 from sensors import bowl, mesh_for_sensors
 import pytest
+from time import perf_counter
 
+
+# ---------------------------
+# standard tests for pytest
+# ---------------------------
 
 @pytest.mark.parametrize("dim,method,norm_type,ignore_boundary",
                          [
@@ -54,7 +59,9 @@ def test_recover_bowl_interior(dim, method, norm_type, ignore_boundary, rtol=1.0
 
     # Recover Hessian
     f = bowl(*mesh.coordinates)
+    cpu_time = perf_counter()
     H = recover_hessian(f, method=method, mesh=mesh)
+    cpu_time = perf_counter() - cpu_time
 
     # Construct analytical solution
     P1_ten = TensorFunctionSpace(mesh, "CG", 1)
@@ -72,6 +79,7 @@ def test_recover_bowl_interior(dim, method, norm_type, ignore_boundary, rtol=1.0
     err /= norm(I, norm_type=norm_type, condition=cond)
     assert err < rtol, f"FAILED: non-zero {norm_type} error for method '{method}' ({err:.4e})"
     print(f"PASS: {norm_type} error {err:.4e} for method '{method}', dimension {dim}")
+    return cpu_time
 
 
 @pytest.mark.parametrize("dim,method",
@@ -102,7 +110,9 @@ def test_recover_bowl_boundary(dim, method, tol=1.0e-08):
     f = bowl(*mesh.coordinates)
     tags = list(mesh.exterior_facets.unique_markers) + ['interior']
     f = {i: f for i in tags}
+    cpu_time = perf_counter()
     H = recover_boundary_hessian(f, method=method, mesh=mesh)
+    cpu_time = perf_counter() - cpu_time
 
     # Check its directional derivatives in boundaries are zero
     S = construct_orthonormal_basis(FacetNormal(mesh))
@@ -111,3 +121,21 @@ def test_recover_bowl_boundary(dim, method, tol=1.0e-08):
         assert dHds < tol, "FAILED: non-zero tangential derivative for method" \
             + f"'{method}' ({dHds:.4e})"
     print(f"PASS: method '{method}', dimension {dim}")
+    return cpu_time
+
+
+# ---------------------------
+# benchmarking
+# ---------------------------
+
+if __name__ == "__main__":
+    output_dir = create_directory(os.path.join(os.path.dirname(__file__), 'bench'))
+    dL2_2d = np.mean([test_recover_bowl_interior(2, 'L2', 'L2', True) for i in range(5)])
+    Cle_2d = np.mean([test_recover_bowl_interior(2, 'Clement', 'L2', True) for i in range(5)])
+    dL2_3d = np.mean([test_recover_bowl_interior(3, 'L2', 'L2', True) for i in range(5)])
+    Cle_3d = np.mean([test_recover_bowl_interior(3, 'Clement', 'L2', True) for i in range(5)])
+    msg = f"\n2D\n==\ndouble L2 proj: {dL2_2d:8.4f}s\nClement:        {Cle_2d:8.4f}s\n" \
+        + f"\n3D\n==\ndouble L2 proj: {dL2_3d:8.4f}s\nClement:        {Cle_3d:8.4f}s"
+    print(msg)
+    with open(os.path.join(output_dir, 'recovery.log'), 'w+') as log:
+        log.write(msg)
