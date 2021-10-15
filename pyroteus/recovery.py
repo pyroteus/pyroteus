@@ -2,13 +2,14 @@
 Driver functions for derivative recovery.
 """
 from __future__ import absolute_import
+from .interpolation import clement_interpolant
 from .utility import *
 
 
 __all__ = ["recover_hessian", "recover_boundary_hessian"]
 
 
-def recover_hessian(f, method='L2', **kwargs):
+def recover_hessian(f, method='Clement', **kwargs):
     """
     Recover the Hessian of a scalar field.
 
@@ -16,9 +17,16 @@ def recover_hessian(f, method='L2', **kwargs):
     :kwarg method: recovery method
     """
     if method.upper() == 'L2':
-        return double_l2_projection(f, **kwargs)[1]
+        g, H = double_l2_projection(f, **kwargs)
+    elif method.capitalize() == 'Clement':
+        mesh = kwargs.get('mesh') or f.function_space().mesh()
+        g = clement_interpolant(interpolate(grad(f), VectorFunctionSpace(mesh, "DG", 0)))
+        H = clement_interpolant(interpolate(grad(g), TensorFunctionSpace(mesh, "DG", 0)))
+    elif method.upper() == 'ZZ':
+        raise NotImplementedError("Zienkiewicz-Zhu recovery not yet implemented.")  # TODO
     else:
-        raise NotImplementedError  # TODO: Double Clement
+        raise ValueError(f"Recovery method '{method}' not recognised.")
+    return H
 
 
 def double_l2_projection(f, mesh=None, target_spaces=None):
