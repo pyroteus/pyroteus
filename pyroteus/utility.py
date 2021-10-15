@@ -293,3 +293,17 @@ def create_section(mesh, element):
         dim = mesh.topological_dimension()
         label, entity_dofs = classify_element(element, dim)
         return dmcommon.create_section(mesh, entity_dofs)
+
+
+def create_directory(path, comm=firedrake.COMM_WORLD):
+    """
+    Create a directory on disk.
+
+    :arg path: path to the directory
+    :kwarg comm: MPI communicator
+    """
+    if comm.rank == 0:
+        if not os.path.exists(path):
+            os.makedirs(path)
+    comm.barrier()
+    return path
