@@ -9,7 +9,7 @@ from .utility import *
 __all__ = ["recover_hessian", "recover_boundary_hessian"]
 
 
-def recover_hessian(f, method='Clement', **kwargs):
+def recover_hessian(f, method='L2', **kwargs):
     """
     Recover the Hessian of a scalar field.
 
@@ -29,7 +29,7 @@ def recover_hessian(f, method='Clement', **kwargs):
     return H
 
 
-def double_l2_projection(f, mesh=None, target_spaces=None):
+def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
     r"""
     Recover the gradient and Hessian of a scalar field using a
     double :math:`L^2` projection.
@@ -39,6 +39,7 @@ def double_l2_projection(f, mesh=None, target_spaces=None):
     :kwarg target_spaces: the :class:`VectorFunctionSpace` and
         :class:`TensorFunctionSpace` the recovered gradient and
         Hessian should live in
+    :kwarg mixed: solve as a mixed system, or separately?
     """
     mesh = mesh or f.function_space().mesh()
     if target_spaces is None:
@@ -46,6 +47,10 @@ def double_l2_projection(f, mesh=None, target_spaces=None):
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
     else:
         P1_vec, P1_ten = target_spaces
+    if not mixed:
+        g = project(grad(f), P1_vec)
+        H = project(grad(g), P1_ten)
+        return g, H
     W = P1_vec*P1_ten
     g, H = TrialFunctions(W)
     phi, tau = TestFunctions(W)

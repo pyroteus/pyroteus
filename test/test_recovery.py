@@ -11,20 +11,26 @@ from time import perf_counter
 # standard tests for pytest
 # ---------------------------
 
-@pytest.mark.parametrize("dim,method,norm_type,ignore_boundary",
+@pytest.mark.parametrize("dim,method,norm_type,ignore_boundary,mixed",
                          [
-                             (2, "L2", "L1", False),
-                             (2, "L2", "L2", False),
-                             (2, "L2", "l2", False),
-                             (3, "L2", "L1", False),
-                             (3, "L2", "L2", False),
-                             (3, "L2", "l2", False),
-                             (2, "Clement", "L1", True),
-                             (2, "Clement", "L2", True),
-                             (2, "Clement", "l2", True),
-                             (3, "Clement", "L1", True),
-                             (3, "Clement", "L2", True),
-                             (3, "Clement", "l2", True),
+                             (2, "L2", "L1", False, False),
+                             (2, "L2", "L2", False, False),
+                             (2, "L2", "l2", False, False),
+                             (3, "L2", "L1", False, False),
+                             (3, "L2", "L2", False, False),
+                             (3, "L2", "l2", False, False),
+                             (2, "L2", "L1", False, True),
+                             (2, "L2", "L2", False, True),
+                             (2, "L2", "l2", False, True),
+                             (3, "L2", "L1", False, True),
+                             (3, "L2", "L2", False, True),
+                             (3, "L2", "l2", False, True),
+                             (2, "Clement", "L1", True, False),
+                             (2, "Clement", "L2", True, False),
+                             (2, "Clement", "l2", True, False),
+                             (3, "Clement", "L1", True, False),
+                             (3, "Clement", "L2", True, False),
+                             (3, "Clement", "l2", True, False),
                          ],
                          ids=[
                              "double_L2_projection-2d-L1_norm",
@@ -33,6 +39,12 @@ from time import perf_counter
                              "double_L2_projection-3d-L1_norm",
                              "double_L2_projection-3d-L2_norm",
                              "double_L2_projection-3d-l2_norm",
+                             "double_L2_projection-2d-L1_norm-mixed",
+                             "double_L2_projection-2d-L2_norm-mixed",
+                             "double_L2_projection-2d-l2_norm-mixed",
+                             "double_L2_projection-3d-L1_norm-mixed",
+                             "double_L2_projection-3d-L2_norm-mixed",
+                             "double_L2_projection-3d-l2_norm-mixed",
                              "Clement_interpolation-2d-L1_norm",
                              "Clement_interpolation-2d-L2_norm",
                              "Clement_interpolation-2d-l2_norm",
@@ -40,7 +52,7 @@ from time import perf_counter
                              "Clement_interpolation-3d-L2_norm",
                              "Clement_interpolation-3d-l2_norm",
                          ])
-def test_recover_bowl_interior(dim, method, norm_type, ignore_boundary, rtol=1.0e-05):
+def test_recover_bowl_interior(dim, method, norm_type, ignore_boundary, mixed, rtol=1.0e-05):
     """
     Check that the Hessian of a quadratic function is accurately
     recovered in the domain interior.
@@ -53,6 +65,8 @@ def test_recover_bowl_interior(dim, method, norm_type, ignore_boundary, rtol=1.0
     :arg ignore_boundary: if `True`, two outer layers
         of mesh elements are ignored when computing
         error norms
+    :arg mixed: should double L2 projection be done
+        as a mixed system?
     :kwarg rtol: relative tolerance for error checking
     """
     mesh = mesh_for_sensors(dim, 20)
@@ -60,7 +74,7 @@ def test_recover_bowl_interior(dim, method, norm_type, ignore_boundary, rtol=1.0
     # Recover Hessian
     f = bowl(*mesh.coordinates)
     cpu_time = perf_counter()
-    H = recover_hessian(f, method=method, mesh=mesh)
+    H = recover_hessian(f, method=method, mesh=mesh, mixed=mixed)
     cpu_time = perf_counter() - cpu_time
 
     # Construct analytical solution
@@ -130,12 +144,20 @@ def test_recover_bowl_boundary(dim, method, tol=1.0e-08):
 
 if __name__ == "__main__":
     output_dir = create_directory(os.path.join(os.path.dirname(__file__), 'bench'))
-    dL2_2d = np.mean([test_recover_bowl_interior(2, 'L2', 'L2', True) for i in range(5)])
-    Cle_2d = np.mean([test_recover_bowl_interior(2, 'Clement', 'L2', True) for i in range(5)])
-    dL2_3d = np.mean([test_recover_bowl_interior(3, 'L2', 'L2', True) for i in range(5)])
-    Cle_3d = np.mean([test_recover_bowl_interior(3, 'Clement', 'L2', True) for i in range(5)])
-    msg = f"\n2D\n==\ndouble L2 proj: {dL2_2d:8.4f}s\nClement:        {Cle_2d:8.4f}s\n" \
-        + f"\n3D\n==\ndouble L2 proj: {dL2_3d:8.4f}s\nClement:        {Cle_3d:8.4f}s"
+    dL2_2d = np.mean([test_recover_bowl_interior(2, 'L2', 'L2', True, False) for i in range(5)])
+    dL2_2d_m = np.mean([test_recover_bowl_interior(2, 'L2', 'L2', True, True) for i in range(5)])
+    Cle_2d = np.mean([test_recover_bowl_interior(2, 'Clement', 'L2', True, False) for i in range(5)])
+    dL2_3d = np.mean([test_recover_bowl_interior(3, 'L2', 'L2', True, False) for i in range(5)])
+    dL2_3d_m = np.mean([test_recover_bowl_interior(3, 'L2', 'L2', True, True) for i in range(5)])
+    Cle_3d = np.mean([test_recover_bowl_interior(3, 'Clement', 'L2', True, False) for i in range(5)])
+    msg = "\n2D\n==\n" \
+        + f"mixed double L2 proj: {dL2_2d_m:8.4f}s\n" \
+        + f"double L2 proj:       {dL2_2d:8.4f}s\n" \
+        + f"Clement:              {Cle_2d:8.4f}s\n" \
+        + "\n3D\n==\n" \
+        + f"mixed double L2 proj: {dL2_3d_m:8.4f}s\n" \
+        + f"double L2 proj:       {dL2_3d:8.4f}s\n" \
+        + f"Clement:              {Cle_3d:8.4f}s"
     print(msg)
     with open(os.path.join(output_dir, 'recovery.log'), 'w+') as log:
         log.write(msg)
