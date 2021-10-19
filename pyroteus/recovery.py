@@ -101,7 +101,7 @@ def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
 
 
 @PETSc.Log.EventDecorator("pyroteus.recovery_boundary_hessian")
-def recover_boundary_hessian(f, mesh, method='Clement', **kwargs):
+def recover_boundary_hessian(f, mesh, method='Clement', target_space=None, **kwargs):
     """
     Recover the Hessian of a scalar field
     on the domain boundary.
@@ -110,7 +110,9 @@ def recover_boundary_hessian(f, mesh, method='Clement', **kwargs):
         fields, which we seek to recover, as well as an
         'interior' entry for the domain interior
     :arg mesh: the mesh
-    :kwarg method: recovery method
+    :kwarg method: choose from 'L2' and 'Clement'
+    :kwarg target_space: :class:`TensorFunctionSpace` in
+        which the metric will exist
     """
     from pyroteus.math import construct_orthonormal_basis
     from pyroteus.metric import hessian_metric
@@ -125,7 +127,9 @@ def recover_boundary_hessian(f, mesh, method='Clement', **kwargs):
 
     # Setup
     P1 = FunctionSpace(mesh, "CG", 1)
-    P1_ten = TensorFunctionSpace(mesh, "CG", 1)
+    P1_ten = target_space or TensorFunctionSpace(mesh, "CG", 1)
+    assert P1_ten.ufl_element().family() == 'Lagrange'
+    assert P1_ten.ufl_element().degree() == 1
     boundary_tag = kwargs.get('boundary_tag', 'on_boundary')
     Hs, v = TrialFunction(P1), TestFunction(P1)
     l2_proj = [[Function(P1) for i in range(d-1)] for j in range(d-1)]
@@ -162,17 +166,20 @@ def recover_boundary_hessian(f, mesh, method='Clement', **kwargs):
         P0_ten = TensorFunctionSpace(mesh, "DG", 0)
         P1_vec = VectorFunctionSpace(mesh, "CG", 1)
         H = Function(P1_ten)
-        for tag, fi in f.items():
-
-            # Recover gradient
-            c = clement_interpolant(interpolate(grad(fi), P0_vec), tag)
-
-            # Recover Hessian
-            H += clement_interpolant(interpolate(grad(c), P0_ten), tag)
-
-        # Compute tangential components
+        p0test = TestFunction(P0_vec)
         p1test = TestFunction(P1)
         fa = get_facet_areas(mesh)
+        for tag, fi in f.items():
+            source = assemble(inner(p0test, grad(fi))/fa*ds)
+
+            # Recover gradient
+            c = clement_interpolant(source, boundary_tag=tag, target_space=P1_vec)
+
+            # Recover Hessian
+            H += clement_interpolant(interpolate(grad(c), P0_ten),
+                                    boundary_tag=tag, target_space=P1_ten)
+
+        # Compute tangential components
         for j, s1 in enumerate(s):
             for i, s0 in enumerate(s):
                 l2_proj[i][j] = assemble(p1test*dot(dot(s0, H), s1)/fa*ds)

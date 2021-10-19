@@ -129,7 +129,7 @@ def test_recover_bowl_boundary(dim, method, tol=1.0e-08):
     tags = list(mesh.exterior_facets.unique_markers) + ['interior']
     f = {i: f for i in tags}
     cpu_time = perf_counter()
-    H = recover_boundary_hessian(f, method=method, mesh=mesh)
+    H = recover_boundary_hessian(f, mesh, method=method)
     cpu_time = perf_counter() - cpu_time
 
     # Check its directional derivatives in boundaries are zero
