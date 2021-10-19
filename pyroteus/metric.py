@@ -157,19 +157,23 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
     convergence_rate = kwargs.get('convergence_rate', 1.0)
     assert convergence_rate >= 1.0, "Convergence rate must be at least one"
 
+    # Get reference element volume
+    K_hat = 1/2 if dim == 2 else 1/6
+
     # Get current element volume
     P0 = FunctionSpace(mesh, "DG", 0)
-    K_hat = 1/2 if dim == 2 else 1/6
     K = interpolate(K_hat*abs(JacobianDeterminant(mesh)), P0)
 
     # Get optimal element volume
     K_opt = interpolate(pow(error_indicator, 1/(convergence_rate+1)), P0)
     K_opt.interpolate(K_opt.vector().gather().sum()/target_complexity*K/K_opt)
 
-    # Compute eigendecomposition
+    # Interpolate from P1 to P0 by averaging the vertex-wise values
     P0_ten = TensorFunctionSpace(mesh, "DG", 0)
-    P0_vec = VectorFunctionSpace(mesh, "DG", 0)
     P0_metric = hessian_metric(project(hessian, P0_ten))
+
+    # Compute eigendecomposition
+    P0_vec = VectorFunctionSpace(mesh, "DG", 0)
     evectors, evalues = Function(P0_ten), Function(P0_vec)
     kernel = kernels.eigen_kernel(kernels.get_reordered_eigendecomposition, dim)
     op2.par_loop(
