@@ -156,7 +156,7 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
 
     # Get current element volume
     P0 = FunctionSpace(mesh, "DG", 0)
-    K_hat = 1/2 if dim == 2 else 1/3
+    K_hat = 1/2 if dim == 2 else 1/6
     K = interpolate(K_hat*abs(JacobianDeterminant(mesh)), P0)
 
     # Get optimal element volume
