@@ -97,7 +97,7 @@ def assemble_mass_matrix(space, norm_type='L2'):
     return assemble(lhs).petscmat
 
 
-def norm(v, norm_type='L2', mesh=None):
+def norm(v, norm_type='L2', mesh=None, condition=None, boundary=False):
     r"""
     Overload Firedrake's ``norm`` function to
     allow for :math:`\ell^p` norms.
@@ -105,18 +105,50 @@ def norm(v, norm_type='L2', mesh=None):
     Note that this version is case sensitive,
     i.e. ``'l2'`` and ``'L2'`` will give
     different results in general.
+
+    :arg v: the :class:`Function` to take the norm of
+    :kwarg norm_type: choose from 'l1', 'l2', 'linf',
+        'L2', 'Linf', 'H1', 'Hdiv', 'Hcurl', or any
+        'Lp' with :math:`p >= 1`.
+    :kwarg mesh: the mesh that `v` is defined upon
+    :kwarg condition: a UFL condition for specifying
+        a subdomain to compute the norm over
+    :kwarg boundary: should the norm be computed over
+        the domain boundary?
     """
     norm_codes = {'l1': 0, 'l2': 2, 'linf': 3}
-    if norm_type in norm_codes:
-        with v.dat.vec_ro as vv:
-            return vv.norm(norm_codes[norm_type])
+    if norm_type in norm_codes or norm_type == 'Linf':
+        if boundary:
+            raise NotImplementedError("lp errors on the boundary not yet implemented.")
+        if condition is not None:
+            v.interpolate(condition*v)
+        if norm_type == 'Linf':
+            with v.dat.vec_ro as vv:
+                return vv.max()[1]
+        else:
+            with v.dat.vec_ro as vv:
+                return vv.norm(norm_codes[norm_type])
     elif norm_type[0] == 'l':
         raise NotImplementedError("lp norm of order {:s} not supported.".format(norm_type[1:]))
-    elif norm_type == 'Linf':
-        with v.dat.vec_ro as vv:
-            return vv.max()[1]
     else:
-        return firedrake.norm(v, norm_type=norm_type, mesh=mesh)
+        condition = condition or Constant(1.0)
+        dX = ds if boundary else dx
+        if norm_type.startswith('L'):
+            try:
+                p = int(norm_type[1:])
+                if p < 1:
+                    raise ValueError(f"{norm_type} norm does not make sense.")
+            except ValueError:
+                raise ValueError(f"Don't know how to interpret {norm_type} norm.")
+            return assemble(condition*inner(v, v)**(p/2)*dX)**(1/p)
+        elif norm_type.lower() == 'h1':
+            return sqrt(assemble(condition*(inner(v, v) + inner(grad(v), grad(v)))*dX))
+        elif norm_type.lower() == 'hdiv':
+            return sqrt(assemble(condition*(inner(v, v) + div(v)*div(v))*dX))
+        elif norm_type.lower() == 'hcurl':
+            return sqrt(assemble(condition*(inner(v, v) + inner(curl(v), curl(v)))*dX))
+        else:
+            raise ValueError(f"Unknown norm type {norm_type}")
 
 
 def errornorm(u, uh, norm_type='L2', **kwargs):
@@ -261,3 +293,17 @@ def create_section(mesh, element):
         dim = mesh.topological_dimension()
         label, entity_dofs = classify_element(element, dim)
         return dmcommon.create_section(mesh, entity_dofs)
+
+
+def create_directory(path, comm=firedrake.COMM_WORLD):
+    """
+    Create a directory on disk.
+
+    :arg path: path to the directory
+    :kwarg comm: MPI communicator
+    """
+    if comm.rank == 0:
+        if not os.path.exists(path):
+            os.makedirs(path)
+    comm.barrier()
+    return path

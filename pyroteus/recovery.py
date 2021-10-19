@@ -2,6 +2,7 @@
 Driver functions for derivative recovery.
 """
 from __future__ import absolute_import
+from .interpolation import clement_interpolant
 from .utility import *
 
 
@@ -16,12 +17,19 @@ def recover_hessian(f, method='L2', **kwargs):
     :kwarg method: recovery method
     """
     if method.upper() == 'L2':
-        return double_l2_projection(f, **kwargs)[1]
+        g, H = double_l2_projection(f, **kwargs)
+    elif method.capitalize() == 'Clement':
+        mesh = kwargs.get('mesh') or f.function_space().mesh()
+        g = clement_interpolant(interpolate(grad(f), VectorFunctionSpace(mesh, "DG", 0)))
+        H = clement_interpolant(interpolate(grad(g), TensorFunctionSpace(mesh, "DG", 0)))
+    elif method.upper() == 'ZZ':
+        raise NotImplementedError("Zienkiewicz-Zhu recovery not yet implemented.")  # TODO
     else:
-        raise NotImplementedError  # TODO: Double Clement
+        raise ValueError(f"Recovery method '{method}' not recognised.")
+    return H
 
 
-def double_l2_projection(f, mesh=None, target_spaces=None):
+def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
     r"""
     Recover the gradient and Hessian of a scalar field using a
     double :math:`L^2` projection.
@@ -31,6 +39,7 @@ def double_l2_projection(f, mesh=None, target_spaces=None):
     :kwarg target_spaces: the :class:`VectorFunctionSpace` and
         :class:`TensorFunctionSpace` the recovered gradient and
         Hessian should live in
+    :kwarg mixed: solve as a mixed system, or separately?
     """
     mesh = mesh or f.function_space().mesh()
     if target_spaces is None:
@@ -38,6 +47,10 @@ def double_l2_projection(f, mesh=None, target_spaces=None):
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
     else:
         P1_vec, P1_ten = target_spaces
+    if not mixed:
+        g = project(grad(f), P1_vec)
+        H = project(grad(g), P1_ten)
+        return g, H
     W = P1_vec*P1_ten
     g, H = TrialFunctions(W)
     phi, tau = TestFunctions(W)

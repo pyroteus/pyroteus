@@ -57,16 +57,12 @@ def isotropic_metric(error_indicator, target_space=None, **kwargs):
     assert target_space.ufl_element().family() == 'Lagrange'
     assert target_space.ufl_element().degree() == 1
 
-    # Compute metric diagonal
-    f_min = kwargs.get('f_min', 1.0e-12)
-    if family == 'Lagrange' and degree == 1:
-        M_diag = interpolate(max_value(abs(error_indicator), f_min), fs)
-    else:
-        M_diag = clement_interpolant(error_indicator)
-        M_diag.interpolate(max_value(abs(M_diag), f_min))
+    # Interpolate into P1 space using Clement
+    if family != 'Lagrange' or degree != 1:
+        error_indicator = clement_interpolant(error_indicator)
 
     # Assemble full metric
-    return interpolate(M_diag*Identity(dim), target_space)
+    return interpolate(abs(error_indicator)*Identity(dim), target_space)
 
 
 def hessian_metric(hessian):
@@ -160,7 +156,7 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
 
     # Get current element volume
     P0 = FunctionSpace(mesh, "DG", 0)
-    K_hat = 1/2 if dim == 2 else 1/3
+    K_hat = 1/2 if dim == 2 else 1/6
     K = interpolate(K_hat*abs(JacobianDeterminant(mesh)), P0)
 
     # Get optimal element volume
