@@ -49,19 +49,23 @@ def isotropic_metric(error_indicator, target_space=None, **kwargs):
         which the metric will exist
     :kwarg f_min: minimum tolerated function value
     """
-    fs = error_indicator.function_space()
-    family = fs.ufl_element().family()
-    degree = fs.ufl_element().degree()
-    mesh = fs.mesh()
+    mesh = error_indicator.ufl_domain()
     dim = mesh.topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
-    target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
+    target_space = target_space or TensorFunctionSpace(mesh, 'CG', 1)
     assert target_space.ufl_element().family() == 'Lagrange'
     assert target_space.ufl_element().degree() == 1
 
-    # Interpolate into P1 space using Clement
-    if family != 'Lagrange' or degree != 1:
-        error_indicator = clement_interpolant(error_indicator)
+    # Interpolate P0 indicators into P1 space using Clement
+    if isinstance(error_indicator, Function):
+        fs = error_indicator.function_space()
+        family = fs.ufl_element().family()
+        degree = fs.ufl_element().degree()
+        if family != 'Lagrange' or degree != 1:
+            if family != 'Discontinuous Lagrange' or degree != 0:
+                raise ValueError("Was expecting an error indicator in P0 or P1"
+                                 f" space, not {family} of degree {degree}")
+            error_indicator = clement_interpolant(error_indicator)
 
     # Assemble full metric
     return interpolate(abs(error_indicator)*Identity(dim), target_space)
@@ -151,7 +155,7 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
         hessian = hessian[0]
     target_complexity = kwargs.get('target_complexity', None)
     assert target_complexity > 0.0, "Target complexity must be positive"
-    mesh = hessian.function_space().mesh()
+    mesh = hessian.ufl_domain()
     dim = mesh.topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
     convergence_rate = kwargs.get('convergence_rate', 1.0)
@@ -202,14 +206,9 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
         evectors.dat(op2.READ), evalues.dat(op2.READ)
     )
 
-    # Project metric into target space and ensure SPD
-    P1_ten = TensorFunctionSpace(mesh, "CG", 1)
-    target_space = target_space or P1_ten
-    if target_space == P1_ten:
-        metric = clement_interpolant(P0_metric)
-    else:
-        metric = project(P0_metric, target_space)
-    return hessian_metric(metric)
+    # Interpolate the metric into target space and ensure SPD
+    target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
+    return hessian_metric(clement_interpolant(P0_metric, target_space=target_space))
 
 
 @PETSc.Log.EventDecorator("pyroteus.weighted_hessian_metric")
@@ -234,21 +233,18 @@ def weighted_hessian_metric(error_indicators, hessians, target_space=None, **kwa
         error_indicators = [error_indicators]
     if not isinstance(hessians, Iterable):
         hessians = [hessians]
-    mesh = hessians[0].function_space().mesh()
+    mesh = hessians[0].ufl_domain()
     dim = mesh.topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
 
     # Project error indicators into P1 space and use them to weight Hessians
-    P1 = FunctionSpace(mesh, "CG", 1)
-    target_space = target_space or P1
-    metrics = [Function(hessian, name="Metric") for hessian in hessians]
+    target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
+    metrics = [Function(target_space, name="Metric") for hessian in hessians]
     for error_indicator, hessian, metric in zip(error_indicators, hessians, metrics):
-        if target_space == P1:
-            ee = clement_interpolant(error_indicator)
-        else:
-            ee = project(error_indicator, target_space)
-        metric.interpolate(abs(ee)*hessian)
-    return combine_metrics(*metrics, average=kwargs.get('average', True))
+        metric.interpolate(abs(clement_interpolant(error_indicator))*hessian)
+
+    # Combine the components
+    return combine_metrics(*metrics, average=kwargs.get('average', False))
 
 
 @PETSc.Log.EventDecorator("pyroteus.enforce_element_constraints")
