@@ -177,7 +177,7 @@ def recover_boundary_hessian(f, mesh, method='Clement', target_space=None, **kwa
 
             # Recover Hessian
             H += clement_interpolant(interpolate(grad(c), P0_ten),
-                                    boundary_tag=tag, target_space=P1_ten)
+                                     boundary_tag=tag, target_space=P1_ten)
 
         # Compute tangential components
         for j, s1 in enumerate(s):

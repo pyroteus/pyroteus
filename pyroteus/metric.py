@@ -36,7 +36,7 @@ def metric_complexity(metric, boundary=False):
 
 
 @PETSc.Log.EventDecorator("pyroteus.isotropic_metric")
-def isotropic_metric(error_indicator, target_space=None, **kwargs):
+def isotropic_metric(error_indicator, target_space=None, interpolant='Clement'):
     r"""
     Compute an isotropic metric from some error indicator.
 
@@ -47,7 +47,8 @@ def isotropic_metric(error_indicator, target_space=None, **kwargs):
     :arg error_indicator: the error indicator
     :kwarg target_space: :class:`TensorFunctionSpace` in
         which the metric will exist
-    :kwarg f_min: minimum tolerated function value
+    :kwarg interpolant: choose from 'Clement', 'L2',
+        'interpolate', 'project'
     """
     mesh = error_indicator.ufl_domain()
     dim = mesh.topological_dimension()
@@ -56,8 +57,10 @@ def isotropic_metric(error_indicator, target_space=None, **kwargs):
     assert target_space.ufl_element().family() == 'Lagrange'
     assert target_space.ufl_element().degree() == 1
 
-    # Interpolate P0 indicators into P1 space using Clement
-    if isinstance(error_indicator, Function):
+    # Interpolate P0 indicators into P1 space
+    if interpolant == 'Clement':
+        if not isinstance(error_indicator, Function):
+            raise NotImplementedError("Can only apply Clement interpolant to Functions")
         fs = error_indicator.function_space()
         family = fs.ufl_element().family()
         degree = fs.ufl_element().degree()
@@ -66,9 +69,13 @@ def isotropic_metric(error_indicator, target_space=None, **kwargs):
                 raise ValueError("Was expecting an error indicator in P0 or P1"
                                  f" space, not {family} of degree {degree}")
             error_indicator = clement_interpolant(error_indicator)
-
-    # Assemble full metric
-    return interpolate(abs(error_indicator)*Identity(dim), target_space)
+    if interpolant in ('Clement', 'interpolate'):
+        return interpolate(abs(error_indicator)*Identity(dim), target_space)
+    elif interpolant in ('L2', 'project'):
+        error_indicator = project(error_indicator, FunctionSpace(mesh, "CG", 1))
+        return interpolate(abs(error_indicator)*Identity(dim), target_space)
+    else:
+        raise ValueError(f"Interpolant {interpolant} not recognised")
 
 
 @PETSc.Log.EventDecorator("pyroteus.hessian_metric")
@@ -115,6 +122,8 @@ def anisotropic_metric(error_indicator, hessian, **kwargs):
     :arg hessian: (list of) Hessian(s)
     :kwarg target_space: :class:`TensorFunctionSpace` in
         which the metric will exist
+    :kwarg interpolant: choose from 'Clement', 'L2',
+        'interpolate', 'project'
     """
     approach = kwargs.pop('approach', 'anisotropic_dwr')
     if approach == 'anisotropic_dwr':
@@ -126,7 +135,7 @@ def anisotropic_metric(error_indicator, hessian, **kwargs):
 
 
 @PETSc.Log.EventDecorator("pyroteus.anisotropic_dwr_metric")
-def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs):
+def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpolant='Clement', **kwargs):
     r"""
     Compute an anisotropic metric from some error
     indicator, given a Hessian field.
@@ -148,6 +157,8 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
         which the metric will exist
     :kwarg target_complexity: target metric complexity
     :kwarg convergence rate: normalisation parameter
+    :kwarg interpolant: choose from 'Clement', 'L2',
+        'interpolate', 'project'
     """
     if isinstance(error_indicator, list):  # FIXME: This is hacky
         assert len(error_indicator) == len(hessian)
@@ -208,11 +219,18 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
 
     # Interpolate the metric into target space and ensure SPD
     target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
-    return hessian_metric(clement_interpolant(P0_metric, target_space=target_space))
+    if interpolant == 'Clement':
+        return hessian_metric(clement_interpolant(P0_metric, target_space=target_space))
+    elif interpolant == 'interpolate':
+        return hessian_metric(interpolate(P0_metric, target_space))
+    elif interpolant in ('project', 'L2'):
+        return hessian_metric(project(P0_metric, target_space))
+    else:
+        raise ValueError(f"Interpolant {interpolant} not recognised")
 
 
 @PETSc.Log.EventDecorator("pyroteus.weighted_hessian_metric")
-def weighted_hessian_metric(error_indicators, hessians, target_space=None, **kwargs):
+def weighted_hessian_metric(error_indicators, hessians, target_space=None, interpolant='Clement', **kwargs):
     r"""
     Compute a vertex-wise anisotropic metric from a (list
     of) error indicator(s), given a (list of) Hessian
@@ -227,6 +245,8 @@ def weighted_hessian_metric(error_indicators, hessians, target_space=None, **kwa
         which the metric will exist
     :kwarg average: should metric components be averaged
         or intersected?
+    :kwarg interpolant: choose from 'Clement', 'L2',
+        'interpolate', 'project'
     """
     from collections.abc import Iterable
     if not isinstance(error_indicators, Iterable):
@@ -241,7 +261,17 @@ def weighted_hessian_metric(error_indicators, hessians, target_space=None, **kwa
     target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
     metrics = [Function(target_space, name="Metric") for hessian in hessians]
     for error_indicator, hessian, metric in zip(error_indicators, hessians, metrics):
-        metric.interpolate(abs(clement_interpolant(error_indicator))*hessian)
+        if interpolant == 'Clement':
+            error_indicator = clement_interpolant(error_indicator)
+        else:
+            P1 = FunctionSpace(mesh, "CG", 1)
+            if interpolant == 'interpolate':
+                error_indicator = interpolate(error_indicator, P1)
+            elif interpolant in ('L2', 'project'):
+                error_indicator = project(error_indicator, P1)
+            else:
+                raise ValueError(f"Interpolant {interpolant} not recognised")
+        metric.interpolate(abs(error_indicator)*hessian)
 
     # Combine the components
     return combine_metrics(*metrics, average=kwargs.get('average', False))
