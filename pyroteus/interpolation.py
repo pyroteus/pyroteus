@@ -68,6 +68,8 @@ def clement_interpolant(source, boundary_tag=None):
         target.interpolate(target/patch_volume)
     else:
         raise ValueError(f"Rank-{rank} tensors are not supported.")
+    if boundary_tag is not None:
+        target.dat.data_with_halos[:] = np.nan_to_num(target.dat.data_with_halos)
     return target
 
 

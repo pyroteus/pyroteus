@@ -99,7 +99,7 @@ def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
     return l2_projection.split()
 
 
-def recover_boundary_hessian(f, mesh, method='L2', **kwargs):
+def recover_boundary_hessian(f, mesh, method='Clement', **kwargs):
     """
     Recover the Hessian of a scalar field
     on the domain boundary.
@@ -113,8 +113,6 @@ def recover_boundary_hessian(f, mesh, method='L2', **kwargs):
     from pyroteus.math import construct_orthonormal_basis
     from pyroteus.metric import hessian_metric
 
-    if method.upper() != 'L2':
-        raise NotImplementedError
     d = mesh.topological_dimension()
     assert d in (2, 3)
 
@@ -131,30 +129,54 @@ def recover_boundary_hessian(f, mesh, method='L2', **kwargs):
     l2_proj = [[Function(P1) for i in range(d-1)] for j in range(d-1)]
     h = interpolate(CellSize(mesh), FunctionSpace(mesh, "DG", 0))
     h = Constant(1/h.vector().gather().max()**2)
-    fint = f.pop('interior')
-
-    # Arbitrary value on domain interior
-    a = v*Hs*dx
-    L = v*h*dx
-
-    # Hessian on boundary
-    nullspace = VectorSpaceBasis(constant=True)
-    x = SpatialCoordinate(mesh)
+    f.pop('interior')
     sp = {
         "ksp_type": "gmres",
         "ksp_gmres_restart": 20,
         "ksp_rtol": 1.0e-05,
         "pc_type": "sor",
     }
-    for j, s1 in enumerate(s):
-        for i, s0 in enumerate(s):
-            bcs = []
-            for tag, fi in f.items():
-                a_bc = v*Hs*ds(tag)
-                L_bc = -dot(s0, grad(v))*dot(s1, grad(fi))*ds(tag)
-                bcs.append(EquationBC(a_bc == L_bc, l2_proj[i][j], tag))
-            solve(a == L, l2_proj[i][j], bcs=bcs,
-                  nullspace=nullspace, solver_parameters=sp)
+
+    if method.upper() == 'L2':
+
+        # Arbitrary value on domain interior
+        a = v*Hs*dx
+        L = v*h*dx
+
+        # Hessian on boundary
+        nullspace = VectorSpaceBasis(constant=True)
+        for j, s1 in enumerate(s):
+            for i, s0 in enumerate(s):
+                bcs = []
+                for tag, fi in f.items():
+                    a_bc = v*Hs*ds(tag)
+                    L_bc = -dot(s0, grad(v))*dot(s1, grad(fi))*ds(tag)
+                    bcs.append(EquationBC(a_bc == L_bc, l2_proj[i][j], tag))
+                solve(a == L, l2_proj[i][j], bcs=bcs,
+                      nullspace=nullspace, solver_parameters=sp)
+
+    elif method.capitalize() == 'Clement':
+        P0_vec = VectorFunctionSpace(mesh, "DG", 0)
+        P0_ten = TensorFunctionSpace(mesh, "DG", 0)
+        P1_vec = VectorFunctionSpace(mesh, "CG", 1)
+        H = Function(P1_ten)
+        for tag, fi in f.items():
+
+            # Recover gradient
+            c = clement_interpolant(interpolate(grad(fi), P0_vec), tag)
+
+            # Recover Hessian
+            H += clement_interpolant(interpolate(grad(c), P0_ten), tag)
+
+        # Compute tangential components
+        p1test = TestFunction(P1)
+        fa = get_facet_areas(mesh)
+        for j, s1 in enumerate(s):
+            for i, s0 in enumerate(s):
+                l2_proj[i][j] = assemble(p1test*dot(dot(s0, H), s1)/fa*ds)
+    else:
+        raise ValueError(f"Recovery method '{method}' not supported"
+                         " for Hessians on the boundary.")
 
     # Construct tensor field
     Hbar = Function(P1_ten)
