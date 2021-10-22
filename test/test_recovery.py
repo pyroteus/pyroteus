@@ -99,11 +99,15 @@ def test_recover_bowl_interior(dim, method, norm_type, ignore_boundary, mixed, r
 @pytest.mark.parametrize("dim,method",
                          [
                              (2, "L2"),
+                             (2, "Clement"),
                              (3, "L2"),
+                             (3, "Clement"),
                          ],
                          ids=[
                              "double_L2_projection-2d",
+                             "Clement-2d",
                              "double_L2_projection-3d",
+                             "Clement-3d",
                          ])
 def test_recover_bowl_boundary(dim, method, tol=1.0e-08):
     """

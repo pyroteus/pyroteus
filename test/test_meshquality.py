@@ -3,6 +3,32 @@ import pyroteus.mesh_quality as mq
 import pytest
 
 
+def get_mesh(dim, n):
+    if dim == 2:
+        return UnitSquareMesh(n, n)
+    elif dim == 3:
+        return UnitCubeMesh(n, n, n)
+    else:
+        raise ValueError(f"Dimension {dim} not considered")
+
+
+@pytest.fixture(params=[2, 3])
+def dim(request):
+    return request.param
+
+
+def test_facet_areas(dim):
+    """
+    Check that the computation of facet areas
+    sums to the expected value for a uniform
+    (isotropic) triangular or tetrahedral mesh.
+    """
+    mesh = get_mesh(dim, 1)
+    fa = get_facet_areas(mesh)
+    expected = 5.414214 if dim == 2 else 10.242641
+    assert np.isclose(sum(fa.dat.data), expected)
+
+
 @pytest.mark.parametrize("measure,expected",
                          [
                              ("get_min_angles2d", np.pi/4),
@@ -29,7 +55,7 @@ def test_uniform_quality_2d(measure, expected):
     2D triangular mesh.
     """
     measure = getattr(mq, measure)
-    mesh = UnitSquareMesh(10, 10)
+    mesh = get_mesh(2, 10)
     if measure.__name__ == "get_quality_metrics2d":
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
         M = interpolate(Identity(2), P1_ten)
@@ -66,7 +92,7 @@ def test_uniform_quality_3d(measure, expected):
     3D tetrahedral mesh.
     """
     measure = getattr(mq, measure)
-    mesh = UnitCubeMesh(4, 4, 4)
+    mesh = get_mesh(3, 4)
     if measure.__name__ == "get_quality_metrics3d":
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
         M = interpolate(Identity(3), P1_ten)
@@ -98,7 +124,7 @@ def test_consistency_2d(measure):
     """
     np.random.seed(0)
     measure = getattr(mq, measure)
-    mesh = UnitSquareMesh(4, 4)
+    mesh = get_mesh(2, 4)
     mesh.coordinates.dat.data[:] += np.random.rand(*mesh.coordinates.dat.data.shape)
     quality_cpp = measure(mesh)
     quality_py = measure(mesh, python=True)
@@ -120,7 +146,7 @@ def test_consistency_3d(measure):
     """
     np.random.seed(0)
     measure = getattr(mq, measure)
-    mesh = UnitCubeMesh(4, 4, 4)
+    mesh = get_mesh(3, 4)
     mesh.coordinates.dat.data[:] += np.random.rand(*mesh.coordinates.dat.data.shape)
     quality_cpp = measure(mesh)
     quality_py = measure(mesh, python=True)
