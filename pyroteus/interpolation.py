@@ -8,7 +8,7 @@ from .utility import *
 __all__ = ["clement_interpolant", "project"]
 
 
-def clement_interpolant(source):
+def clement_interpolant(source, boundary_tag=None):
     r"""
     Compute the Clement interpolant of a :math:`\mathbb P0`
     source field, i.e. take the volume average over
@@ -21,22 +21,26 @@ def clement_interpolant(source):
     assert V.ufl_element().degree() == 0
     mesh = V.mesh()
     dim = mesh.topological_dimension()
-    P0 = FunctionSpace(mesh, "DG", 0)
     P1 = FunctionSpace(mesh, "CG", 1)
+    dX = dx if boundary_tag is None else ds(boundary_tag)
 
     # Compute the patch volume at each vertex
-    volume = assemble(TestFunction(P0)*dx(domain=mesh))
+    if boundary_tag is None:
+        P0 = FunctionSpace(mesh, "DG", 0)
+        volume = assemble(TestFunction(P0)*dx(domain=mesh))
+    else:
+        volume = get_facet_areas(mesh)
     patch_volume = Function(P1)
     kernel = "for (int i=0; i < p.dofs; i++) p[i] += v[0];"
-    par_loop(kernel, dx, {'v': (volume, READ), 'p': (patch_volume, INC)})
+    par_loop(kernel, dX, {'v': (volume, READ), 'p': (patch_volume, INC)})
 
     # Volume average
     rank = len(V.ufl_element().value_shape())
     if rank == 0:
         target = Function(P1)
-        par_loop("for (int i=0; i < t.dofs; i++) t[i] += s[0]*v[0];", dx,
+        par_loop("for (int i=0; i < t.dofs; i++) t[i] += s[0]*v[0];", dX,
                  {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
-        target /= patch_volume
+        target.interpolate(target/patch_volume)
     elif rank == 1:
         target = Function(VectorFunctionSpace(mesh, "CG", 1))
         par_loop("""
@@ -46,7 +50,7 @@ def clement_interpolant(source):
                 t[i*d + j] += s[j]*v[0];
               }
             }
-            """ % dim, dx, {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
+            """ % dim, dX, {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
         target.interpolate(target/patch_volume)
     elif rank == 2:
         target = Function(TensorFunctionSpace(mesh, "CG", 1))
@@ -60,7 +64,7 @@ def clement_interpolant(source):
                 }
               }
             }
-            """ % dim, dx, {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
+            """ % dim, dX, {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
         target.interpolate(target/patch_volume)
     else:
         raise ValueError(f"Rank-{rank} tensors are not supported.")
