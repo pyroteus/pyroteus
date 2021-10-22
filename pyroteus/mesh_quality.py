@@ -90,6 +90,62 @@ def get_volumes3d(mesh, python=False):
     return volumes
 
 
+def get_facet_areas(mesh):
+    """
+    Compute area of each facet of `mesh`.
+
+    The facet areas are stored as a HDiv
+    trace field.
+
+    Note that the plus sign is arbitrary
+    and could equally well be chosen as minus.
+
+    :arg mesh: the input mesh to do computations on
+
+    :rtype: firedrake.function.Function facet_areas with
+    facet area data
+    """
+    HDivTrace = FunctionSpace(mesh, "HDiv Trace", 0)
+    v, u = TestFunction(HDivTrace), TrialFunction(HDivTrace)
+    facet_areas = Function(HDivTrace, name="Facet areas")
+    mass_term = v('+')*u('+')*dS + v*u*ds
+    rhs = v('+')*FacetArea(mesh)*dS + v*FacetArea(mesh)*ds
+    solve(mass_term == rhs, facet_areas)
+    return facet_areas
+
+
+def get_facet_areas2d(mesh, python=True):
+    """
+    Computes the area of each facet in a 2D triangular mesh
+
+    :arg mesh: the input mesh to do computations on
+    :kwarg python: compute the measure using Python?
+
+    :rtype: firedrake.function.Function facet_areas with
+    facet area data
+    """
+    if python:
+        return get_facet_areas(mesh)
+    else:
+        raise NotImplementedError
+
+
+def get_facet_areas3d(mesh, python=True):
+    """
+    Computes the area of each facet in a 3D tetrahedral mesh
+
+    :arg mesh: the input mesh to do computations on
+    :kwarg python: compute the measure using Python?
+
+    :rtype: firedrake.function.Function facet_areas with
+    facet area data
+    """
+    if python:
+        return get_facet_areas(mesh)
+    else:
+        raise NotImplementedError
+
+
 def get_aspect_ratios2d(mesh, python=False):
     """
     Computes the aspect ratio of each cell in a 2D triangular mesh
