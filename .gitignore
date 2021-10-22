@@ -1,4 +1,5 @@
 # Directories
+bench/
 build/
 data/
 docs/source/demos/
