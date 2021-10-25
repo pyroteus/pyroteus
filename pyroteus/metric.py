@@ -278,7 +278,7 @@ def weighted_hessian_metric(error_indicators, hessians, target_space=None, inter
 
 
 @PETSc.Log.EventDecorator("pyroteus.enforce_element_constraints")
-def enforce_element_constraints(metrics, h_min, h_max, a_max, optimise=False):
+def enforce_element_constraints(metrics, h_min, h_max, a_max, boundary_tag=None, optimise=False):
     """
     Post-process a list of metrics to enforce minimum and
     maximum element sizes, as well as maximum anisotropy.
@@ -290,6 +290,7 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max, optimise=False):
         which could be a :class:`Function` or a number.
     :arg a_max: maximum tolerated element anisotropy,
         which could be a :class:`Function` or a number.
+    :kwarg boundary_tag: optional tag to enforce sizes on.
     :kwarg optimise: is this a timed run?
     """
     from collections.abc import Iterable
@@ -323,7 +324,11 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max, optimise=False):
         # Enforce constraints
         dim = fs.mesh().topological_dimension()
         kernel = kernels.eigen_kernel(kernels.postproc_metric, dim)
-        op2.par_loop(kernel, fs.node_set,
+        if boundary_tag is None:
+            node_set = fs.node_set
+        else:
+            node_set = DirichletBC(fs, 0, boundary_tag).node_set
+        op2.par_loop(kernel, node_set,
                      metric.dat(op2.RW), hmin.dat(op2.READ),
                      hmax.dat(op2.READ), amax.dat(op2.READ))
     return metrics
