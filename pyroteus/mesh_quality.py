@@ -1,7 +1,9 @@
 from pyroteus.kernel import *
 from firedrake import *
+from firedrake.petsc import PETSc
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_min_angles2d")
 def get_min_angles2d(mesh, python=False):
     """
     Computes the minimum angle of each cell in a 2D triangular mesh
@@ -24,6 +26,7 @@ def get_min_angles2d(mesh, python=False):
     return min_angles
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_min_angles3d")
 def get_min_angles3d(mesh, python=False):
     """
     Computes the minimum angle of each cell in a 3D tetrahedral mesh
@@ -46,6 +49,7 @@ def get_min_angles3d(mesh, python=False):
     return min_angles
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_areas2d")
 def get_areas2d(mesh, python=False):
     """
     Computes the area of each cell in a 2D triangular mesh
@@ -68,6 +72,7 @@ def get_areas2d(mesh, python=False):
     return areas
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_volumes3d")
 def get_volumes3d(mesh, python=False):
     """
     Computes the volume of each cell in a 3D tetrahedral mesh
@@ -154,6 +159,7 @@ def get_facet_areas3d(mesh, python=True):
         raise NotImplementedError
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_aspect_ratios2d")
 def get_aspect_ratios2d(mesh, python=False):
     """
     Computes the aspect ratio of each cell in a 2D triangular mesh
@@ -184,6 +190,7 @@ def get_aspect_ratios2d(mesh, python=False):
     return aspect_ratios
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_aspect_ratios3d")
 def get_aspect_ratios3d(mesh, python=False):
     """
     Computes the aspect ratio of each cell in a 3D tetrahedral mesh
@@ -206,6 +213,7 @@ def get_aspect_ratios3d(mesh, python=False):
     return aspect_ratios
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_eskews2d")
 def get_eskews2d(mesh, python=False):
     """
     Computes the equiangle skew of each cell in a 2D triangular mesh
@@ -228,6 +236,7 @@ def get_eskews2d(mesh, python=False):
     return eskews
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_eskews3d")
 def get_eskews3d(mesh, python=False):
     """
     Computes the equiangle skew of each cell in a 3D tetrahedral mesh
@@ -250,6 +259,7 @@ def get_eskews3d(mesh, python=False):
     return eskews
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_skewnesses2d")
 def get_skewnesses2d(mesh, python=False):
     """
     Computes the skewness of each cell in a 2D triangular mesh
@@ -272,6 +282,7 @@ def get_skewnesses2d(mesh, python=False):
     return skews
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_skewnesses3d")
 def get_skewnesses3d(mesh, python=False):
     """
     Computes the skewness of each cell in a 2D triangular mesh
@@ -285,6 +296,7 @@ def get_skewnesses3d(mesh, python=False):
     raise NotImplementedError
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_scaled_jacobians2d")
 def get_scaled_jacobians2d(mesh, python=False):
     """
     Computes the scaled Jacobian of each cell in a 2D triangular mesh
@@ -318,6 +330,7 @@ def get_scaled_jacobians2d(mesh, python=False):
     return scaled_jacobians
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_scaled_jacobians3d")
 def get_scaled_jacobians3d(mesh, python=False):
     """
     Computes the scaled Jacobian of each cell in a 3D tetrahedral
@@ -340,6 +353,7 @@ def get_scaled_jacobians3d(mesh, python=False):
     return scaled_jacobians
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_quality_metrics2d")
 def get_quality_metrics2d(mesh, metric, python=False):
     """
     Given a Riemannian metric, M, this function
@@ -365,6 +379,7 @@ def get_quality_metrics2d(mesh, metric, python=False):
     return quality
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_quality_metrics3d")
 def get_quality_metrics3d(mesh, metric, python=False):
     """
     Given a Riemannian metric, M, this function

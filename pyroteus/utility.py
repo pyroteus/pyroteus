@@ -4,7 +4,6 @@ Utility functions and classes for mesh adaptation.
 from __future__ import absolute_import
 from pyroteus.mesh_quality import *
 import firedrake
-from firedrake.petsc import PETSc
 from .log import *
 from collections import OrderedDict
 from collections.abc import Iterable
