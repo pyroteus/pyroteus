@@ -2,6 +2,10 @@ all: lint test
 
 .PHONY: test
 
+install: dir
+	@echo "Installing Pyroteus..."
+	@python3 -m pip install -e .
+
 dir:
 	@echo "Creating directories..."
 	@mkdir -p test/plots
