@@ -25,7 +25,7 @@ effectivity index can be computed.
     Meshing Roundtable (2020).
 """
 from firedrake import *
-from pyroteus.math import bessi0, bessk0
+from pyroteus.math import bessk0
 from pyroteus.runge_kutta import SteadyState
 
 
@@ -68,7 +68,6 @@ def get_solver(self):
         fs = self.function_spaces['tracer_3d'][i]
         D = Constant(0.1)
         u = Constant(as_vector([1.0, 0.0, 0.0]))
-        n = FacetNormal(self[i])
         h = CellSize(self[i])
         S = source(self[i])
 
@@ -128,6 +127,7 @@ def get_qoi(self, i):
         return scaling*kernel*c*dx
 
     return steady_qoi
+
 
 def analytical_solution(mesh):
     """
