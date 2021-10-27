@@ -3,6 +3,7 @@ Drivers for goal-oriented error estimation on sequences of meshes.
 """
 from .adjoint import AdjointMeshSeq
 from firedrake import FunctionSpace, MeshHierarchy
+from firedrake.petsc import PETSc
 
 
 __all__ = ["GoalOrientedMeshSeq"]
@@ -13,6 +14,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     An extension of :class:`AdjointMeshSeq` to account for
     goal-oriented problems.
     """
+    @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.global_enrichment")
     def global_enrichment(self, enrichment_method='p', num_enrichments_h=1,
                           num_enrichments_p=1, **kwargs):
         """
@@ -70,6 +72,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         )
         return adj_mesh_seq.solve_adjoint(**kwargs)
 
+    @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.fixed_point_iteration")
     def fixed_point_iteration(self, **kwargs):
         """
         Apply goal-oriented mesh adaptation using
