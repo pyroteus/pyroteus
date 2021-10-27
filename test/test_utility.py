@@ -1,6 +1,7 @@
 """
 Test utility functions.
 """
+from firedrake import *
 from pyroteus import *
 from pyroteus.metric import is_spd
 from utility import uniform_mesh

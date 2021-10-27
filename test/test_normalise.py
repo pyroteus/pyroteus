@@ -1,6 +1,7 @@
 """
 Test metric normalisation functionality.
 """
+from firedrake import *
 from pyroteus import *
 from sensors import *
 import pytest

@@ -1,9 +1,11 @@
 """
 Test metric combination drivers.
 """
+from firedrake import *
 from pyroteus import *
 from utility import uniform_mesh
 import pytest
+import numpy as np
 
 
 # ---------------------------

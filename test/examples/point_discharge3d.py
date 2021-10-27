@@ -25,7 +25,7 @@ effectivity index can be computed.
     Meshing Roundtable (2020).
 """
 from firedrake import *
-from point_discharge2d import bessi0, bessk0
+from pyroteus.math import bessi0, bessk0
 from pyroteus.runge_kutta import SteadyState
 
 

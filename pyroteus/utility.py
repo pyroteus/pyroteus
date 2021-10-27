@@ -10,6 +10,7 @@ import ufl
 from .log import *
 from collections import OrderedDict
 from collections.abc import Iterable
+import numpy as np
 
 
 @PETSc.Log.EventDecorator("pyroteus.Mesh")

@@ -1,6 +1,7 @@
 """
 Test derivative recovery techniques.
 """
+from firedrake import *
 from pyroteus import *
 from sensors import bowl, mesh_for_sensors
 import pytest

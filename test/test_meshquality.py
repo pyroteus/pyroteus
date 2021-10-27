@@ -1,3 +1,4 @@
+from firedrake import *
 from pyroteus import *
 import pyroteus.mesh_quality as mq
 import pytest
