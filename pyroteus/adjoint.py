@@ -2,6 +2,7 @@
 Drivers for solving adjoint problems on sequences of meshes.
 """
 import firedrake
+from firedrake.petsc import PETSc
 from firedrake_adjoint import pyadjoint
 from .interpolation import project
 from .mesh_seq import MeshSeq
@@ -76,6 +77,7 @@ class AdjointMeshSeq(MeshSeq):
         return self.qoi
 
     @pyadjoint.no_annotations
+    @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.get_checkpoints")
     def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):
         """
         Solve forward on the sequence of meshes,
@@ -115,6 +117,7 @@ class AdjointMeshSeq(MeshSeq):
             self.J = qoi(sols, **solver_kwargs.get('qoi_kwargs', {}))
         return checkpoints
 
+    @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.solve_adjoint")
     def solve_adjoint(self, solver_kwargs={}, adj_solver_kwargs={},
                       get_adj_values=False,
                       test_checkpoint_qoi=False):
