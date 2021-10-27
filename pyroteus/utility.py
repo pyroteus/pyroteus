@@ -2,7 +2,7 @@
 Utility functions and classes for mesh adaptation.
 """
 from __future__ import absolute_import
-from .mesh_quality import *
+from .quality import *
 import firedrake
 from firedrake.petsc import PETSc
 import firedrake.cython.dmcommon as dmcommon
