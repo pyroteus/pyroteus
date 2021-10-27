@@ -14,7 +14,7 @@ def get_min_angles2d(mesh, python=False):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function min_angles with
-    minimum angle data
+        minimum angle data
     """
     P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     if python:
@@ -37,7 +37,7 @@ def get_min_angles3d(mesh, python=False):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function min_angles with
-    minimum angle data
+        minimum angle data
     """
     P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     if python:
@@ -60,7 +60,7 @@ def get_areas2d(mesh, python=False):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function areas with
-    area data
+        area data
     """
     P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     if python:
@@ -83,7 +83,7 @@ def get_volumes3d(mesh, python=False):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function volumes with
-    volume data
+        volume data
     """
     P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     if python:
@@ -110,7 +110,7 @@ def get_facet_areas(mesh):
     :arg mesh: the input mesh to do computations on
 
     :rtype: firedrake.function.Function facet_areas with
-    facet area data
+        facet area data
     """
     HDivTrace = firedrake.FunctionSpace(mesh, "HDiv Trace", 0)
     v = firedrake.TestFunction(HDivTrace)
@@ -136,7 +136,7 @@ def get_facet_areas2d(mesh, python=True):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function facet_areas with
-    facet area data
+        facet area data
     """
     if python:
         return get_facet_areas(mesh)
@@ -153,7 +153,7 @@ def get_facet_areas3d(mesh, python=True):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function facet_areas with
-    facet area data
+        facet area data
     """
     if python:
         return get_facet_areas(mesh)
@@ -170,7 +170,7 @@ def get_aspect_ratios2d(mesh, python=False):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function aspect_ratios with
-    aspect ratio data
+        aspect ratio data
     """
     P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     if python:
@@ -201,7 +201,7 @@ def get_aspect_ratios3d(mesh, python=False):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function aspect_ratios with
-    aspect ratio data
+        aspect ratio data
     """
     P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     if python:
@@ -224,7 +224,7 @@ def get_eskews2d(mesh, python=False):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function eskews with equiangle skew
-    data.
+        data.
     """
     P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     if python:
@@ -247,7 +247,7 @@ def get_eskews3d(mesh, python=False):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function eskews with equiangle skew
-    data.
+        data.
     """
     P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     if python:
@@ -270,7 +270,7 @@ def get_skewnesses2d(mesh, python=False):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function skews with skewness
-    data.
+        data.
     """
     P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     if python:
@@ -293,7 +293,7 @@ def get_skewnesses3d(mesh, python=False):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function skews with skewness
-    data.
+        data.
     """
     raise NotImplementedError
 
@@ -307,7 +307,7 @@ def get_scaled_jacobians2d(mesh, python=False):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function scaled_jacobians with scaled
-    jacobian data.
+        jacobian data.
     """
     P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     if python:
@@ -342,7 +342,7 @@ def get_scaled_jacobians3d(mesh, python=False):
     :kwarg python: compute the measure using Python?
 
     :rtype: firedrake.function.Function scaled_jacobians with scaled
-    jacobian data.
+        jacobian data.
     """
     P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     if python:
