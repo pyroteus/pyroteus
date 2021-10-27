@@ -31,8 +31,8 @@ def metric_complexity(metric, boundary=False):
     :kwarg boundary: compute metric on domain
         interior or boundary?
     """
-    differential = ds if boundary else dx
-    return assemble(sqrt(det(metric))*differential)
+    differential = ufl.ds if boundary else ufl.dx
+    return firedrake.assemble(ufl.sqrt(ufl.det(metric))*differential)
 
 
 @PETSc.Log.EventDecorator("pyroteus.isotropic_metric")
@@ -53,13 +53,13 @@ def isotropic_metric(error_indicator, target_space=None, interpolant='Clement'):
     mesh = error_indicator.ufl_domain()
     dim = mesh.topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
-    target_space = target_space or TensorFunctionSpace(mesh, 'CG', 1)
+    target_space = target_space or firedrake.TensorFunctionSpace(mesh, 'CG', 1)
     assert target_space.ufl_element().family() == 'Lagrange'
     assert target_space.ufl_element().degree() == 1
 
     # Interpolate P0 indicators into P1 space
     if interpolant == 'Clement':
-        if not isinstance(error_indicator, Function):
+        if not isinstance(error_indicator, firedrake.Function):
             raise NotImplementedError("Can only apply Clement interpolant to Functions")
         fs = error_indicator.function_space()
         family = fs.ufl_element().family()
@@ -70,10 +70,10 @@ def isotropic_metric(error_indicator, target_space=None, interpolant='Clement'):
                                  f" space, not {family} of degree {degree}")
             error_indicator = clement_interpolant(error_indicator)
     if interpolant in ('Clement', 'interpolate'):
-        return interpolate(abs(error_indicator)*Identity(dim), target_space)
+        return firedrake.interpolate(abs(error_indicator)*ufl.Identity(dim), target_space)
     elif interpolant in ('L2', 'project'):
-        error_indicator = project(error_indicator, FunctionSpace(mesh, "CG", 1))
-        return interpolate(abs(error_indicator)*Identity(dim), target_space)
+        error_indicator = firedrake.project(error_indicator, firedrake.FunctionSpace(mesh, "CG", 1))
+        return firedrake.interpolate(abs(error_indicator)*ufl.Identity(dim), target_space)
     else:
         raise ValueError(f"Interpolant {interpolant} not recognised")
 
@@ -98,7 +98,7 @@ def hessian_metric(hessian):
             "Expected a square tensor field, "
             f"got {fs.ufl_element().value_shape()}."
         )
-    metric = Function(fs)
+    metric = firedrake.Function(fs)
     kernel = kernels.eigen_kernel(kernels.metric_from_hessian, shape[0])
     op2.par_loop(kernel, fs.node_set, metric.dat(op2.RW), hessian.dat(op2.READ))
     return metric
@@ -176,20 +176,20 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpol
     K_hat = 1/2 if dim == 2 else 1/6
 
     # Get current element volume
-    P0 = FunctionSpace(mesh, "DG", 0)
-    K = interpolate(K_hat*abs(JacobianDeterminant(mesh)), P0)
+    P0 = firedrake.FunctionSpace(mesh, "DG", 0)
+    K = firedrake.interpolate(K_hat*abs(ufl.JacobianDeterminant(mesh)), P0)
 
     # Get optimal element volume
-    K_opt = interpolate(pow(error_indicator, 1/(convergence_rate+1)), P0)
+    K_opt = firedrake.interpolate(pow(error_indicator, 1/(convergence_rate+1)), P0)
     K_opt.interpolate(K_opt.vector().gather().sum()/target_complexity*K/K_opt)
 
     # Interpolate from P1 to P0 by averaging the vertex-wise values
-    P0_ten = TensorFunctionSpace(mesh, "DG", 0)
-    P0_metric = hessian_metric(project(hessian, P0_ten))
+    P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
+    P0_metric = hessian_metric(firedrake.project(hessian, P0_ten))
 
     # Compute eigendecomposition
-    P0_vec = VectorFunctionSpace(mesh, "DG", 0)
-    evectors, evalues = Function(P0_ten), Function(P0_vec)
+    P0_vec = firedrake.VectorFunctionSpace(mesh, "DG", 0)
+    evectors, evalues = firedrake.Function(P0_ten), firedrake.Function(P0_vec)
     kernel = kernels.eigen_kernel(kernels.get_reordered_eigendecomposition, dim)
     op2.par_loop(
         kernel, P0_ten.node_set,
@@ -198,12 +198,12 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpol
 
     # Compute stretching factors, in descending order
     if dim == 2:
-        S = as_vector([
-            sqrt(abs(evalues[0]/evalues[1])),
-            sqrt(abs(evalues[1]/evalues[0])),
+        S = ufl.as_vector([
+            ufl.sqrt(abs(evalues[0]/evalues[1])),
+            ufl.sqrt(abs(evalues[1]/evalues[0])),
         ])
     else:
-        S = as_vector([
+        S = ufl.as_vector([
             pow(abs((evalues[0]*evalues[0])/(evalues[1]*evalues[2])), 1/3),
             pow(abs((evalues[1]*evalues[1])/(evalues[2]*evalues[0])), 1/3),
             pow(abs((evalues[2]*evalues[2])/(evalues[0]*evalues[1])), 1/3),
@@ -218,13 +218,13 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpol
     )
 
     # Interpolate the metric into target space and ensure SPD
-    target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
+    target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
     if interpolant == 'Clement':
         return hessian_metric(clement_interpolant(P0_metric, target_space=target_space))
     elif interpolant == 'interpolate':
-        return hessian_metric(interpolate(P0_metric, target_space))
+        return hessian_metric(firedrake.interpolate(P0_metric, target_space))
     elif interpolant in ('project', 'L2'):
-        return hessian_metric(project(P0_metric, target_space))
+        return hessian_metric(firedrake.project(P0_metric, target_space))
     else:
         raise ValueError(f"Interpolant {interpolant} not recognised")
 
@@ -258,17 +258,20 @@ def weighted_hessian_metric(error_indicators, hessians, target_space=None, inter
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
 
     # Project error indicators into P1 space and use them to weight Hessians
-    target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
-    metrics = [Function(target_space, name="Metric") for hessian in hessians]
+    target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
+    metrics = [
+        firedrake.Function(target_space, name="Metric")
+        for hessian in hessians
+    ]
     for error_indicator, hessian, metric in zip(error_indicators, hessians, metrics):
         if interpolant == 'Clement':
             error_indicator = clement_interpolant(error_indicator)
         else:
-            P1 = FunctionSpace(mesh, "CG", 1)
+            P1 = firedrake.FunctionSpace(mesh, "CG", 1)
             if interpolant == 'interpolate':
-                error_indicator = interpolate(error_indicator, P1)
+                error_indicator = firedrake.interpolate(error_indicator, P1)
             elif interpolant in ('L2', 'project'):
-                error_indicator = project(error_indicator, P1)
+                error_indicator = firedrake.project(error_indicator, P1)
             else:
                 raise ValueError(f"Interpolant {interpolant} not recognised")
         metric.interpolate(abs(error_indicator)*hessian)
@@ -294,6 +297,7 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max, boundary_tag=None,
     :kwarg optimise: is this a timed run?
     """
     from collections.abc import Iterable
+    from firedrake import Function
 
     if isinstance(metrics, Function):
         metrics = [metrics]
@@ -308,7 +312,7 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max, boundary_tag=None,
         mesh = fs.mesh()
 
         # Interpolate hmin, hmax and amax into P1
-        P1 = FunctionSpace(mesh, "CG", 1)
+        P1 = firedrake.FunctionSpace(mesh, "CG", 1)
         hmin = (clement_interpolant if isinstance(hmin, Function) else Function(P1).assign)(hmin)
         hmax = (clement_interpolant if isinstance(hmax, Function) else Function(P1).assign)(hmax)
         amax = (clement_interpolant if isinstance(amax, Function) else Function(P1).assign)(amax)
@@ -318,7 +322,8 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max, boundary_tag=None,
             _hmin = hmin.vector().gather().min()
             assert _hmin > 0.0
             assert hmax.vector().gather().min() > _hmin
-            assert np.isclose(assemble(conditional(hmax < hmin, 1, 0)*dx(domain=mesh)), 0.0)
+            dx = ufl.dx(domain=mesh)
+            assert np.isclose(firedrake.assemble(ufl.conditional(hmax < hmin, 1, 0)*dx), 0.0)
             assert amax.vector().gather().min() > 1.0
 
         # Enforce constraints
@@ -327,7 +332,7 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max, boundary_tag=None,
         if boundary_tag is None:
             node_set = fs.node_set
         else:
-            node_set = DirichletBC(fs, 0, boundary_tag).node_set
+            node_set = firedrake.DirichletBC(fs, 0, boundary_tag).node_set
         op2.par_loop(kernel, node_set,
                      metric.dat(op2.RW), hmin.dat(op2.READ),
                      hmax.dat(op2.READ), amax.dat(op2.READ))
@@ -357,13 +362,13 @@ def space_normalise(metric, target, p, global_factor=None, boundary=False):
 
     # Compute global normalisation factor
     if global_factor is None:
-        detM = det(metric)
-        dX = ds if boundary else dx
-        integral = assemble(pow(detM, 0.5 if p == 'inf' else p/(2*p + d))*dX)
-        global_factor = Constant(pow(target/integral, 2/d))
+        detM = ufl.det(metric)
+        dX = ufl.ds if boundary else ufl.dx
+        integral = firedrake.assemble(pow(detM, 0.5 if p == 'inf' else p/(2*p + d))*dX)
+        global_factor = firedrake.Constant(pow(target/integral, 2/d))
 
     # Normalise
-    determinant = 1 if p == 'inf' else pow(det(metric), -1/(2*p + d))
+    determinant = 1 if p == 'inf' else pow(ufl.det(metric), -1/(2*p + d))
     metric.interpolate(global_factor*determinant*metric)
     return metric
 
@@ -386,19 +391,25 @@ def space_time_normalise(metrics, end_time, timesteps, target, p):
     assert p == 'inf' or p >= 1.0, f"Norm order {p} not valid"
     num_subintervals = len(metrics)
     assert len(timesteps) == num_subintervals
-    dt_per_mesh = [Constant(end_time/num_subintervals/dt) for dt in timesteps]
+    dt_per_mesh = [
+        firedrake.Constant(end_time/num_subintervals/dt)
+        for dt in timesteps
+    ]
     d = metrics[0].function_space().mesh().topological_dimension()
 
     # Compute global normalisation factor
     integral = 0
     for metric, tau in zip(metrics, dt_per_mesh):
-        detM = det(metric)
-        integral += assemble(tau*sqrt(detM)*dx if p == 'inf' else pow(tau**2*detM, p/(2*p + d))*dx)
-    global_norm = Constant(pow(target/integral, 2/d))
+        detM = ufl.det(metric)
+        if p == 'inf':
+            integral += firedrake.assemble(tau*ufl.sqrt(detM)*ufl.dx)
+        else:
+            integral += firedrake.assemble(pow(tau**2*detM, p/(2*p + d))*ufl.dx)
+    global_norm = firedrake.Constant(pow(target/integral, 2/d))
 
     # Normalise on each subinterval
     for metric, tau in zip(metrics, dt_per_mesh):
-        determinant = 1 if p == 'inf' else pow(tau**2*det(metric), -1/(2*p + d))
+        determinant = 1 if p == 'inf' else pow(tau**2*ufl.det(metric), -1/(2*p + d))
         metric.interpolate(global_norm*determinant*metric)
     return metrics
 
@@ -424,14 +435,16 @@ def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
 
     d = H_interior.function_space().mesh().topological_dimension()
     assert d in (2, 3)
-    g = kwargs.get('H_interior_scaling', Constant(1.0))
-    gbar = kwargs.get('H_boundary_scaling', Constant(1.0))
     if p == 'inf':
         raise NotImplementedError  # TODO
+    g = kwargs.get('H_interior_scaling', firedrake.Constant(1.0))
+    gbar = kwargs.get('H_boundary_scaling', firedrake.Constant(1.0))
+    g = pow(g, d/(2*p + d))
+    gbar = pow(gbar, d/(2*p + d - 1))
 
     # Compute coefficients for the algebraic problem
-    a = assemble(pow(g, d/(2*p + d))*pow(det(H_interior), p/(2*p + d))*dx)
-    b = assemble(pow(gbar, d/(2*p + d - 1))*pow(det(H_boundary), p/(2*p + d - 1))*ds)
+    a = firedrake.assemble(g*pow(det(H_interior), p/(2*p + d))*ufl.dx)
+    b = firedrake.assemble(gbar*pow(det(H_boundary), p/(2*p + d - 1))*ufl.ds)
 
     # Solve algebraic problem
     c = sympy.Symbol('c')
@@ -465,10 +478,10 @@ def metric_relaxation(*metrics, weights=None, function_space=None):
             "Number of weights do not match number of metrics"
             + f"({len(weights)} vs. {n})")
     fs = function_space or metrics[0].function_space()
-    relaxed_metric = Function(fs)
+    relaxed_metric = firedrake.Function(fs)
     for weight, metric in zip(weights, metrics):
-        if not isinstance(metric, Function) or metric.function_space() != fs:
-            metric = interpolate(metric, function_space)
+        if not isinstance(metric, firedrake.Function) or metric.function_space() != fs:
+            metric = firedrake.interpolate(metric, function_space)
         relaxed_metric += weight*metric
     return relaxed_metric
 
@@ -500,20 +513,20 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     assert n > 0, "Nothing to combine"
     fs = function_space or metrics[0].function_space()
     for metric in metrics:
-        if not isinstance(metric, Function) or metric.function_space() != fs:
-            metric = interpolate(metric, function_space)
-    intersected_metric = Function(metrics[0])
+        if not isinstance(metric, firedrake.Function) or metric.function_space() != fs:
+            metric = firedrake.interpolate(metric, function_space)
+    intersected_metric = firedrake.Function(metrics[0])
     if boundary_tag is None:
         node_set = fs.node_set
     elif boundary_tag == []:
         raise ValueError("It is unclear what to do with an empty list of boundary tags.")
     else:
-        node_set = DirichletBC(fs, 0, boundary_tag).node_set  # TODO: is there a cleaner way?
+        node_set = firedrake.DirichletBC(fs, 0, boundary_tag).node_set  # TODO: is there a cleaner way?
     dim = fs.mesh().topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
 
     def intersect_pair(M1, M2):
-        M12 = Function(M1)
+        M12 = firedrake.Function(M1)
         kernel = kernels.eigen_kernel(kernels.intersect, dim)
         op2.par_loop(kernel, node_set, M12.dat(op2.RW), M1.dat(op2.READ), M2.dat(op2.READ))
         return M12
@@ -589,15 +602,15 @@ def density_and_quotients(metric, reorder=False):
     fs_ten = metric.function_space()
     mesh = fs_ten.mesh()
     fe = (fs_ten.ufl_element().family(), fs_ten.ufl_element().degree())
-    fs_vec = VectorFunctionSpace(mesh, *fe)
-    fs = FunctionSpace(mesh, *fe)
+    fs_vec = firedrake.VectorFunctionSpace(mesh, *fe)
+    fs = firedrake.FunctionSpace(mesh, *fe)
     dim = mesh.topological_dimension()
 
     # Setup fields
-    evectors = Function(fs_ten)
-    evalues = Function(fs_vec)
-    density = Function(fs, name="Metric density")
-    quotients = Function(fs_vec, name="Anisotropic quotients")
+    evectors = firedrake.Function(fs_ten)
+    evalues = firedrake.Function(fs_vec)
+    density = firedrake.Function(fs, name="Metric density")
+    quotients = firedrake.Function(fs_vec, name="Anisotropic quotients")
 
     # Compute eigendecomposition
     if reorder:
@@ -622,8 +635,8 @@ def is_symmetric(M, rtol=1.0e-08):
     :arg M: the tensor field
     :kwarg rtol: relative tolerance for the test
     """
-    err = assemble(abs(det(M - transpose(M)))*dx)
-    return err/assemble(abs(det(M))*dx) < rtol
+    err = firedrake.assemble(abs(ufl.det(M - ufl.transpose(M)))*ufl.dx)
+    return err/firedrake.assemble(abs(ufl.det(M))*ufl.dx) < rtol
 
 
 @PETSc.Log.EventDecorator("pyroteus.is_pos_def")
@@ -634,9 +647,10 @@ def is_pos_def(M):
     :arg M: the tensor field
     """
     fs = M.function_space()
-    fs_vec = VectorFunctionSpace(fs.mesh(), fs.ufl_element().family(), fs.ufl_element().degree())
-    evectors = Function(fs)
-    evalues = Function(fs_vec)
+    element = (fs.ufl_element().family(), fs.ufl_element().degree())
+    fs_vec = firedrake.VectorFunctionSpace(fs.mesh(), *element)
+    evectors = firedrake.Function(fs)
+    evalues = firedrake.Function(fs_vec)
     kernel = kernels.eigen_kernel(kernels.get_eigendecomposition, fs.mesh().topological_dimension())
     op2.par_loop(kernel, fs.node_set, evectors.dat(op2.RW), evalues.dat(op2.RW), M.dat(op2.READ))
     return evalues.vector().gather().min() > 0.0

@@ -2,6 +2,7 @@ try:
     from thetis import *
 except ImportError:
     raise ImportError("Thetis is not installed!")
+from numpy import isclose
 
 
 class FlowSolver2d(thetis.solver2d.FlowSolver2d):
@@ -54,7 +55,7 @@ class FlowSolver2d(thetis.solver2d.FlowSolver2d):
         self.i_export = i_export
         self.next_export_t = ts_data.start_time
         self.iteration = int(ts_data.start_time/ts_data.timestep)
-        self.export_initial_state = np.isclose(ts_data.start_time, 0.0)
+        self.export_initial_state = isclose(ts_data.start_time, 0.0)
         if not self.options.no_exports:
             if len(self.options.fields_to_export) > 0:
                 for e in self.exporters['vtk'].exporters:

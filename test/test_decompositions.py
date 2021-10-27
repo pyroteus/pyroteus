@@ -1,6 +1,7 @@
 """
 Test matrix decomposition par_loops.
 """
+from firedrake import *
 from pyroteus import *
 import pyroteus.kernel as kernels
 from utility import uniform_mesh

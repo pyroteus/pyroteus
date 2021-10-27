@@ -21,6 +21,7 @@ required per timestep.
 from firedrake import *
 from pyroteus.runge_kutta import SSPRK33
 from pyroteus.utility import rotate
+import numpy as np
 
 
 # Problem setup

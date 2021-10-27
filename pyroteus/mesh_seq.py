@@ -2,6 +2,7 @@
 Sequences of meshes corresponding to a :class:`TimePartition`.
 """
 import firedrake
+from firedrake.petsc import PETSc
 from .interpolation import project
 from .log import debug, warning
 from .utility import AttrDict, Mesh, classify_element, create_section
@@ -19,6 +20,7 @@ class MeshSeq(object):
     with a particular :class:`TimePartition` of the
     temporal domain.
     """
+    @PETSc.Log.EventDecorator("pyroteus.MeshSeq.__init__")
     def __init__(self, time_partition, initial_meshes, get_function_spaces,
                  get_initial_condition, get_solver, warnings=True, **kwargs):
         """
@@ -124,6 +126,7 @@ class MeshSeq(object):
     def solver(self):
         return self.get_solver()
 
+    @PETSc.Log.EventDecorator("pyroteus.MeshSeq.get_checkpoints")
     def get_checkpoints(self, solver_kwargs={}):
         """
         Solve forward on the sequence of meshes,
@@ -262,6 +265,7 @@ class MeshSeq(object):
         istart = index*stride + offset*self.solves_per_timestep
         return solve_blocks[istart:istart + self.solves_per_timestep]
 
+    @PETSc.Log.EventDecorator("pyroteus.MeshSeq.solve_forward")
     def solve_forward(self, solver_kwargs={}):
         """
         Solve a forward problem on a sequence of subintervals.
@@ -352,7 +356,7 @@ class MeshSeq(object):
 
         return solutions
 
-    # TODO: Parallelise
+    @PETSc.Log.EventDecorator("pyroteus.MeshSeq.get_values_at_elements")
     def get_values_at_elements(self, field, index=0, reorder=True):
         """
         Extract all of the values associated with
@@ -369,6 +373,8 @@ class MeshSeq(object):
         :kwarg reorder: toggle whether to reorder
             in Firedrake numbering.
         """
+        if firedrake.COMM_WORLD.size > 1:
+            raise NotImplementedError("get_values_at_elements only currently implemented in serial")  # TODO: Parallelise
         dim = self[index].topological_dimension()
         label, entity_dofs = classify_element(field.ufl_element(), dim)
         d = max(entity_dofs)

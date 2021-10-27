@@ -2,7 +2,13 @@
 Driver functions for mesh-to-mesh data transfer.
 """
 from __future__ import absolute_import
-from .utility import *
+from .utility import assemble_mass_matrix, get_facet_areas
+import firedrake
+from firedrake.petsc import PETSc
+from petsc4py import PETSc as petsc4py
+from pyop2 import op2
+import ufl
+import numpy as np
 
 
 __all__ = ["clement_interpolant", "project"]
@@ -27,47 +33,60 @@ def clement_interpolant(source, target_space=None, boundary_tag=None):
     rank = len(V.ufl_element().value_shape())
     mesh = V.mesh()
     dim = mesh.topological_dimension()
-    P1 = FunctionSpace(mesh, "CG", 1)
-    dX = dx if boundary_tag is None else ds(boundary_tag)
+    P1 = firedrake.FunctionSpace(mesh, "CG", 1)
+    dX = ufl.dx if boundary_tag is None else ufl.ds(boundary_tag)
     if target_space is None:
         if rank == 0:
             target_space = P1
         elif rank == 1:
-            target_space = VectorFunctionSpace(mesh, "CG", 1)
+            target_space = firedrake.VectorFunctionSpace(mesh, "CG", 1)
         elif rank == 2:
-            target_space = TensorFunctionSpace(mesh, "CG", 1)
+            target_space = firedrake.TensorFunctionSpace(mesh, "CG", 1)
         else:
             raise ValueError(f"Rank-{rank} tensors are not supported.")
     else:
         assert target_space.ufl_element().family() == 'Lagrange'
         assert target_space.ufl_element().degree() == 1
-    target = Function(target_space)
+    target = firedrake.Function(target_space)
 
     # Compute the patch volume at each vertex
     if boundary_tag is None:
-        P0 = FunctionSpace(mesh, "DG", 0)
-        volume = assemble(TestFunction(P0)*dx(domain=mesh))
+        P0 = firedrake.FunctionSpace(mesh, "DG", 0)
+        dx = ufl.dx(domain=mesh)
+        volume = firedrake.assemble(firedrake.TestFunction(P0)*dx)
     else:
         volume = get_facet_areas(mesh)
-    patch_volume = Function(P1)
+    patch_volume = firedrake.Function(P1)
     kernel = "for (int i=0; i < p.dofs; i++) p[i] += v[0];"
-    par_loop(kernel, dX, {'v': (volume, READ), 'p': (patch_volume, INC)})
+    keys = {
+        'v': (volume, op2.READ),
+        'p': (patch_volume, op2.INC),
+    }
+    firedrake.par_loop(kernel, dX, keys)
 
     # Volume average
+    keys = {
+        's': (source, op2.READ),
+        'v': (volume, op2.READ),
+        't': (target, op2.INC),
+    }
     if rank == 0:
-        par_loop("for (int i=0; i < t.dofs; i++) t[i] += s[0]*v[0];", dX,
-                 {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
+        firedrake.par_loop("""
+            for (int i=0; i < t.dofs; i++) {
+              t[i] += s[0]*v[0];
+            }
+            """, dX, keys)
     elif rank == 1:
-        par_loop("""
+        firedrake.par_loop("""
             int d = %d;
             for (int i=0; i < t.dofs; i++) {
               for (int j=0; j < d; j++) {
                 t[i*d + j] += s[j]*v[0];
               }
             }
-            """ % dim, dX, {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
+            """ % dim, dX, keys)
     elif rank == 2:
-        par_loop("""
+        firedrake.par_loop("""
             int d = %d;
             int Nd = d*d;
             for (int i=0; i < t.dofs; i++) {
@@ -77,7 +96,7 @@ def clement_interpolant(source, target_space=None, boundary_tag=None):
                 }
               }
             }
-            """ % dim, dX, {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
+            """ % dim, dX, keys)
     else:
         raise ValueError(f"Rank-{rank} tensors are not supported.")
     target.interpolate(target/patch_volume)
@@ -115,7 +134,7 @@ def project(source, target_space, adjoint=False, **kwargs):
         target = target_space
         target_space = target.function_space()
     else:
-        target = Function(target_space)
+        target = firedrake.Function(target_space)
     if source_space.ufl_domain() == target_space.ufl_domain():
         if source_space == target_space:
             target.assign(source)
@@ -205,7 +224,7 @@ def mesh2mesh_project_adjoint(target_b, source_b, **kwargs):
 
     # Apply adjoint projection operator to each component
     for i, (t_b, s_b) in enumerate(zip(target_b_split, source_b_split)):
-        ksp = PETSc.KSP().create()
+        ksp = petsc4py.KSP().create()
         ksp.setOperators(assemble_mass_matrix(t_b.function_space()))
         mixed_mass = assemble_mixed_mass_matrix(t_b.function_space(), s_b.function_space())
         with t_b.dat.vec_ro as tb, s_b.dat.vec_wo as sb:

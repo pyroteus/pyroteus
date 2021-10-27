@@ -59,7 +59,6 @@ def get_solver(self):
         fs = self.function_spaces['tracer_2d'][i]
         D = Constant(0.1)
         u = Constant(as_vector([1.0, 0.0]))
-        n = FacetNormal(self[i])
         h = CellSize(self[i])
         S = source(self[i])
 

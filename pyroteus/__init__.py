@@ -10,4 +10,7 @@ from pyroteus.log import *               # noqa
 from pyroteus.interpolation import *     # noqa
 from pyroteus.error_estimation import *  # noqa
 
+import numpy as np                       # noqa
+import os                                # noqa
+
 __version__ = '0.1'

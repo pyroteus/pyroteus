@@ -1,8 +1,10 @@
 """
 Test interpolation schemes.
 """
+from firedrake import *
 from pyroteus import *
 import pytest
+import numpy as np
 
 
 @pytest.fixture(params=['scalar', 'vector', 'tensor'])

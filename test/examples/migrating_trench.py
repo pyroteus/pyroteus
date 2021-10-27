@@ -89,6 +89,7 @@ def get_solver(self):
         sed_options.average_sediment_size = Constant(1.6e-04)
         sed_options.bed_reference_height = Constant(0.025)
         sed_options.morphological_acceleration_factor = Constant(morfac)
+        sed_options.horizontal_diffusivity = Constant(0.15)
 
         # Setup problem
         options.set_timestepper_type('CrankNicolson', implicitness_theta=1.0)
@@ -97,7 +98,6 @@ def get_solver(self):
         options.simulation_export_time = dt*self.time_partition[i].timesteps_per_export
         options.simulation_end_time = t_end
         options.horizontal_viscosity = Constant(1.0e-06)
-        options.horizontal_diffusivity = Constant(0.15)
         options.nikuradse_bed_roughness = Constant(3*sed_options.average_sediment_size)
         options.output_directory = 'outputs/migrating_trench'
         model_options.setdefault('no_exports', True)

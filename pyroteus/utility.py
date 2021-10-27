@@ -2,13 +2,15 @@
 Utility functions and classes for mesh adaptation.
 """
 from __future__ import absolute_import
-from pyroteus.mesh_quality import *
+from .quality import *
 import firedrake
 from firedrake.petsc import PETSc
+import firedrake.cython.dmcommon as dmcommon
+import ufl
 from .log import *
 from collections import OrderedDict
 from collections.abc import Iterable
-import firedrake.cython.dmcommon as dmcommon
+import numpy as np
 
 
 @PETSc.Log.EventDecorator("pyroteus.Mesh")
@@ -29,21 +31,22 @@ def Mesh(arg, **kwargs):
         mesh = firedrake.Mesh(arg, **kwargs)
     except TypeError:
         mesh = firedrake.Mesh(arg.coordinates, **kwargs)
-    P0 = FunctionSpace(mesh, "DG", 0)
-    P1 = FunctionSpace(mesh, "CG", 1)
+    P0 = firedrake.FunctionSpace(mesh, "DG", 0)
+    P1 = firedrake.FunctionSpace(mesh, "CG", 1)
     dim = mesh.topological_dimension()
 
     # Facet area
     boundary_markers = sorted(mesh.exterior_facets.unique_markers)
-    one = Function(P1).assign(1.0)
+    one = firedrake.Function(P1).assign(1.0)
+    bnd_len = OrderedDict({i: firedrake.assemble(one*ufl.ds(int(i))) for i in boundary_markers})
     if dim == 2:
-        mesh.boundary_len = OrderedDict({i: assemble(one*ds(int(i))) for i in boundary_markers})
+        mesh.boundary_len = bnd_len
     else:
-        mesh.boundary_area = OrderedDict({i: assemble(one*ds(int(i))) for i in boundary_markers})
+        mesh.boundary_area = bnd_len
 
     # Cell size
-    if dim == 2 and mesh.coordinates.ufl_element().cell() == triangle:
-        mesh.delta_x = interpolate(CellSize(mesh), P0)
+    if dim == 2 and mesh.coordinates.ufl_element().cell() == ufl.triangle:
+        mesh.delta_x = firedrake.interpolate(ufl.CellDiameter(mesh), P0)
 
     return mesh
 
@@ -89,15 +92,16 @@ def assemble_mass_matrix(space, norm_type='L2'):
     Assemble the ``norm_type`` mass matrix
     associated with some finite element ``space``.
     """
-    trial = TrialFunction(space)
-    test = TestFunction(space)
+    trial = firedrake.TrialFunction(space)
+    test = firedrake.TestFunction(space)
     if norm_type == 'L2':
-        lhs = inner(trial, test)*dx
+        lhs = ufl.inner(trial, test)*ufl.dx
     elif norm_type == 'H1':
-        lhs = inner(trial, test)*dx + inner(grad(trial), grad(test))*dx
+        lhs = ufl.inner(trial, test)*ufl.dx \
+            + ufl.inner(ufl.grad(trial), ufl.grad(test))*ufl.dx
     else:
         raise ValueError(f"Norm type {norm_type} not recognised.")
-    return assemble(lhs).petscmat
+    return firedrake.assemble(lhs).petscmat
 
 
 @PETSc.Log.EventDecorator("pyroteus.norm")
@@ -135,8 +139,8 @@ def norm(v, norm_type='L2', mesh=None, condition=None, boundary=False):
     elif norm_type[0] == 'l':
         raise NotImplementedError("lp norm of order {:s} not supported.".format(norm_type[1:]))
     else:
-        condition = condition or Constant(1.0)
-        dX = ds if boundary else dx
+        condition = condition or firedrake.Constant(1.0)
+        dX = ufl.ds if boundary else ufl.dx
         if norm_type.startswith('L'):
             try:
                 p = int(norm_type[1:])
@@ -144,13 +148,16 @@ def norm(v, norm_type='L2', mesh=None, condition=None, boundary=False):
                     raise ValueError(f"{norm_type} norm does not make sense.")
             except ValueError:
                 raise ValueError(f"Don't know how to interpret {norm_type} norm.")
-            return assemble(condition*inner(v, v)**(p/2)*dX)**(1/p)
+            return firedrake.assemble(condition*ufl.inner(v, v)**(p/2)*dX)**(1/p)
         elif norm_type.lower() == 'h1':
-            return sqrt(assemble(condition*(inner(v, v) + inner(grad(v), grad(v)))*dX))
+            return ufl.sqrt(firedrake.assemble(condition*(
+                ufl.inner(v, v) + ufl.inner(ufl.grad(v), ufl.grad(v)))*dX))
         elif norm_type.lower() == 'hdiv':
-            return sqrt(assemble(condition*(inner(v, v) + div(v)*div(v))*dX))
+            return ufl.sqrt(firedrake.assemble(condition*(
+                ufl.inner(v, v) + ufl.div(v)*ufl.div(v))*dX))
         elif norm_type.lower() == 'hcurl':
-            return sqrt(assemble(condition*(inner(v, v) + inner(curl(v), curl(v)))*dX))
+            return ufl.sqrt(firedrake.assemble(condition*(
+                ufl.inner(v, v) + ufl.inner(ufl.curl(v), ufl.curl(v)))*dX))
         else:
             raise ValueError(f"Unknown norm type {norm_type}")
 
@@ -164,14 +171,22 @@ def errornorm(u, uh, norm_type='L2', **kwargs):
     Note that this version is case sensitive,
     i.e. ``'l2'`` and ``'L2'`` will give
     different results in general.
+
+    :arg u: the 'true' value
+    :arg uh: the approximation of the 'truth'
+    :kwarg norm_type: choose from 'l1', 'l2', 'linf',
+        'L2', 'Linf', 'H1', 'Hdiv', 'Hcurl', or any
+        'Lp' with :math:`p >= 1`.
+    :kwarg boundary: should the norm be computed over
+        the domain boundary?
     """
     if len(u.ufl_shape) != len(uh.ufl_shape):
         raise RuntimeError("Mismatching rank between u and uh")
 
-    if not isinstance(uh, function.Function):
+    if not isinstance(uh, firedrake.Function):
         raise ValueError("uh should be a Function, is a %r", type(uh))
     if norm_type[0] == 'l':
-        if not isinstance(u, function.Function):
+        if not isinstance(u, firedrake.Function):
             raise ValueError("u should be a Function, is a %r", type(uh))
 
     if isinstance(u, firedrake.Function):
@@ -189,7 +204,8 @@ def errornorm(u, uh, norm_type='L2', **kwargs):
     elif hasattr(uh.function_space(), 'num_sub_spaces'):
         if norm_type[1:] == '2':
             vv = [uu - uuh for uu, uuh in zip(u.split(), uh.split())]
-            return sqrt(assemble(sum([inner(v, v) for v in vv])*dx))
+            dX = ufl.ds if kwargs.get('boundary', False) else ufl.dx
+            return ufl.sqrt(firedrake.assemble(sum([ufl.inner(v, v) for v in vv])*dX))
         else:
             raise NotImplementedError
 
@@ -205,8 +221,8 @@ def rotation_matrix_2d(angle):
     Rotation matrix associated with some
     ``angle``, as a UFL matrix.
     """
-    return as_matrix([[cos(angle), -sin(angle)],
-                     [sin(angle), cos(angle)]])
+    return ufl.as_matrix([[ufl.cos(angle), -ufl.sin(angle)],
+                          [ufl.sin(angle), ufl.cos(angle)]])
 
 
 def rotate(v, angle, origin=None):
@@ -215,13 +231,13 @@ def rotate(v, angle, origin=None):
     by ``angle`` about an ``origin``.
     """
     dim = len(v)
-    origin = origin or as_vector(np.zeros(dim))
+    origin = origin or ufl.as_vector(np.zeros(dim))
     assert len(origin) == dim, "Origin does not match dimension"
     if dim == 2:
         R = rotation_matrix_2d(angle)
     else:
         raise NotImplementedError
-    return dot(R, v - origin) + origin
+    return ufl.dot(R, v - origin) + origin
 
 
 class AttrDict(dict):
@@ -250,7 +266,8 @@ def effectivity_index(error_indicator, Je):
         individual elements
     :arg Je: error in quantity of interest
     """
-    assert isinstance(error_indicator, Function), "Error indicator must return a Function"
+    if not isinstance(error_indicator, firedrake.Function):
+        raise ValueError("Error indicator must return a Function")
     el = error_indicator.ufl_element()
     assert (el.family(), el.degree()) == ('Discontinuous Lagrange', 0), "Error indicator must be P0"
     eta = error_indicator.vector().gather().sum()

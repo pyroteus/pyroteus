@@ -1,6 +1,7 @@
 """
 Test adjoint drivers.
 """
+from firedrake import *
 from pyroteus_adjoint import *
 import pytest
 import importlib
