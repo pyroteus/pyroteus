@@ -20,8 +20,9 @@
 # as a sine wave and is nonlinearly advected to the right hand
 # side. See the Firedrake demo for details on the discretisation used.
 #
-# We always begin by importing Pyroteus. ::
+# First, import Firedrake and Pyroteus. ::
 
+from firedrake import *
 from pyroteus import *
 
 # In this problem, we have a single prognostic variable,

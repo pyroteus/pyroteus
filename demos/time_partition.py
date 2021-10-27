@@ -16,8 +16,10 @@
 # which subdivides :math:`\mathcal T` into
 # subintervals.
 #
-# We always begin by importing Pyroteus. ::
+# We always begin by importing Firedrake
+# and Pyroteus. ::
 
+from firedrake import *
 from pyroteus import *
 
 # To create a :class:`TimePartition`, we

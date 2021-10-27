@@ -11,6 +11,7 @@
 # so that we have access to the discrete adjoint functionality
 # due to `dolfin-adjoint`. ::
 
+from firedrake import *
 from pyroteus_adjoint import *
 
 # The solver, initial condition and function spaces may be

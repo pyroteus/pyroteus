@@ -9,6 +9,7 @@
 # Again, begin by importing Pyroteus with adjoint mode
 # activated. ::
 
+from firedrake import *
 from pyroteus_adjoint import *
 
 # The solver, initial condition and QoI may be imported from the

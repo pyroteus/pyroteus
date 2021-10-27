@@ -9,6 +9,7 @@
 # Begin by importing from Pyroteus and the first Burgers
 # demo. ::
 
+from firedrake import *
 from pyroteus_adjoint import *
 from burgers import get_initial_condition, get_function_spaces
 
