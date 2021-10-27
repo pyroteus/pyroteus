@@ -8,21 +8,40 @@ from .utility import *
 __all__ = ["clement_interpolant", "project"]
 
 
-def clement_interpolant(source, boundary_tag=None):
+@PETSc.Log.EventDecorator("pyroteus.clement_interpolant")
+def clement_interpolant(source, target_space=None, boundary_tag=None):
     r"""
     Compute the Clement interpolant of a :math:`\mathbb P0`
     source field, i.e. take the volume average over
     neighbouring cells at each vertex.
 
     :arg source: the :math:`\mathbb P0` source field
+    :kwarg target_space: the :math:`\mathbb P1` space to
+        interpolate into
+    :boundary_tag: optional boundary tag to compute the
+        Clement interpolant over.
     """
     V = source.function_space()
     assert V.ufl_element().family() == 'Discontinuous Lagrange'
     assert V.ufl_element().degree() == 0
+    rank = len(V.ufl_element().value_shape())
     mesh = V.mesh()
     dim = mesh.topological_dimension()
     P1 = FunctionSpace(mesh, "CG", 1)
     dX = dx if boundary_tag is None else ds(boundary_tag)
+    if target_space is None:
+        if rank == 0:
+            target_space = P1
+        elif rank == 1:
+            target_space = VectorFunctionSpace(mesh, "CG", 1)
+        elif rank == 2:
+            target_space = TensorFunctionSpace(mesh, "CG", 1)
+        else:
+            raise ValueError(f"Rank-{rank} tensors are not supported.")
+    else:
+        assert target_space.ufl_element().family() == 'Lagrange'
+        assert target_space.ufl_element().degree() == 1
+    target = Function(target_space)
 
     # Compute the patch volume at each vertex
     if boundary_tag is None:
@@ -35,14 +54,10 @@ def clement_interpolant(source, boundary_tag=None):
     par_loop(kernel, dX, {'v': (volume, READ), 'p': (patch_volume, INC)})
 
     # Volume average
-    rank = len(V.ufl_element().value_shape())
     if rank == 0:
-        target = Function(P1)
         par_loop("for (int i=0; i < t.dofs; i++) t[i] += s[0]*v[0];", dX,
                  {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
-        target.interpolate(target/patch_volume)
     elif rank == 1:
-        target = Function(VectorFunctionSpace(mesh, "CG", 1))
         par_loop("""
             int d = %d;
             for (int i=0; i < t.dofs; i++) {
@@ -51,9 +66,7 @@ def clement_interpolant(source, boundary_tag=None):
               }
             }
             """ % dim, dX, {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
-        target.interpolate(target/patch_volume)
     elif rank == 2:
-        target = Function(TensorFunctionSpace(mesh, "CG", 1))
         par_loop("""
             int d = %d;
             int Nd = d*d;
@@ -65,9 +78,9 @@ def clement_interpolant(source, boundary_tag=None):
               }
             }
             """ % dim, dX, {'s': (source, READ), 'v': (volume, READ), 't': (target, INC)})
-        target.interpolate(target/patch_volume)
     else:
         raise ValueError(f"Rank-{rank} tensors are not supported.")
+    target.interpolate(target/patch_volume)
     if boundary_tag is not None:
         target.dat.data_with_halos[:] = np.nan_to_num(target.dat.data_with_halos)
     return target
@@ -113,6 +126,7 @@ def project(source, target_space, adjoint=False, **kwargs):
         return mesh2mesh_project(source, target, adjoint=adjoint, **kwargs)
 
 
+@PETSc.Log.EventDecorator("pyroteus.mesh2mesh_project")
 def mesh2mesh_project(source, target, adjoint=False, **kwargs):
     """
     Apply a mesh-to-mesh conservative projection to some
@@ -146,6 +160,7 @@ def mesh2mesh_project(source, target, adjoint=False, **kwargs):
     return target
 
 
+@PETSc.Log.EventDecorator("pyroteus.mesh2mesh_project_adjoint")
 def mesh2mesh_project_adjoint(target_b, source_b, **kwargs):
     """
     Apply the adjoint of a mesh-to-mesh conservative

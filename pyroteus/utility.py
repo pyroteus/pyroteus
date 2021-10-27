@@ -4,12 +4,14 @@ Utility functions and classes for mesh adaptation.
 from __future__ import absolute_import
 from pyroteus.mesh_quality import *
 import firedrake
+from firedrake.petsc import PETSc
 from .log import *
 from collections import OrderedDict
 from collections.abc import Iterable
 import firedrake.cython.dmcommon as dmcommon
 
 
+@PETSc.Log.EventDecorator("pyroteus.Mesh")
 def Mesh(arg, **kwargs):
     """
     Overload Firedrake's ``Mesh`` constructor to
@@ -81,6 +83,7 @@ def prod(arr):
     return None if n == 0 else arr[0] if n == 1 else arr[0]*prod(arr[1:])
 
 
+@PETSc.Log.EventDecorator("pyroteus.assemble_mass_matrix")
 def assemble_mass_matrix(space, norm_type='L2'):
     """
     Assemble the ``norm_type`` mass matrix
@@ -97,6 +100,7 @@ def assemble_mass_matrix(space, norm_type='L2'):
     return assemble(lhs).petscmat
 
 
+@PETSc.Log.EventDecorator("pyroteus.norm")
 def norm(v, norm_type='L2', mesh=None, condition=None, boundary=False):
     r"""
     Overload Firedrake's ``norm`` function to
@@ -151,6 +155,7 @@ def norm(v, norm_type='L2', mesh=None, condition=None, boundary=False):
             raise ValueError(f"Unknown norm type {norm_type}")
 
 
+@PETSc.Log.EventDecorator("pyroteus.errornorm")
 def errornorm(u, uh, norm_type='L2', **kwargs):
     r"""
     Overload Firedrake's ``errornorm`` function
@@ -276,6 +281,7 @@ def classify_element(element, dim):
     return label, entity_dofs
 
 
+@PETSc.Log.EventDecorator("pyroteus.create_section")
 def create_section(mesh, element):
     """
     Create a PETSc section associated with

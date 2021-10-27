@@ -110,10 +110,17 @@ def get_facet_areas(mesh):
     facet_areas = Function(HDivTrace, name="Facet areas")
     mass_term = v('+')*u('+')*dS + v*u*ds
     rhs = v('+')*FacetArea(mesh)*dS + v*FacetArea(mesh)*ds
-    solve(mass_term == rhs, facet_areas)
+    sp = {
+        "mat_type": "matfree",
+        "ksp_type": "preonly",
+        "pc_type": "jacobi",
+        # "pc_python_type": "firedrake.MassInvPC",
+    }
+    solve(mass_term == rhs, facet_areas, solver_parameters=sp)
     return facet_areas
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_facet_areas2d")
 def get_facet_areas2d(mesh, python=True):
     """
     Computes the area of each facet in a 2D triangular mesh
@@ -130,6 +137,7 @@ def get_facet_areas2d(mesh, python=True):
         raise NotImplementedError
 
 
+@PETSc.Log.EventDecorator("pyroteus.get_facet_areas3d")
 def get_facet_areas3d(mesh, python=True):
     """
     Computes the area of each facet in a 3D tetrahedral mesh

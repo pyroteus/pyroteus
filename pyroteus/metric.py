@@ -20,6 +20,7 @@ __all__ = ["metric_complexity", "isotropic_metric", "anisotropic_metric", "hessi
 
 # --- General
 
+@PETSc.Log.EventDecorator("pyroteus.metric_complexity")
 def metric_complexity(metric, boundary=False):
     """
     Compute the complexity of a metric.
@@ -34,7 +35,8 @@ def metric_complexity(metric, boundary=False):
     return assemble(sqrt(det(metric))*differential)
 
 
-def isotropic_metric(error_indicator, target_space=None, **kwargs):
+@PETSc.Log.EventDecorator("pyroteus.isotropic_metric")
+def isotropic_metric(error_indicator, target_space=None, interpolant='Clement'):
     r"""
     Compute an isotropic metric from some error indicator.
 
@@ -45,26 +47,38 @@ def isotropic_metric(error_indicator, target_space=None, **kwargs):
     :arg error_indicator: the error indicator
     :kwarg target_space: :class:`TensorFunctionSpace` in
         which the metric will exist
-    :kwarg f_min: minimum tolerated function value
+    :kwarg interpolant: choose from 'Clement', 'L2',
+        'interpolate', 'project'
     """
-    fs = error_indicator.function_space()
-    family = fs.ufl_element().family()
-    degree = fs.ufl_element().degree()
-    mesh = fs.mesh()
+    mesh = error_indicator.ufl_domain()
     dim = mesh.topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
-    target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
+    target_space = target_space or TensorFunctionSpace(mesh, 'CG', 1)
     assert target_space.ufl_element().family() == 'Lagrange'
     assert target_space.ufl_element().degree() == 1
 
-    # Interpolate into P1 space using Clement
-    if family != 'Lagrange' or degree != 1:
-        error_indicator = clement_interpolant(error_indicator)
+    # Interpolate P0 indicators into P1 space
+    if interpolant == 'Clement':
+        if not isinstance(error_indicator, Function):
+            raise NotImplementedError("Can only apply Clement interpolant to Functions")
+        fs = error_indicator.function_space()
+        family = fs.ufl_element().family()
+        degree = fs.ufl_element().degree()
+        if family != 'Lagrange' or degree != 1:
+            if family != 'Discontinuous Lagrange' or degree != 0:
+                raise ValueError("Was expecting an error indicator in P0 or P1"
+                                 f" space, not {family} of degree {degree}")
+            error_indicator = clement_interpolant(error_indicator)
+    if interpolant in ('Clement', 'interpolate'):
+        return interpolate(abs(error_indicator)*Identity(dim), target_space)
+    elif interpolant in ('L2', 'project'):
+        error_indicator = project(error_indicator, FunctionSpace(mesh, "CG", 1))
+        return interpolate(abs(error_indicator)*Identity(dim), target_space)
+    else:
+        raise ValueError(f"Interpolant {interpolant} not recognised")
 
-    # Assemble full metric
-    return interpolate(abs(error_indicator)*Identity(dim), target_space)
 
-
+@PETSc.Log.EventDecorator("pyroteus.hessian_metric")
 def hessian_metric(hessian):
     """
     Modify the eigenvalues of a Hessian matrix so
@@ -73,7 +87,6 @@ def hessian_metric(hessian):
     :arg hessian: the Hessian matrix
     """
     fs = hessian.function_space()
-    mesh = fs.mesh()
     shape = fs.ufl_element().value_shape()
     if len(shape) != 2:
         raise ValueError(
@@ -109,6 +122,8 @@ def anisotropic_metric(error_indicator, hessian, **kwargs):
     :arg hessian: (list of) Hessian(s)
     :kwarg target_space: :class:`TensorFunctionSpace` in
         which the metric will exist
+    :kwarg interpolant: choose from 'Clement', 'L2',
+        'interpolate', 'project'
     """
     approach = kwargs.pop('approach', 'anisotropic_dwr')
     if approach == 'anisotropic_dwr':
@@ -119,7 +134,8 @@ def anisotropic_metric(error_indicator, hessian, **kwargs):
         raise ValueError(f"Anisotropic metric approach {approach} not recognised.")
 
 
-def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs):
+@PETSc.Log.EventDecorator("pyroteus.anisotropic_dwr_metric")
+def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpolant='Clement', **kwargs):
     r"""
     Compute an anisotropic metric from some error
     indicator, given a Hessian field.
@@ -141,6 +157,8 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
         which the metric will exist
     :kwarg target_complexity: target metric complexity
     :kwarg convergence rate: normalisation parameter
+    :kwarg interpolant: choose from 'Clement', 'L2',
+        'interpolate', 'project'
     """
     if isinstance(error_indicator, list):  # FIXME: This is hacky
         assert len(error_indicator) == len(hessian)
@@ -148,25 +166,29 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
         hessian = hessian[0]
     target_complexity = kwargs.get('target_complexity', None)
     assert target_complexity > 0.0, "Target complexity must be positive"
-    mesh = hessian.function_space().mesh()
+    mesh = hessian.ufl_domain()
     dim = mesh.topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
     convergence_rate = kwargs.get('convergence_rate', 1.0)
     assert convergence_rate >= 1.0, "Convergence rate must be at least one"
 
+    # Get reference element volume
+    K_hat = 1/2 if dim == 2 else 1/6
+
     # Get current element volume
     P0 = FunctionSpace(mesh, "DG", 0)
-    K_hat = 1/2 if dim == 2 else 1/6
     K = interpolate(K_hat*abs(JacobianDeterminant(mesh)), P0)
 
     # Get optimal element volume
     K_opt = interpolate(pow(error_indicator, 1/(convergence_rate+1)), P0)
     K_opt.interpolate(K_opt.vector().gather().sum()/target_complexity*K/K_opt)
 
-    # Compute eigendecomposition
+    # Interpolate from P1 to P0 by averaging the vertex-wise values
     P0_ten = TensorFunctionSpace(mesh, "DG", 0)
-    P0_vec = VectorFunctionSpace(mesh, "DG", 0)
     P0_metric = hessian_metric(project(hessian, P0_ten))
+
+    # Compute eigendecomposition
+    P0_vec = VectorFunctionSpace(mesh, "DG", 0)
     evectors, evalues = Function(P0_ten), Function(P0_vec)
     kernel = kernels.eigen_kernel(kernels.get_reordered_eigendecomposition, dim)
     op2.par_loop(
@@ -195,17 +217,20 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, **kwargs
         evectors.dat(op2.READ), evalues.dat(op2.READ)
     )
 
-    # Project metric into target space and ensure SPD
-    P1_ten = TensorFunctionSpace(mesh, "CG", 1)
-    target_space = target_space or P1_ten
-    if target_space == P1_ten:
-        metric = clement_interpolant(P0_metric)
+    # Interpolate the metric into target space and ensure SPD
+    target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
+    if interpolant == 'Clement':
+        return hessian_metric(clement_interpolant(P0_metric, target_space=target_space))
+    elif interpolant == 'interpolate':
+        return hessian_metric(interpolate(P0_metric, target_space))
+    elif interpolant in ('project', 'L2'):
+        return hessian_metric(project(P0_metric, target_space))
     else:
-        metric = project(P0_metric, target_space)
-    return hessian_metric(metric)
+        raise ValueError(f"Interpolant {interpolant} not recognised")
 
 
-def weighted_hessian_metric(error_indicators, hessians, target_space=None, **kwargs):
+@PETSc.Log.EventDecorator("pyroteus.weighted_hessian_metric")
+def weighted_hessian_metric(error_indicators, hessians, target_space=None, interpolant='Clement', **kwargs):
     r"""
     Compute a vertex-wise anisotropic metric from a (list
     of) error indicator(s), given a (list of) Hessian
@@ -220,30 +245,40 @@ def weighted_hessian_metric(error_indicators, hessians, target_space=None, **kwa
         which the metric will exist
     :kwarg average: should metric components be averaged
         or intersected?
+    :kwarg interpolant: choose from 'Clement', 'L2',
+        'interpolate', 'project'
     """
     from collections.abc import Iterable
     if not isinstance(error_indicators, Iterable):
         error_indicators = [error_indicators]
     if not isinstance(hessians, Iterable):
         hessians = [hessians]
-    mesh = hessians[0].function_space().mesh()
+    mesh = hessians[0].ufl_domain()
     dim = mesh.topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
 
     # Project error indicators into P1 space and use them to weight Hessians
-    P1 = FunctionSpace(mesh, "CG", 1)
-    target_space = target_space or P1
-    metrics = [Function(hessian, name="Metric") for hessian in hessians]
+    target_space = target_space or TensorFunctionSpace(mesh, "CG", 1)
+    metrics = [Function(target_space, name="Metric") for hessian in hessians]
     for error_indicator, hessian, metric in zip(error_indicators, hessians, metrics):
-        if target_space == P1:
-            ee = clement_interpolant(error_indicator)
+        if interpolant == 'Clement':
+            error_indicator = clement_interpolant(error_indicator)
         else:
-            ee = project(error_indicator, target_space)
-        metric.interpolate(abs(ee)*hessian)
-    return combine_metrics(*metrics, average=kwargs.get('average', True))
+            P1 = FunctionSpace(mesh, "CG", 1)
+            if interpolant == 'interpolate':
+                error_indicator = interpolate(error_indicator, P1)
+            elif interpolant in ('L2', 'project'):
+                error_indicator = project(error_indicator, P1)
+            else:
+                raise ValueError(f"Interpolant {interpolant} not recognised")
+        metric.interpolate(abs(error_indicator)*hessian)
+
+    # Combine the components
+    return combine_metrics(*metrics, average=kwargs.get('average', False))
 
 
-def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
+@PETSc.Log.EventDecorator("pyroteus.enforce_element_constraints")
+def enforce_element_constraints(metrics, h_min, h_max, a_max, boundary_tag=None, optimise=False):
     """
     Post-process a list of metrics to enforce minimum and
     maximum element sizes, as well as maximum anisotropy.
@@ -253,40 +288,55 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max=1000):
         which could be a :class:`Function` or a number.
     :arg h_max: maximum tolerated element size,
         which could be a :class:`Function` or a number.
-    :kwarg a_max: maximum tolerated element anisotropy
-        (default 1000).
+    :arg a_max: maximum tolerated element anisotropy,
+        which could be a :class:`Function` or a number.
+    :kwarg boundary_tag: optional tag to enforce sizes on.
+    :kwarg optimise: is this a timed run?
     """
     from collections.abc import Iterable
-    if a_max <= 0:
-        raise ValueError(f"Max tolerated anisotropy {a_max} not valid")
+
     if isinstance(metrics, Function):
         metrics = [metrics]
     if not isinstance(h_min, Iterable):
-        h_min = [Constant(h_min)]*len(metrics)
+        h_min = [h_min]*len(metrics)
     if not isinstance(h_max, Iterable):
-        h_max = [Constant(h_max)]*len(metrics)
-    for metric, hmin, hmax in zip(metrics, h_min, h_max):
+        h_max = [h_max]*len(metrics)
+    if not isinstance(a_max, Iterable):
+        a_max = [a_max]*len(metrics)
+    for metric, hmin, hmax, amax in zip(metrics, h_min, h_max, a_max):
         fs = metric.function_space()
         mesh = fs.mesh()
 
-        # Convert and validate h_min and h_max
+        # Interpolate hmin, hmax and amax into P1
         P1 = FunctionSpace(mesh, "CG", 1)
-        hmin = project(hmin, P1)
-        hmin.interpolate(abs(hmin))
-        hmax = project(hmax, P1)
-        hmax.interpolate(abs(hmax))
-        assert np.isclose(assemble(conditional(hmax < hmin, 1, 0)*dx(domain=mesh)), 0.0)
+        hmin = (clement_interpolant if isinstance(hmin, Function) else Function(P1).assign)(hmin)
+        hmax = (clement_interpolant if isinstance(hmax, Function) else Function(P1).assign)(hmax)
+        amax = (clement_interpolant if isinstance(amax, Function) else Function(P1).assign)(amax)
+
+        # Check the values are okay
+        if not optimise:
+            _hmin = hmin.vector().gather().min()
+            assert _hmin > 0.0
+            assert hmax.vector().gather().min() > _hmin
+            assert np.isclose(assemble(conditional(hmax < hmin, 1, 0)*dx(domain=mesh)), 0.0)
+            assert amax.vector().gather().min() > 1.0
 
         # Enforce constraints
         dim = fs.mesh().topological_dimension()
-        kernel = kernels.eigen_kernel(kernels.postproc_metric, dim, a_max)
-        op2.par_loop(kernel, fs.node_set,
-                     metric.dat(op2.RW), hmin.dat(op2.READ), hmax.dat(op2.READ))
+        kernel = kernels.eigen_kernel(kernels.postproc_metric, dim)
+        if boundary_tag is None:
+            node_set = fs.node_set
+        else:
+            node_set = DirichletBC(fs, 0, boundary_tag).node_set
+        op2.par_loop(kernel, node_set,
+                     metric.dat(op2.RW), hmin.dat(op2.READ),
+                     hmax.dat(op2.READ), amax.dat(op2.READ))
     return metrics
 
 
 # --- Normalisation
 
+@PETSc.Log.EventDecorator("pyroteus.space_normalise")
 def space_normalise(metric, target, p, global_factor=None, boundary=False):
     """
     Apply :math:`L^p` normalisation in space alone.
@@ -318,6 +368,7 @@ def space_normalise(metric, target, p, global_factor=None, boundary=False):
     return metric
 
 
+@PETSc.Log.EventDecorator("pyroteus.space_time_normalise")
 def space_time_normalise(metrics, end_time, timesteps, target, p):
     """
     Apply :math:`L^p` normalisation in both space and time.
@@ -352,6 +403,7 @@ def space_time_normalise(metrics, end_time, timesteps, target, p):
     return metrics
 
 
+@PETSc.Log.EventDecorator("pyroteus.determine_metric_complexity")
 def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
     """
     Solve an algebraic problem to obtain coefficients
@@ -395,6 +447,7 @@ def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
 
 # --- Combination
 
+@PETSc.Log.EventDecorator("pyroteus.metric_relaxation")
 def metric_relaxation(*metrics, weights=None, function_space=None):
     """
     Combine a list of metrics with a weighted average.
@@ -431,6 +484,7 @@ def metric_average(*metrics, function_space=None):
     return metric_relaxation(*metrics, function_space=function_space)
 
 
+@PETSc.Log.EventDecorator("pyroteus.metric_intersection")
 def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     """
     Combine a list of metrics by intersection.
@@ -487,6 +541,7 @@ def combine_metrics(*metrics, average=True, **kwargs):
 
 # --- Metric decompositions and properties
 
+@PETSc.Log.EventDecorator("pyroteus.density_and_quotients")
 def density_and_quotients(metric, reorder=False):
     r"""
     Extract the density and anisotropy quotients from a
@@ -559,6 +614,7 @@ def density_and_quotients(metric, reorder=False):
     return density, quotients
 
 
+@PETSc.Log.EventDecorator("pyroteus.is_symmetric")
 def is_symmetric(M, rtol=1.0e-08):
     """
     Determine whether a tensor field is symmetric.
@@ -570,6 +626,7 @@ def is_symmetric(M, rtol=1.0e-08):
     return err/assemble(abs(det(M))*dx) < rtol
 
 
+@PETSc.Log.EventDecorator("pyroteus.is_pos_def")
 def is_pos_def(M):
     """
     Determine whether a tensor field is positive-definite.
