@@ -443,8 +443,8 @@ def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
     gbar = pow(gbar, d/(2*p + d - 1))
 
     # Compute coefficients for the algebraic problem
-    a = firedrake.assemble(g*pow(det(H_interior), p/(2*p + d))*ufl.dx)
-    b = firedrake.assemble(gbar*pow(det(H_boundary), p/(2*p + d - 1))*ufl.ds)
+    a = firedrake.assemble(g*pow(ufl.det(H_interior), p/(2*p + d))*ufl.dx)
+    b = firedrake.assemble(gbar*pow(ufl.det(H_boundary), p/(2*p + d - 1))*ufl.ds)
 
     # Solve algebraic problem
     c = sympy.Symbol('c')
