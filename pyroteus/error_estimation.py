@@ -40,8 +40,7 @@ def form2indicator(F):
             "mat_type": "matfree",
             "snes_type": "ksponly",
             "ksp_type": "preonly",
-            "pc_type": "python",
-            "pc_python_type": "firedrake.MassInvPC",
+            "pc_type": "jacobi",
         }
         firedrake.solve(mass_term == flux_terms, indicator, solver_parameters=sp)
 
