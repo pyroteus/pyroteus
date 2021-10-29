@@ -53,8 +53,7 @@ read chk
 curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
 python3 firedrake-install --honour-petsc-dir --install thetis --venv-name $FIREDRAKE_ENV \
 	--mpicc $MPICC --mpicxx $MPICXX --mpif90 $MPIF90 --mpiexec $MPIEXEC \
-	--package-branch firedrake joe/meshadapt_patched --disable-ssh \
-    --pip-install scipy
+	--package-branch firedrake joe/meshadapt_patched --disable-ssh
 source $FIREDRAKE_DIR/bin/activate
 
 # Reset PYTHONPATH
