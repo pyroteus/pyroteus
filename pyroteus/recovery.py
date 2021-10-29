@@ -147,8 +147,7 @@ def recover_boundary_hessian(f, mesh, method='Clement', target_space=None, **kwa
     sp = {
         "ksp_type": "gmres",
         "ksp_gmres_restart": 20,
-        "ksp_rtol": 1.0e-05,
-        "pc_type": "sor",
+        "pc_type": "ilu",
     }
 
     if method.upper() == 'L2':
