@@ -34,8 +34,7 @@ class MetricKernelHandler():
         :arg d: the spatial dimension
         """
         assert d in (2, 3), f"Spatial dimension {d} not supported."
-        eigen_kernels = os.path.join(os.path.dirname(__file__), "cxx/metric{:d}d.cxx")
-        return open(eigen_kernels.format(d)).read()
+        return open(os.path.join(os.path.dirname(__file__), f"cxx/metric{d}d.cxx")).read()
 
     @staticmethod
     def get_pyop2_kernel(kernel, *args, **kwargs):
@@ -46,7 +45,7 @@ class MetricKernelHandler():
         :arg kernel: a string containing C code which
             is to be formatted.
         """
-        return op2.Kernel(kernel(*args, **kwargs), kernel.__name__, cpp=True, 
+        return op2.Kernel(kernel(*args, **kwargs), kernel.__name__, cpp=True,
                           include_dirs=include_dir)
 
 
@@ -57,7 +56,6 @@ get_reordered_eigendecomposition = MetricKernelHandler("get_reordered_eigendecom
 metric_from_hessian = MetricKernelHandler("metric_from_hessian")
 postproc_metric = MetricKernelHandler("postproc_metric")
 intersect = MetricKernelHandler("intersect")
-
 
 
 # --- General
