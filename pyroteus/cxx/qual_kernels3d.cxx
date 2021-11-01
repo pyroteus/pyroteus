@@ -9,7 +9,10 @@ double distance(Vector3d p1, Vector3d p2) {
     return sqrt (pow(p1[0] - p2[0], 2) + pow(p1[1] - p2[1], 2) + pow(p1[2] - p2[2], 2));
 }
 
-
+/*
+  Gets the minimum (planar) angle for all
+  tetrahedral cell elements in a mesh.
+*/
 void get_min_angle(double *MinAngles, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector3d> p1((double *) &Coords[0]);
@@ -55,7 +58,10 @@ void get_min_angle(double *MinAngles, double *Coords) {
   MinAngles[0] = aMin;
 }
 
-
+/*
+  Gets the volume for all tetrahedral cell
+  elements in a mesh.
+*/
 void get_volume(double *Volumes, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector3d> p1((double *) &Coords[0]);
@@ -80,7 +86,10 @@ void get_volume(double *Volumes, double *Coords) {
   Volumes[0] = std::abs(volumeMatrix.determinant() / 6);
 }
 
-
+/*
+  Gets the equiangle skew for all tetrahedral cell
+  elements in a mesh.
+*/
 void get_eskew(double *ESkews, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector3d> p1((double *) &Coords[0]);
@@ -128,7 +137,10 @@ void get_eskew(double *ESkews, double *Coords) {
   ESkews[0] = std::max((aMax - aIdeal) / (PI - aIdeal), (aIdeal - aMin) / aIdeal);
 }
 
-
+/*
+  Gets the aspect raio for all tetrahedral cell
+  elements in a mesh.
+*/
 void get_aspect_ratio(double *AspectRatios, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector3d> p1((double *) &Coords[0]);
@@ -179,7 +191,10 @@ void get_aspect_ratio(double *AspectRatios, double *Coords) {
   AspectRatios[0] = cir_radius / (3 * in_radius);
 }
 
-
+/*
+  Gets the scaled jacobian for all tetrahedral cell
+  elements in a mesh.
+*/
 void get_scaled_jacobian(double *SJacobians, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector3d> p1((double *) &Coords[0]);
@@ -231,7 +246,10 @@ void get_scaled_jacobian(double *SJacobians, double *Coords) {
   SJacobians[0] = std::min(SJacobians[0], sj[3]);
 }
 
-
+/*
+  Gets the quality metric, based on a Riemannian metric
+  for all tetrahedral cell elements in a mesh.
+*/
 void get_metric(double *Metrics, const double *T_, double *Coords) {
   // Map vertices as vectors
   Map<Vector3d> p1((double *) &Coords[0]);

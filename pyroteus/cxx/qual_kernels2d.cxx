@@ -9,6 +9,10 @@ double distance(Vector2d p1, Vector2d p2) {
     return sqrt (pow(p1[0] - p2[0], 2) + pow(p1[1] - p2[1], 2));
 }
 
+/*
+  Gets the minimum angle at a vertex for all 
+  triangular cell elements in a mesh.
+*/
 void get_min_angle(double *MinAngles, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector2d> p1((double *) &Coords[0]);
@@ -31,7 +35,10 @@ void get_min_angle(double *MinAngles, double *Coords) {
   MinAngles[0] = std::min(aMin, a3);
 }
 
-
+/*
+  Gets the cell area for all triangular cell
+  elements in a mesh.
+*/
 void get_area(double *Areas, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector2d> p1((double *) &Coords[0]);
@@ -47,7 +54,10 @@ void get_area(double *Areas, double *Coords) {
   Areas[0] = sqrt(s * (s - d12) * (s - d23) * (s - d13));
 }
 
-
+/*
+  Gets the equiangle skew for all triangular cell
+  elements in a mesh.
+*/
 void get_eskew(double *ESkews, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector2d> p1((double *) &Coords[0]);
@@ -77,7 +87,10 @@ void get_eskew(double *ESkews, double *Coords) {
   ESkews[0] = std::max((aMax - aIdeal / (PI - aIdeal)), (aIdeal - aMin) / aIdeal);
 }
 
-
+/*
+  Gets the aspect ratio for all triangular cell
+  elements in a mesh.
+*/
 void get_aspect_ratio(double *AspectRatios, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector2d> p1((double *) &Coords[0]);
@@ -98,7 +111,10 @@ void get_aspect_ratio(double *AspectRatios, double *Coords) {
   AspectRatios[0] = (d12 * d23 * d13) / (8 * (s - d12) * (s - d23) * (s - d13));
 }
 
-
+/*
+  Gets the scaled jacobian for all triangular cell
+  elements in a mesh.
+*/
 void get_scaled_jacobian(double *SJacobians, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector2d> p1((double *) &Coords[0]);
@@ -123,7 +139,10 @@ void get_scaled_jacobian(double *SJacobians, double *Coords) {
   SJacobians[0] = std::min(sj3, SJacobians[0]);
 }
 
-
+/*
+  Gets the skewness for all triangular cell
+  elements in a mesh.
+*/
 void get_skewness(double *Skews, double *Coords) {
   // Map coordinates onto Eigen objects
   Map<Vector2d> p1((double *) &Coords[0]);
@@ -157,7 +176,10 @@ void get_skewness(double *Skews, double *Coords) {
   Skews[0] = PI/2 - tMin;
 }
 
-
+/*
+  Gets the quality metric, based on a Riemannian metric
+  for all triangular cell elements in a mesh.
+*/
 void get_metric(double *Metrics, const double *T_, double *Coords) {
     // Map coordinates onto Eigen objects
     Map<Vector2d> p1((double *) &Coords[0]);
