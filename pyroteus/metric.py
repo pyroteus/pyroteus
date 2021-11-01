@@ -493,11 +493,13 @@ def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
     c = sympy.solve(a*pow(c, d/2) + b*pow(c, (d-1)/2) - target, c)
     eq = f"{a}*c^{d/2} + {b}*c^{(d-1)/2} = {target}"
     if len(c) == 0:
-        raise ValueError(f"No solutions found for equation {eq}.")
+        raise ValueError(f"Could not find any solutions for equation {eq}.")
     elif len(c) > 1:
-        raise ValueError(f"A unique solution could not be found for equation {eq}.")
+        raise ValueError(f"Could not find a unique solution for equation {eq}.")
+    elif not np.isclose(float(sympy.im(c[0])), 0.0):
+        raise ValueError(f"Could not find any real solutions for equation {eq}.")
     else:
-        return float(c[0])
+        return float(sympy.re(c[0]))
 
 
 # --- Combination
