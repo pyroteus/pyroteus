@@ -36,9 +36,7 @@ class QualityKernelHandler():
         assert d in (2, 3), f"Spatial dimension {d} not supported."
         if self.d_restrict is not None:
             assert d in self.d_restrict, f"Spatial dimension {d} not supported for {self.__name__}"
-
-        qual_kernels = os.path.join(os.path.dirname(__file__), "cxx/quality{:d}d.cxx")
-        return open(qual_kernels.format(d)).read()
+        return open(os.path.join(os.path.dirname(__file__), f"cxx/quality{d}d.cxx")).read()
 
     @staticmethod
     def get_pyop2_kernel(kernel, *args, **kwargs):
@@ -49,7 +47,7 @@ class QualityKernelHandler():
         :arg kernel: a string containing C code which
             is to be formatted.
         """
-        return op2.Kernel(kernel(*args, **kwargs), kernel.__name__, cpp=True, 
+        return op2.Kernel(kernel(*args, **kwargs), kernel.__name__, cpp=True,
                           include_dirs=include_dir)
 
 
@@ -245,7 +243,7 @@ def get_aspect_ratios2d(mesh, python=False):
         coords = mesh.coordinates
         aspect_ratios = firedrake.Function(P0)
         kernel = QualityKernelHandler.get_pyop2_kernel(get_aspect_ratio, 2)
-        op2.par_loop(kernel, mesh.cell_set, 
+        op2.par_loop(kernel, mesh.cell_set,
                      aspect_ratios.dat(op2.WRITE, aspect_ratios.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
     return aspect_ratios
@@ -269,7 +267,7 @@ def get_aspect_ratios3d(mesh, python=False):
         coords = mesh.coordinates
         aspect_ratios = firedrake.Function(P0)
         kernel = QualityKernelHandler.get_pyop2_kernel(get_aspect_ratio, 3)
-        op2.par_loop(kernel, mesh.cell_set, 
+        op2.par_loop(kernel, mesh.cell_set,
                      aspect_ratios.dat(op2.WRITE, aspect_ratios.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
     return aspect_ratios
@@ -388,7 +386,7 @@ def get_scaled_jacobians2d(mesh, python=False):
         coords = mesh.coordinates
         scaled_jacobians = firedrake.Function(P0)
         kernel = QualityKernelHandler.get_pyop2_kernel(get_scaled_jacobian, 2)
-        op2.par_loop(kernel, mesh.cell_set, 
+        op2.par_loop(kernel, mesh.cell_set,
                      scaled_jacobians.dat(op2.WRITE, scaled_jacobians.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
     return scaled_jacobians
@@ -412,7 +410,7 @@ def get_scaled_jacobians3d(mesh, python=False):
         coords = mesh.coordinates
         scaled_jacobians = firedrake.Function(P0)
         kernel = QualityKernelHandler.get_pyop2_kernel(get_scaled_jacobian, 3)
-        op2.par_loop(kernel, mesh.cell_set, 
+        op2.par_loop(kernel, mesh.cell_set,
                      scaled_jacobians.dat(op2.WRITE, scaled_jacobians.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
     return scaled_jacobians
