@@ -3,7 +3,8 @@ Test matrix decomposition par_loops.
 """
 from firedrake import *
 from pyroteus import *
-import pyroteus.kernel as kernels
+import pyroteus.metric as mt
+from pyroteus.metric import MetricKernelHandler
 from utility import uniform_mesh
 import pytest
 
@@ -18,8 +19,8 @@ def dim(request):
 
 
 @pytest.fixture(params=[
-    kernels.get_eigendecomposition,
-    kernels.get_reordered_eigendecomposition,
+    mt.get_eigendecomposition,
+    mt.get_reordered_eigendecomposition,
 ])
 def eigendecomposition_kernel(request):
     return request.param
@@ -44,7 +45,7 @@ def test_eigendecomposition(dim, eigendecomposition_kernel):
 
     # Extract the eigendecomposition
     evectors, evalues = Function(P1_ten), Function(P1_vec)
-    kernel = kernels.eigen_kernel(eigendecomposition_kernel, dim)
+    kernel = MetricKernelHandler.get_pyop2_kernel(eigendecomposition_kernel, dim)
     op2.par_loop(
         kernel, P1_ten.node_set,
         evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ)
@@ -69,7 +70,7 @@ def test_eigendecomposition(dim, eigendecomposition_kernel):
 
     # Reassemble it and check the two match
     reassembled = Function(P1_ten)
-    kernel = kernels.eigen_kernel(kernels.set_eigendecomposition, dim)
+    kernel = MetricKernelHandler.get_pyop2_kernel(mt.set_eigendecomposition, dim)
     op2.par_loop(
         kernel, P1_ten.node_set,
         reassembled.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ)
@@ -96,7 +97,7 @@ def test_density_quotients_decomposition(dim, eigendecomposition_kernel):
 
     # Extract the eigendecomposition
     evectors, evalues = Function(P1_ten), Function(P1_vec)
-    kernel = kernels.eigen_kernel(eigendecomposition_kernel, dim)
+    kernel = MetricKernelHandler.get_pyop2_kernel(eigendecomposition_kernel, dim)
     op2.par_loop(
         kernel, P1_ten.node_set,
         evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ)
@@ -109,7 +110,7 @@ def test_density_quotients_decomposition(dim, eigendecomposition_kernel):
 
     # Reassemble the matrix and check the two match
     reassembled = Function(P1_ten)
-    kernel = kernels.eigen_kernel(kernels.set_eigendecomposition, dim)
+    kernel = MetricKernelHandler.get_pyop2_kernel(mt.set_eigendecomposition, dim)
     op2.par_loop(
         kernel, P1_ten.node_set,
         reassembled.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ)
