@@ -34,7 +34,7 @@ class EigenKernelHandler():
         :arg d: the spatial dimension
         """
         assert d in (2, 3), f"Spatial dimension {d} not supported."
-        eigen_kernels = os.path.join(os.path.dirname(__file__), "cxx/eigen_kernels{:d}d.cxx")
+        eigen_kernels = os.path.join(os.path.dirname(__file__), "cxx/metric{:d}d.cxx")
         return open(eigen_kernels.format(d)).read()
 
     @staticmethod

@@ -37,7 +37,7 @@ class QualityKernelHandler():
         if self.d_restrict is not None:
             assert d in self.d_restrict, f"Spatial dimension {d} not supported for {self.__name__}"
 
-        qual_kernels = os.path.join(os.path.dirname(__file__), "cxx/qual_kernels{}d.cxx".format(d))
+        qual_kernels = os.path.join(os.path.dirname(__file__), "cxx/quality{}d.cxx".format(d))
         return open(qual_kernels).read()
 
     @staticmethod
