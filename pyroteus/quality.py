@@ -37,11 +37,11 @@ class QualityKernelHandler():
         if self.d_restrict is not None:
             assert d in self.d_restrict, f"Spatial dimension {d} not supported for {self.__name__}"
 
-        qual_kernels = os.path.join(os.path.dirname(__file__), "cxx/quality{}d.cxx".format(d))
-        return open(qual_kernels).read()
+        qual_kernels = os.path.join(os.path.dirname(__file__), "cxx/quality{:d}d.cxx")
+        return open(qual_kernels.format(d)).read()
 
     @staticmethod
-    def get_pyop_kernel(kernel, *args, **kwargs):
+    def get_pyop2_kernel(kernel, *args, **kwargs):
         """
         Helper function to easily pass Eigen kernels
         to Firedrake via PyOP2.
@@ -80,7 +80,7 @@ def get_min_angles2d(mesh, python=False):
     else:
         coords = mesh.coordinates
         min_angles = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_min_angle, 2)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_min_angle, 2)
         op2.par_loop(kernel, mesh.cell_set, min_angles.dat(op2.WRITE, min_angles.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
     return min_angles
@@ -103,7 +103,7 @@ def get_min_angles3d(mesh, python=False):
     else:
         coords = mesh.coordinates
         min_angles = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_min_angle, 3)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_min_angle, 3)
         op2.par_loop(kernel, mesh.cell_set, min_angles.dat(op2.WRITE, min_angles.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
     return min_angles
@@ -126,7 +126,7 @@ def get_areas2d(mesh, python=False):
     else:
         coords = mesh.coordinates
         areas = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_area, 2)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_area, 2)
         op2.par_loop(kernel, mesh.cell_set, areas.dat(op2.WRITE, areas.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
     return areas
@@ -149,7 +149,7 @@ def get_volumes3d(mesh, python=False):
     else:
         coords = mesh.coordinates
         volumes = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_volume, 3)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_volume, 3)
         op2.par_loop(kernel, mesh.cell_set, volumes.dat(op2.WRITE, volumes.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
     return volumes
@@ -244,7 +244,7 @@ def get_aspect_ratios2d(mesh, python=False):
     else:
         coords = mesh.coordinates
         aspect_ratios = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_aspect_ratio, 2)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_aspect_ratio, 2)
         op2.par_loop(kernel, mesh.cell_set, 
                      aspect_ratios.dat(op2.WRITE, aspect_ratios.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
@@ -268,7 +268,7 @@ def get_aspect_ratios3d(mesh, python=False):
     else:
         coords = mesh.coordinates
         aspect_ratios = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_aspect_ratio, 3)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_aspect_ratio, 3)
         op2.par_loop(kernel, mesh.cell_set, 
                      aspect_ratios.dat(op2.WRITE, aspect_ratios.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
@@ -292,7 +292,7 @@ def get_eskews2d(mesh, python=False):
     else:
         coords = mesh.coordinates
         eskews = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_eskew, 2)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_eskew, 2)
         op2.par_loop(kernel, mesh.cell_set, eskews.dat(op2.WRITE, eskews.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
     return eskews
@@ -315,7 +315,7 @@ def get_eskews3d(mesh, python=False):
     else:
         coords = mesh.coordinates
         eskews = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_eskew, 3)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_eskew, 3)
         op2.par_loop(kernel, mesh.cell_set, eskews.dat(op2.WRITE, eskews.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
     return eskews
@@ -338,7 +338,7 @@ def get_skewnesses2d(mesh, python=False):
     else:
         coords = mesh.coordinates
         skews = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_skewness, 2)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_skewness, 2)
         op2.par_loop(kernel, mesh.cell_set, skews.dat(op2.WRITE, skews.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
     return skews
@@ -387,7 +387,7 @@ def get_scaled_jacobians2d(mesh, python=False):
     else:
         coords = mesh.coordinates
         scaled_jacobians = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_scaled_jacobian, 2)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_scaled_jacobian, 2)
         op2.par_loop(kernel, mesh.cell_set, 
                      scaled_jacobians.dat(op2.WRITE, scaled_jacobians.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
@@ -411,7 +411,7 @@ def get_scaled_jacobians3d(mesh, python=False):
     else:
         coords = mesh.coordinates
         scaled_jacobians = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_scaled_jacobian, 3)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_scaled_jacobian, 3)
         op2.par_loop(kernel, mesh.cell_set, 
                      scaled_jacobians.dat(op2.WRITE, scaled_jacobians.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
@@ -437,7 +437,7 @@ def get_quality_metrics2d(mesh, metric, python=False):
     else:
         coords = mesh.coordinates
         quality = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_metric, 2)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_metric, 2)
         op2.par_loop(kernel, mesh.cell_set, quality.dat(op2.WRITE, quality.cell_node_map()),
                      metric.dat(op2.READ, metric.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
@@ -463,7 +463,7 @@ def get_quality_metrics3d(mesh, metric, python=False):
     else:
         coords = mesh.coordinates
         quality = firedrake.Function(P0)
-        kernel = QualityKernelHandler.get_pyop_kernel(get_metric, 3)
+        kernel = QualityKernelHandler.get_pyop2_kernel(get_metric, 3)
         op2.par_loop(kernel, mesh.cell_set, quality.dat(op2.WRITE, quality.cell_node_map()),
                      metric.dat(op2.READ, metric.cell_node_map()),
                      coords.dat(op2.READ, coords.cell_node_map()))
