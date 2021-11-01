@@ -3,8 +3,7 @@ Test matrix decomposition par_loops.
 """
 from firedrake import *
 from pyroteus import *
-import pyroteus.metric as mt
-from pyroteus.metric import MetricKernelHandler
+from pyroteus.metric import get_metric_kernel
 from utility import uniform_mesh
 import pytest
 
@@ -18,15 +17,12 @@ def dim(request):
     return request.param
 
 
-@pytest.fixture(params=[
-    mt.get_eigendecomposition,
-    mt.get_reordered_eigendecomposition,
-])
-def eigendecomposition_kernel(request):
+@pytest.fixture(params=[True, False])
+def reorder(request):
     return request.param
 
 
-def test_eigendecomposition(dim, eigendecomposition_kernel):
+def test_eigendecomposition(dim, reorder):
     """
     Check decomposition of a metric into its eigenvectors
     and eigenvalues.
@@ -45,10 +41,12 @@ def test_eigendecomposition(dim, eigendecomposition_kernel):
 
     # Extract the eigendecomposition
     evectors, evalues = Function(P1_ten), Function(P1_vec)
-    kernel = MetricKernelHandler.get_pyop2_kernel(eigendecomposition_kernel, dim)
+    if reorder:
+        kernel = get_metric_kernel("get_reordered_eigendecomposition", dim)
+    else:
+        kernel = get_metric_kernel("get_eigendecomposition", dim)
     op2.par_loop(
-        kernel, P1_ten.node_set,
-        evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ)
+        kernel, P1_ten.node_set, evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ)
     )
 
     # Check eigenvectors are orthonormal
@@ -58,7 +56,7 @@ def test_eigendecomposition(dim, eigendecomposition_kernel):
         raise ValueError("Eigenvectors are not orthonormal")
 
     # Check eigenvalues are in descending order
-    if 'reorder' in eigendecomposition_kernel.__name__:
+    if reorder:
         P1 = FunctionSpace(mesh, "CG", 1)
         for i in range(dim-1):
             f = interpolate(evalues[i], P1)
@@ -70,9 +68,8 @@ def test_eigendecomposition(dim, eigendecomposition_kernel):
 
     # Reassemble it and check the two match
     reassembled = Function(P1_ten)
-    kernel = MetricKernelHandler.get_pyop2_kernel(mt.set_eigendecomposition, dim)
     op2.par_loop(
-        kernel, P1_ten.node_set,
+        get_metric_kernel("set_eigendecomposition", dim), P1_ten.node_set,
         reassembled.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ)
     )
     metric -= reassembled
@@ -80,7 +77,7 @@ def test_eigendecomposition(dim, eigendecomposition_kernel):
         raise ValueError("Reassembled metric does not match")
 
 
-def test_density_quotients_decomposition(dim, eigendecomposition_kernel):
+def test_density_quotients_decomposition(dim, reorder):
     """
     Check decomposition of a metric into its density
     and anisotropy quotients.
@@ -97,22 +94,22 @@ def test_density_quotients_decomposition(dim, eigendecomposition_kernel):
 
     # Extract the eigendecomposition
     evectors, evalues = Function(P1_ten), Function(P1_vec)
-    kernel = MetricKernelHandler.get_pyop2_kernel(eigendecomposition_kernel, dim)
+    if reorder:
+        kernel = get_metric_kernel("get_reordered_eigendecomposition", dim)
+    else:
+        kernel = get_metric_kernel("get_eigendecomposition", dim)
     op2.par_loop(
-        kernel, P1_ten.node_set,
-        evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ)
+        kernel, P1_ten.node_set, evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ)
     )
 
     # Extract the density and anisotropy quotients
-    reorder = 'reorder' in eigendecomposition_kernel.__name__
-    d, Q = density_and_quotients(metric, reorder=reorder)
-    evalues.interpolate(as_vector([pow(d/Q[i], 2/dim) for i in range(dim)]))
+    density, quotients = density_and_quotients(metric, reorder=reorder)
+    evalues.interpolate(as_vector([pow(density/Q, 2/dim) for Q in quotients]))
 
     # Reassemble the matrix and check the two match
     reassembled = Function(P1_ten)
-    kernel = MetricKernelHandler.get_pyop2_kernel(mt.set_eigendecomposition, dim)
     op2.par_loop(
-        kernel, P1_ten.node_set,
+        get_metric_kernel("set_eigendecomposition", dim), P1_ten.node_set,
         reassembled.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ)
     )
     metric -= reassembled
