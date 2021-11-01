@@ -621,9 +621,9 @@ def density_and_quotients(metric, reorder=False):
                  evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ))
 
     # Extract density and quotients
-    h = [1/sqrt(evalues[i]) for i in range(dim)]
+    h = [1/ufl.sqrt(evalues[i]) for i in range(dim)]
     density.interpolate(1/prod(h))
-    quotients.interpolate(as_vector([density*h[i]**dim for i in range(dim)]))
+    quotients.interpolate(ufl.as_vector([density*h[i]**dim for i in range(dim)]))
     return density, quotients
 
 
