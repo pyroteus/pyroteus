@@ -55,8 +55,8 @@ intersect = EigenKernelHandler("intersect")
 class QualityKernelHandler(object):
     """
     Class for generating PyOP2 :class:`Kernel`
-    objects from Eigen C++ code that exists in
-    Pyroteus.
+    objects from Mesh Quality C++ code that exists in
+    Pyroteus. Requires Eigen C++ library.
     """
     def __init__(self, name, d_restrict=None):
         """
