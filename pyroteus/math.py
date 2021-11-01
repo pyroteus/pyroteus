@@ -60,6 +60,8 @@ def gram_schmidt(*v, normalise=False):
     """
     if isinstance(v[0], np.ndarray):
         from numpy import dot, sqrt
+    else:
+        from ufl import dot, sqrt
     u = []
     proj = lambda x, y: dot(x, y)/dot(x, x)*x
     for i, vi in enumerate(v):
