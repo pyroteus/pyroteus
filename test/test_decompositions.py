@@ -33,7 +33,7 @@ def test_eigendecomposition(dim, reorder):
     mesh = uniform_mesh(dim, 20)
 
     # Recover Hessian metric for some arbitrary sensor
-    f = prod([sin(pi*xi) for xi in SpatialCoordinate(mesh)])
+    f = np.prod([sin(pi*xi) for xi in SpatialCoordinate(mesh)])
     metric = hessian_metric(recover_hessian(f, mesh=mesh))
     P1_ten = metric.function_space()
 
@@ -71,7 +71,7 @@ def test_density_quotients_decomposition(dim, reorder):
     mesh = uniform_mesh(dim, 20)
 
     # Recover Hessian metric for some arbitrary sensor
-    f = prod([sin(pi*xi) for xi in SpatialCoordinate(mesh)])
+    f = np.prod([sin(pi*xi) for xi in SpatialCoordinate(mesh)])
     metric = hessian_metric(recover_hessian(f, mesh=mesh))
 
     # Extract the eigendecomposition

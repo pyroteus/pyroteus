@@ -78,14 +78,6 @@ class File(firedrake.output.File):
         return super(File, self)._write_vtu(*functions)
 
 
-def prod(arr):
-    """
-    Take the product over elements in an array.
-    """
-    n = len(arr)
-    return None if n == 0 else arr[0] if n == 1 else arr[0]*prod(arr[1:])
-
-
 @PETSc.Log.EventDecorator("pyroteus.assemble_mass_matrix")
 def assemble_mass_matrix(space, norm_type='L2'):
     """

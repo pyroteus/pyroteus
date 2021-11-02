@@ -489,7 +489,7 @@ def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
     import sympy
 
     d = H_interior.function_space().mesh().topological_dimension()
-    assert d in (2, 3)
+    assert d in (2, 3), f"Spatial dimension {dim:d} not supported."
     if p == 'inf':
         raise NotImplementedError  # TODO
     g = kwargs.get('H_interior_scaling', firedrake.Constant(1.0))
@@ -669,7 +669,7 @@ def density_and_quotients(metric, reorder=False):
 
     # Extract density and quotients
     magnitudes = [1/ufl.sqrt(evalues[i]) for i in range(dim)]
-    density.interpolate(1/prod(magnitudes))
+    density.interpolate(1/np.prod(magnitudes))
     quotients.interpolate(ufl.as_vector([density*h**dim for h in magnitudes]))
     return density, quotients
 
