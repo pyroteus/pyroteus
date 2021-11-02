@@ -247,30 +247,18 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpol
 
     # Get optimal element volume
     K_opt = firedrake.interpolate(pow(error_indicator, 1/(convergence_rate+1)), P0)
-    K_opt.interpolate(K_opt.vector().gather().sum()/target_complexity*K/K_opt)
+    K_opt.interpolate(K/target_complexity*K_opt.vector().gather().sum()/K_opt)
 
     # Interpolate from P1 to P0 by averaging the vertex-wise values
     P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
     P0_metric = hessian_metric(firedrake.project(hessian, P0_ten))
 
-    # Compute eigendecomposition
+    # Compute stretching factors, in ascending order
     evectors, evalues = compute_eigendecomposition(P0_metric, reorder=True)
+    S = abs(evalues/pow(np.prod(evalues), 1/dim))
 
-    # Compute stretching factors, in descending order
-    if dim == 2:
-        S = ufl.as_vector([
-            ufl.sqrt(abs(evalues[0]/evalues[1])),
-            ufl.sqrt(abs(evalues[1]/evalues[0])),
-        ])
-    else:
-        S = ufl.as_vector([
-            pow(abs((evalues[0]*evalues[0])/(evalues[1]*evalues[2])), 1/3),
-            pow(abs((evalues[1]*evalues[1])/(evalues[2]*evalues[0])), 1/3),
-            pow(abs((evalues[2]*evalues[2])/(evalues[0]*evalues[1])), 1/3),
-        ])
-
-    # Assemble metric
-    evalues.interpolate(abs(K_hat/K_opt)*S)
+    # Assemble metric with modified eigenvalues
+    evalues.interpolate(pow(abs(K_hat/K_opt), 2/dim)*S)
     P0_metric = assemble_eigendecomposition(evectors, evalues)
 
     # Interpolate the metric into target space and ensure SPD
