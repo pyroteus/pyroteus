@@ -110,7 +110,7 @@ def test_recover_bowl_interior(dim, method, norm_type, ignore_boundary, mixed, r
                              "double_L2_projection-3d",
                              "Clement-3d",
                          ])
-def test_recover_bowl_boundary(dim, method, tol=1.0e-08):
+def test_recover_bowl_boundary(dim, method, tol=2.0e-08):
     """
     Check that the Hessian of a quadratic function is accurately
     recovered on the domain boundary.
@@ -123,7 +123,7 @@ def test_recover_bowl_boundary(dim, method, tol=1.0e-08):
     """
     mesh = mesh_for_sensors(dim, 20)
     if dim == 3:
-        pytest.xfail("FIXME: 3D case broken")  # FIXME
+        pytest.skip("FIXME: 3D case broken")  # FIXME
 
     # Recover boundary Hessian
     f = bowl(*mesh.coordinates)
@@ -138,7 +138,7 @@ def test_recover_bowl_boundary(dim, method, tol=1.0e-08):
     for s in S:
         dHds = abs(assemble(dot(div(H), s)*ds))
         assert dHds < tol, "FAILED: non-zero tangential derivative for method" \
-            + f"'{method}' ({dHds:.4e})"
+            + f" '{method}' ({dHds:.4e})"
     print(f"PASS: method '{method}', dimension {dim}")
     return cpu_time
 

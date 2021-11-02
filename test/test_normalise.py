@@ -21,7 +21,7 @@ def unit_mesh(sensor, mesh, target, degree, num_iterations=3):
     try:
         from firedrake import adapt
     except ImportError:
-        pytest.xfail("Need mesh adaptation capability")
+        pytest.skip("Need mesh adaptation capability")
     for i in range(num_iterations):
         f = sensor(*mesh.coordinates)
         H = recover_hessian(f, mesh=mesh)
@@ -73,7 +73,7 @@ def test_space_normalise(sensor, degree, target=1000.0):
         assert abs(metric_complexity(M) - target) < 0.1*target
 
 
-@pytest.mark.xfail("Adaptation does not currently work in parallel")
+@pytest.mark.skip("Adaptation does not currently work in parallel")
 @pytest.mark.parallel
 def test_space_normalise_parallel(sensor, degree, target=1000.0):
     test_space_normalise(sensor, degree, target=target)

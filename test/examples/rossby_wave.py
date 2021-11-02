@@ -22,7 +22,7 @@ try:
     import thetis  # noqa
 except ImportError:
     import pytest
-    pytest.xfail("Thetis is not installed")
+    pytest.skip("Thetis is not installed")
 from pyroteus.thetis_compat import *
 from pyroteus.runge_kutta import CrankNicolson
 
