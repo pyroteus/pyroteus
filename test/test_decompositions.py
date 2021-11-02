@@ -42,9 +42,9 @@ def test_eigendecomposition(dim, reorder):
     evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
 
     # Check eigenvectors are orthonormal
-    VVT = interpolate(dot(evectors, transpose(evectors)), P1_ten)
-    I = interpolate(Identity(dim), P1_ten)
-    if not np.isclose(norm(Function(I).assign(VVT - I)), 0.0):
+    err = Function(P1_ten)
+    err.interpolate(dot(evectors, transpose(evectors)) - Identity(dim))
+    if not np.isclose(norm(err), 0.0):
         raise ValueError("Eigenvectors are not orthonormal")
 
     # Check eigenvalues are in descending order
@@ -57,12 +57,7 @@ def test_eigendecomposition(dim, reorder):
                 raise ValueError("Eigenvalues are not in descending order")
 
     # Reassemble it and check the two match
-    reassembled = Function(P1_ten)
-    op2.par_loop(
-        get_metric_kernel("set_eigendecomposition", dim), P1_ten.node_set,
-        reassembled.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ)
-    )
-    metric -= reassembled
+    metric -= assemble_eigendecomposition(evectors, evalues)
     if not np.isclose(norm(metric), 0.0):
         raise ValueError("Reassembled metric does not match")
 
@@ -79,7 +74,6 @@ def test_density_quotients_decomposition(dim, reorder):
     # Recover Hessian metric for some arbitrary sensor
     f = prod([sin(pi*xi) for xi in SpatialCoordinate(mesh)])
     metric = hessian_metric(recover_hessian(f, mesh=mesh))
-    P1_ten = metric.function_space()
 
     # Extract the eigendecomposition
     evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
@@ -89,11 +83,6 @@ def test_density_quotients_decomposition(dim, reorder):
     evalues.interpolate(as_vector([pow(density/Q, 2/dim) for Q in quotients]))
 
     # Reassemble the matrix and check the two match
-    reassembled = Function(P1_ten)
-    op2.par_loop(
-        get_metric_kernel("set_eigendecomposition", dim), P1_ten.node_set,
-        reassembled.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ)
-    )
-    metric -= reassembled
+    metric -= assemble_eigendecomposition(evectors, evalues)
     if not np.isclose(norm(metric), 0.0):
         raise ValueError("Reassembled metric does not match")

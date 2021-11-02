@@ -11,11 +11,11 @@ from .utility import *
 from .interpolation import clement_interpolant
 
 
-__all__ = ["metric_complexity", "isotropic_metric", "anisotropic_metric", "hessian_metric",
+__all__ = ["compute_eigendecomposition", "assemble_eigendecomposition",
+           "metric_complexity", "isotropic_metric", "anisotropic_metric", "hessian_metric",
            "enforce_element_constraints", "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
-           "determine_metric_complexity", "density_and_quotients", "check_spd",
-           "compute_eigendecomposition"]
+           "determine_metric_complexity", "density_and_quotients", "check_spd"]
 
 
 def get_metric_kernel(func, dim):
@@ -59,6 +59,35 @@ def compute_eigendecomposition(metric, reorder=False):
     op2.par_loop(kernel, V_ten.node_set,
                  evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ))
     return evectors, evalues
+
+
+@PETSc.Log.EventDecorator("pyroteus.assemble_eigendecomposition")
+def assemble_eigendecomposition(evectors, evalues):
+    """
+    Assemble a matrix from its eigenvectors and
+    eigenvalues.
+
+    :arg evectors: eigenvector :class:`Function`
+    :arg evalues: eigenvalue :class:`Function`
+    :return: the assembled matrix :class:`Function`
+    """
+    V_ten = evectors.function_space()
+    fe_ten = V_ten.ufl_element()
+    if len(fe_ten.value_shape()) != 2:
+        raise ValueError("Eigenvector Function should be rank-2")
+    V_vec = evalues.function_space()
+    fe_vec = V_vec.ufl_element()
+    if len(fe_vec.value_shape()) != 1:
+        raise ValueError("Eigenvector Function should be rank-1")
+    if fe_ten.family() != fe_vec.family():
+        raise ValueError("Mismatching finite element families")
+    if fe_ten.degree() != fe_vec.degree():
+        raise ValueError("Mismatching finite element space degrees")
+    dim = V_ten.mesh().topological_dimension()
+    M = firedrake.Function(V_ten)
+    op2.par_loop(get_metric_kernel("set_eigendecomposition", dim), V_ten.node_set,
+                 M.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ))
+    return M
 
 
 # --- General
@@ -242,8 +271,7 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpol
 
     # Assemble metric
     evalues.interpolate(abs(K_hat/K_opt)*S)
-    op2.par_loop(get_metric_kernel("set_eigendecomposition", dim), P0_ten.node_set,
-                 P0_metric.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ))
+    P0_metric = assemble_eigendecomposition(evectors, evalues)
 
     # Interpolate the metric into target space and ensure SPD
     target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
