@@ -3,8 +3,7 @@ Test matrix decomposition par_loops.
 """
 from firedrake import *
 from pyroteus import *
-import pyroteus.metric as mt
-from pyroteus.metric import MetricKernelHandler
+from pyroteus.metric import get_metric_kernel
 from utility import uniform_mesh
 import pytest
 
@@ -18,69 +17,52 @@ def dim(request):
     return request.param
 
 
-@pytest.fixture(params=[
-    mt.get_eigendecomposition,
-    mt.get_reordered_eigendecomposition,
-])
-def eigendecomposition_kernel(request):
+@pytest.fixture(params=[True, False])
+def reorder(request):
     return request.param
 
 
-def test_eigendecomposition(dim, eigendecomposition_kernel):
+def test_eigendecomposition(dim, reorder):
     """
     Check decomposition of a metric into its eigenvectors
     and eigenvalues.
 
       * The eigenvectors should be orthonormal.
-      * Applying `get_eigendecomposition` followed by
+      * Applying `compute_eigendecomposition` followed by
         `set_eigendecomposition` should get back the metric.
     """
     mesh = uniform_mesh(dim, 20)
-    P1_vec = VectorFunctionSpace(mesh, "CG", 1)
-    P1_ten = TensorFunctionSpace(mesh, "CG", 1)
 
     # Recover Hessian metric for some arbitrary sensor
     f = prod([sin(pi*xi) for xi in SpatialCoordinate(mesh)])
     metric = hessian_metric(recover_hessian(f, mesh=mesh))
+    P1_ten = metric.function_space()
 
     # Extract the eigendecomposition
-    evectors, evalues = Function(P1_ten), Function(P1_vec)
-    kernel = MetricKernelHandler.get_pyop2_kernel(eigendecomposition_kernel, dim)
-    op2.par_loop(
-        kernel, P1_ten.node_set,
-        evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ)
-    )
+    evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
 
     # Check eigenvectors are orthonormal
-    VVT = interpolate(dot(evectors, transpose(evectors)), P1_ten)
-    I = interpolate(Identity(dim), P1_ten)
-    if not np.isclose(norm(Function(I).assign(VVT - I)), 0.0):
+    err = Function(P1_ten)
+    err.interpolate(dot(evectors, transpose(evectors)) - Identity(dim))
+    if not np.isclose(norm(err), 0.0):
         raise ValueError("Eigenvectors are not orthonormal")
 
     # Check eigenvalues are in descending order
-    if 'reorder' in eigendecomposition_kernel.__name__:
+    if reorder:
         P1 = FunctionSpace(mesh, "CG", 1)
         for i in range(dim-1):
             f = interpolate(evalues[i], P1)
             f -= interpolate(evalues[i+1], P1)
             if f.vector().gather().min() < 0.0:
-                raise ValueError(
-                    "Eigenvalues are not in descending order"
-                )
+                raise ValueError("Eigenvalues are not in descending order")
 
     # Reassemble it and check the two match
-    reassembled = Function(P1_ten)
-    kernel = MetricKernelHandler.get_pyop2_kernel(mt.set_eigendecomposition, dim)
-    op2.par_loop(
-        kernel, P1_ten.node_set,
-        reassembled.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ)
-    )
-    metric -= reassembled
+    metric -= assemble_eigendecomposition(evectors, evalues)
     if not np.isclose(norm(metric), 0.0):
         raise ValueError("Reassembled metric does not match")
 
 
-def test_density_quotients_decomposition(dim, eigendecomposition_kernel):
+def test_density_quotients_decomposition(dim, reorder):
     """
     Check decomposition of a metric into its density
     and anisotropy quotients.
@@ -88,33 +70,19 @@ def test_density_quotients_decomposition(dim, eigendecomposition_kernel):
     Reassembling should get back the metric.
     """
     mesh = uniform_mesh(dim, 20)
-    P1_vec = VectorFunctionSpace(mesh, "CG", 1)
-    P1_ten = TensorFunctionSpace(mesh, "CG", 1)
 
     # Recover Hessian metric for some arbitrary sensor
     f = prod([sin(pi*xi) for xi in SpatialCoordinate(mesh)])
     metric = hessian_metric(recover_hessian(f, mesh=mesh))
 
     # Extract the eigendecomposition
-    evectors, evalues = Function(P1_ten), Function(P1_vec)
-    kernel = MetricKernelHandler.get_pyop2_kernel(eigendecomposition_kernel, dim)
-    op2.par_loop(
-        kernel, P1_ten.node_set,
-        evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ)
-    )
+    evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
 
     # Extract the density and anisotropy quotients
-    reorder = 'reorder' in eigendecomposition_kernel.__name__
-    d, Q = density_and_quotients(metric, reorder=reorder)
-    evalues.interpolate(as_vector([pow(d/Q[i], 2/dim) for i in range(dim)]))
+    density, quotients = density_and_quotients(metric, reorder=reorder)
+    evalues.interpolate(as_vector([pow(density/Q, 2/dim) for Q in quotients]))
 
     # Reassemble the matrix and check the two match
-    reassembled = Function(P1_ten)
-    kernel = MetricKernelHandler.get_pyop2_kernel(mt.set_eigendecomposition, dim)
-    op2.par_loop(
-        kernel, P1_ten.node_set,
-        reassembled.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ)
-    )
-    metric -= reassembled
+    metric -= assemble_eigendecomposition(evectors, evalues)
     if not np.isclose(norm(metric), 0.0):
         raise ValueError("Reassembled metric does not match")

@@ -11,53 +11,83 @@ from .utility import *
 from .interpolation import clement_interpolant
 
 
-__all__ = ["metric_complexity", "isotropic_metric", "anisotropic_metric", "hessian_metric",
+__all__ = ["compute_eigendecomposition", "assemble_eigendecomposition",
+           "metric_complexity", "isotropic_metric", "anisotropic_metric", "hessian_metric",
            "enforce_element_constraints", "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
            "determine_metric_complexity", "density_and_quotients", "check_spd"]
 
 
-class MetricKernelHandler():
+def get_metric_kernel(func, dim):
     """
-    Class for generating PyOP2 :class:`Kernel`
-    objects from Eigen C++ code that exists in
-    Pyroteus.
+    Helper function to easily pass Eigen kernels
+    for metric utilities to Firedrake via PyOP2.
+
+    :arg func: function name
+    :arg dim: spatial dimension
     """
-    def __init__(self, name):
-        """
-        :arg name: the name of the routine
-        """
-        self.__name__ = name
-
-    def __call__(self, d):
-        """
-        :arg d: the spatial dimension
-        """
-        assert d in (2, 3), f"Spatial dimension {d} not supported."
-        eigen_kernels = os.path.join(os.path.dirname(__file__), "cxx/metric{:d}d.cxx")
-        return open(eigen_kernels.format(d)).read()
-
-    @staticmethod
-    def get_pyop2_kernel(kernel, *args, **kwargs):
-        """
-        Helper function to easily pass Eigen kernels
-        to Firedrake via PyOP2.
-
-        :arg kernel: a string containing C code which
-            is to be formatted.
-        """
-        return op2.Kernel(kernel(*args, **kwargs), kernel.__name__, cpp=True, 
-                          include_dirs=include_dir)
+    code = open(os.path.join(os.path.dirname(__file__), f"cxx/metric{dim}d.cxx")).read()
+    return op2.Kernel(code, func, cpp=True, include_dirs=include_dir)
 
 
-# Currently implemented kernels
-set_eigendecomposition = MetricKernelHandler("set_eigendecomposition")
-get_eigendecomposition = MetricKernelHandler("get_eigendecomposition")
-get_reordered_eigendecomposition = MetricKernelHandler("get_reordered_eigendecomposition")
-metric_from_hessian = MetricKernelHandler("metric_from_hessian")
-postproc_metric = MetricKernelHandler("postproc_metric")
-intersect = MetricKernelHandler("intersect")
+@PETSc.Log.EventDecorator("pyroteus.compute_eigendecomposition")
+def compute_eigendecomposition(metric, reorder=False):
+    """
+    Compute the eigenvectors and eigenvalues of
+    a matrix-valued function.
 
+    :arg M: a :class:`Function` from a
+        :class:`TensorFunctionSpace`
+    :kwarg reorder: should the eigendecomposition
+        be reordered in order of *descending*
+        eigenvalue magnitude?
+    :return: eigenvector :class:`Function`,
+        eigenvalue :class:`Function`
+    """
+    V_ten = metric.function_space()
+    if len(V_ten.ufl_element().value_shape()) != 2:
+        raise ValueError("Can only compute eigendecompositions of matrix-valued functions.")
+    mesh = V_ten.mesh()
+    fe = (V_ten.ufl_element().family(), V_ten.ufl_element().degree())
+    V_vec = firedrake.VectorFunctionSpace(mesh, *fe)
+    dim = mesh.topological_dimension()
+    evectors, evalues = firedrake.Function(V_ten), firedrake.Function(V_vec)
+    if reorder:
+        kernel = get_metric_kernel("get_reordered_eigendecomposition", dim)
+    else:
+        kernel = get_metric_kernel("get_eigendecomposition", dim)
+    op2.par_loop(kernel, V_ten.node_set,
+                 evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ))
+    return evectors, evalues
+
+
+@PETSc.Log.EventDecorator("pyroteus.assemble_eigendecomposition")
+def assemble_eigendecomposition(evectors, evalues):
+    """
+    Assemble a matrix from its eigenvectors and
+    eigenvalues.
+
+    :arg evectors: eigenvector :class:`Function`
+    :arg evalues: eigenvalue :class:`Function`
+    :return: the assembled matrix :class:`Function`
+    """
+    V_ten = evectors.function_space()
+    fe_ten = V_ten.ufl_element()
+    if len(fe_ten.value_shape()) != 2:
+        raise ValueError("Eigenvector Function should be rank-2")
+    V_vec = evalues.function_space()
+    fe_vec = V_vec.ufl_element()
+    if len(fe_vec.value_shape()) != 1:
+        raise ValueError("Eigenvector Function should be rank-1")
+    if fe_ten.family() != fe_vec.family():
+        raise ValueError("Mismatching finite element families")
+    if fe_ten.degree() != fe_vec.degree():
+        raise ValueError("Mismatching finite element space degrees")
+    dim = V_ten.mesh().topological_dimension()
+    M = firedrake.Function(V_ten)
+    op2.par_loop(get_metric_kernel("set_eigendecomposition", dim), V_ten.node_set,
+                 M.dat(op2.RW), evectors.dat(op2.READ), evalues.dat(op2.READ))
+    return M
 
 
 # --- General
@@ -131,18 +161,12 @@ def hessian_metric(hessian):
     fs = hessian.function_space()
     shape = fs.ufl_element().value_shape()
     if len(shape) != 2:
-        raise ValueError(
-            "Expected a rank 2 tensor, "
-            f"got rank {len(shape)}."
-        )
+        raise ValueError(f"Expected a rank 2 tensor, got rank {len(shape)}.")
     if shape[0] != shape[1]:
-        raise ValueError(
-            "Expected a square tensor field, "
-            f"got {fs.ufl_element().value_shape()}."
-        )
+        raise ValueError(f"Expected a square tensor field, got {fs.ufl_element().value_shape()}.")
     metric = firedrake.Function(fs)
-    kernel = MetricKernelHandler.get_pyop2_kernel(metric_from_hessian, shape[0])
-    op2.par_loop(kernel, fs.node_set, metric.dat(op2.RW), hessian.dat(op2.READ))
+    op2.par_loop(get_metric_kernel("metric_from_hessian", shape[0]), fs.node_set,
+                 metric.dat(op2.RW), hessian.dat(op2.READ))
     return metric
 
 
@@ -230,13 +254,7 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpol
     P0_metric = hessian_metric(firedrake.project(hessian, P0_ten))
 
     # Compute eigendecomposition
-    P0_vec = firedrake.VectorFunctionSpace(mesh, "DG", 0)
-    evectors, evalues = firedrake.Function(P0_ten), firedrake.Function(P0_vec)
-    kernel = MetricKernelHandler.get_pyop2_kernel(get_reordered_eigendecomposition, dim)
-    op2.par_loop(
-        kernel, P0_ten.node_set,
-        evectors.dat(op2.RW), evalues.dat(op2.RW), P0_metric.dat(op2.READ)
-    )
+    evectors, evalues = compute_eigendecomposition(P0_metric, reorder=True)
 
     # Compute stretching factors, in descending order
     if dim == 2:
@@ -253,11 +271,7 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpol
 
     # Assemble metric
     evalues.interpolate(abs(K_hat/K_opt)*S)
-    kernel = MetricKernelHandler.get_pyop2_kernel(set_eigendecomposition, dim)
-    op2.par_loop(
-        kernel, P0_ten.node_set, P0_metric.dat(op2.RW),
-        evectors.dat(op2.READ), evalues.dat(op2.READ)
-    )
+    P0_metric = assemble_eigendecomposition(evectors, evalues)
 
     # Interpolate the metric into target space and ensure SPD
     target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
@@ -370,12 +384,11 @@ def enforce_element_constraints(metrics, h_min, h_max, a_max, boundary_tag=None,
 
         # Enforce constraints
         dim = fs.mesh().topological_dimension()
-        kernel = MetricKernelHandler.get_pyop2_kernel(postproc_metric, dim)
         if boundary_tag is None:
             node_set = fs.node_set
         else:
             node_set = firedrake.DirichletBC(fs, 0, boundary_tag).node_set
-        op2.par_loop(kernel, node_set,
+        op2.par_loop(get_metric_kernel("postproc_metric", dim), node_set,
                      metric.dat(op2.RW), hmin.dat(op2.READ),
                      hmax.dat(op2.READ), amax.dat(op2.READ))
     return metrics
@@ -517,10 +530,9 @@ def metric_relaxation(*metrics, weights=None, function_space=None):
     n = len(metrics)
     assert n > 0, "Nothing to combine"
     weights = weights or np.ones(n)/n
-    if len(weights) != n:
-        raise ValueError(
-            "Number of weights do not match number of metrics"
-            + f"({len(weights)} vs. {n})")
+    num_weights = len(weights)
+    if num_weights != n:
+        raise ValueError(f"Number of weights do not match number of metrics ({num_weights} != {n})")
     fs = function_space or metrics[0].function_space()
     relaxed_metric = firedrake.Function(fs)
     for weight, metric in zip(weights, metrics):
@@ -565,14 +577,14 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     elif boundary_tag == []:
         raise ValueError("It is unclear what to do with an empty list of boundary tags.")
     else:
-        node_set = firedrake.DirichletBC(fs, 0, boundary_tag).node_set  # TODO: is there a cleaner way?
+        node_set = firedrake.DirichletBC(fs, 0, boundary_tag).node_set
     dim = fs.mesh().topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
 
     def intersect_pair(M1, M2):
         M12 = firedrake.Function(M1)
-        kernel = MetricKernelHandler.get_pyop2_kernel(intersect, dim)
-        op2.par_loop(kernel, node_set, M12.dat(op2.RW), M1.dat(op2.READ), M2.dat(op2.READ))
+        op2.par_loop(get_metric_kernel("intersect", dim), node_set,
+                     M12.dat(op2.RW), M1.dat(op2.READ), M2.dat(op2.READ))
         return M12
 
     for metric in metrics[1:]:
@@ -649,25 +661,16 @@ def density_and_quotients(metric, reorder=False):
     fs_vec = firedrake.VectorFunctionSpace(mesh, *fe)
     fs = firedrake.FunctionSpace(mesh, *fe)
     dim = mesh.topological_dimension()
-
-    # Setup fields
-    evectors = firedrake.Function(fs_ten)
-    evalues = firedrake.Function(fs_vec)
     density = firedrake.Function(fs, name="Metric density")
     quotients = firedrake.Function(fs_vec, name="Anisotropic quotients")
 
     # Compute eigendecomposition
-    if reorder:
-        kernel = MetricKernelHandler.get_pyop2_kernel(get_reordered_eigendecomposition, dim)
-    else:
-        kernel = MetricKernelHandler.get_pyop2_kernel(get_eigendecomposition, dim)
-    op2.par_loop(kernel, fs_ten.node_set,
-                 evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ))
+    evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
 
     # Extract density and quotients
-    h = [1/ufl.sqrt(evalues[i]) for i in range(dim)]
-    density.interpolate(1/prod(h))
-    quotients.interpolate(ufl.as_vector([density*h[i]**dim for i in range(dim)]))
+    magnitudes = [1/ufl.sqrt(evalues[i]) for i in range(dim)]
+    density.interpolate(1/prod(magnitudes))
+    quotients.interpolate(ufl.as_vector([density*h**dim for h in magnitudes]))
     return density, quotients
 
 
@@ -690,14 +693,7 @@ def is_pos_def(M):
 
     :arg M: the tensor field
     """
-    fs = M.function_space()
-    element = (fs.ufl_element().family(), fs.ufl_element().degree())
-    fs_vec = firedrake.VectorFunctionSpace(fs.mesh(), *element)
-    evectors = firedrake.Function(fs)
-    evalues = firedrake.Function(fs_vec)
-    kernel = MetricKernelHandler.get_pyop2_kernel(get_eigendecomposition, fs.mesh().topological_dimension())
-    op2.par_loop(kernel, fs.node_set, evectors.dat(op2.RW), evalues.dat(op2.RW), M.dat(op2.READ))
-    return evalues.vector().gather().min() > 0.0
+    return compute_eigendecomposition(M)[1].vector().gather().min() > 0.0
 
 
 def is_spd(M):
@@ -715,11 +711,5 @@ def check_spd(M):
 
     :arg M: the tensor field
     """
-    try:
-        assert is_symmetric(M)
-    except AssertionError:
-        raise ValueError("FAIL: Matrix is not symmetric")
-    try:
-        assert is_pos_def(M)
-    except AssertionError:
-        raise ValueError("FAIL: Matrix is not positive-definite")
+    assert is_symmetric(M), "FAIL: Matrix is not symmetric"
+    assert is_pos_def(M), "FAIL: Matrix is not positive-definite"
