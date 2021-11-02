@@ -3,7 +3,6 @@ Test matrix decomposition par_loops.
 """
 from firedrake import *
 from pyroteus import *
-from pyroteus.metric import get_metric_kernel
 from utility import uniform_mesh
 import pytest
 
