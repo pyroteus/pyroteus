@@ -28,26 +28,18 @@ def test_eigendecomposition(dim, reorder):
     and eigenvalues.
 
       * The eigenvectors should be orthonormal.
-      * Applying `get_eigendecomposition` followed by
+      * Applying `compute_eigendecomposition` followed by
         `set_eigendecomposition` should get back the metric.
     """
     mesh = uniform_mesh(dim, 20)
-    P1_vec = VectorFunctionSpace(mesh, "CG", 1)
-    P1_ten = TensorFunctionSpace(mesh, "CG", 1)
 
     # Recover Hessian metric for some arbitrary sensor
     f = prod([sin(pi*xi) for xi in SpatialCoordinate(mesh)])
     metric = hessian_metric(recover_hessian(f, mesh=mesh))
+    P1_ten = metric.function_space()
 
     # Extract the eigendecomposition
-    evectors, evalues = Function(P1_ten), Function(P1_vec)
-    if reorder:
-        kernel = get_metric_kernel("get_reordered_eigendecomposition", dim)
-    else:
-        kernel = get_metric_kernel("get_eigendecomposition", dim)
-    op2.par_loop(
-        kernel, P1_ten.node_set, evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ)
-    )
+    evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
 
     # Check eigenvectors are orthonormal
     VVT = interpolate(dot(evectors, transpose(evectors)), P1_ten)
@@ -62,9 +54,7 @@ def test_eigendecomposition(dim, reorder):
             f = interpolate(evalues[i], P1)
             f -= interpolate(evalues[i+1], P1)
             if f.vector().gather().min() < 0.0:
-                raise ValueError(
-                    "Eigenvalues are not in descending order"
-                )
+                raise ValueError("Eigenvalues are not in descending order")
 
     # Reassemble it and check the two match
     reassembled = Function(P1_ten)
@@ -85,22 +75,14 @@ def test_density_quotients_decomposition(dim, reorder):
     Reassembling should get back the metric.
     """
     mesh = uniform_mesh(dim, 20)
-    P1_vec = VectorFunctionSpace(mesh, "CG", 1)
-    P1_ten = TensorFunctionSpace(mesh, "CG", 1)
 
     # Recover Hessian metric for some arbitrary sensor
     f = prod([sin(pi*xi) for xi in SpatialCoordinate(mesh)])
     metric = hessian_metric(recover_hessian(f, mesh=mesh))
+    P1_ten = metric.function_space()
 
     # Extract the eigendecomposition
-    evectors, evalues = Function(P1_ten), Function(P1_vec)
-    if reorder:
-        kernel = get_metric_kernel("get_reordered_eigendecomposition", dim)
-    else:
-        kernel = get_metric_kernel("get_eigendecomposition", dim)
-    op2.par_loop(
-        kernel, P1_ten.node_set, evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ)
-    )
+    evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
 
     # Extract the density and anisotropy quotients
     density, quotients = density_and_quotients(metric, reorder=reorder)

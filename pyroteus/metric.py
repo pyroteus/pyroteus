@@ -14,7 +14,8 @@ from .interpolation import clement_interpolant
 __all__ = ["metric_complexity", "isotropic_metric", "anisotropic_metric", "hessian_metric",
            "enforce_element_constraints", "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
-           "determine_metric_complexity", "density_and_quotients", "check_spd"]
+           "determine_metric_complexity", "density_and_quotients", "check_spd",
+           "compute_eigendecomposition"]
 
 
 def get_metric_kernel(func, dim):
@@ -27,6 +28,37 @@ def get_metric_kernel(func, dim):
     """
     code = open(os.path.join(os.path.dirname(__file__), f"cxx/metric{dim}d.cxx")).read()
     return op2.Kernel(code, func, cpp=True, include_dirs=include_dir)
+
+
+@PETSc.Log.EventDecorator("pyroteus.compute_eigendecomposition")
+def compute_eigendecomposition(metric, reorder=False):
+    """
+    Compute the eigenvectors and eigenvalues of
+    a matrix-valued function.
+
+    :arg M: a :class:`Function` from a
+        :class:`TensorFunctionSpace`
+    :kwarg reorder: should the eigendecomposition
+        be reordered in order of *descending*
+        eigenvalue magnitude?
+    :return: eigenvector :class:`Function`,
+        eigenvalue :class:`Function`
+    """
+    V_ten = metric.function_space()
+    if len(V_ten.ufl_element().value_shape()) != 2:
+        raise ValueError("Can only compute eigendecompositions of matrix-valued functions.")
+    mesh = V_ten.mesh()
+    fe = (V_ten.ufl_element().family(), V_ten.ufl_element().degree())
+    V_vec = firedrake.VectorFunctionSpace(mesh, *fe)
+    dim = mesh.topological_dimension()
+    evectors, evalues = firedrake.Function(V_ten), firedrake.Function(V_vec)
+    if reorder:
+        kernel = get_metric_kernel("get_reordered_eigendecomposition", dim)
+    else:
+        kernel = get_metric_kernel("get_eigendecomposition", dim)
+    op2.par_loop(kernel, V_ten.node_set,
+                 evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ))
+    return evectors, evalues
 
 
 # --- General
@@ -193,10 +225,7 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpol
     P0_metric = hessian_metric(firedrake.project(hessian, P0_ten))
 
     # Compute eigendecomposition
-    P0_vec = firedrake.VectorFunctionSpace(mesh, "DG", 0)
-    evectors, evalues = firedrake.Function(P0_ten), firedrake.Function(P0_vec)
-    op2.par_loop(get_metric_kernel("get_reordered_eigendecomposition", dim), P0_ten.node_set,
-                 evectors.dat(op2.RW), evalues.dat(op2.RW), P0_metric.dat(op2.READ))
+    evectors, evalues = compute_eigendecomposition(P0_metric, reorder=True)
 
     # Compute stretching factors, in descending order
     if dim == 2:
@@ -604,20 +633,11 @@ def density_and_quotients(metric, reorder=False):
     fs_vec = firedrake.VectorFunctionSpace(mesh, *fe)
     fs = firedrake.FunctionSpace(mesh, *fe)
     dim = mesh.topological_dimension()
-
-    # Setup fields
-    evectors = firedrake.Function(fs_ten, name="Eigenvectors")
-    evalues = firedrake.Function(fs_vec, name="Eigenvalues")
     density = firedrake.Function(fs, name="Metric density")
     quotients = firedrake.Function(fs_vec, name="Anisotropic quotients")
 
     # Compute eigendecomposition
-    if reorder:
-        kernel = get_metric_kernel("get_reordered_eigendecomposition", dim)
-    else:
-        kernel = get_metric_kernel("get_eigendecomposition", dim)
-    op2.par_loop(kernel, fs_ten.node_set,
-                 evectors.dat(op2.RW), evalues.dat(op2.RW), metric.dat(op2.READ))
+    evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
 
     # Extract density and quotients
     magnitudes = [1/ufl.sqrt(evalues[i]) for i in range(dim)]
@@ -645,15 +665,7 @@ def is_pos_def(M):
 
     :arg M: the tensor field
     """
-    fs = M.function_space()
-    element = (fs.ufl_element().family(), fs.ufl_element().degree())
-    fs_vec = firedrake.VectorFunctionSpace(fs.mesh(), *element)
-    evectors = firedrake.Function(fs, name="Eigenvectors")
-    evalues = firedrake.Function(fs_vec, name="Eigenvalues")
-    dim = fs.mesh().topological_dimension()
-    op2.par_loop(get_metric_kernel("get_eigendecomposition", dim), fs.node_set,
-                 evectors.dat(op2.RW), evalues.dat(op2.RW), M.dat(op2.READ))
-    return evalues.vector().gather().min() > 0.0
+    return compute_eigendecomposition(M)[1].vector().gather().min() > 0.0
 
 
 def is_spd(M):
