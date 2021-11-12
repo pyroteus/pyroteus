@@ -65,9 +65,11 @@ def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
     # finite element derivatives
     a = ufl.inner(tau, H)*ufl.dx \
         + ufl.inner(ufl.div(tau), g)*ufl.dx \
-        - ufl.dot(g, ufl.dot(tau, n))*ufl.ds
+        - ufl.dot(g, ufl.dot(tau, n))*ufl.ds \
+        - ufl.dot(ufl.avg(g), ufl.jump(tau, n))*ufl.dS
     a += ufl.inner(phi, g)*ufl.dx
     L = f*ufl.dot(phi, n)*ufl.ds \
+        + ufl.avg(f)*ufl.jump(phi, n)*ufl.dS \
         - f*ufl.div(phi)*ufl.dx
 
     # Apply stationary preconditioners in the Schur complement to get away
