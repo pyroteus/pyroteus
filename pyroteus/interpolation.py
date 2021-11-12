@@ -1,7 +1,6 @@
 """
 Driver functions for mesh-to-mesh data transfer.
 """
-from __future__ import absolute_import
 from .utility import assemble_mass_matrix, get_facet_areas
 import firedrake
 from firedrake.petsc import PETSc

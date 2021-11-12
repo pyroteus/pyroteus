@@ -6,7 +6,6 @@ Driver functions for metric-based mesh adaptation.
 .. bibliography:: references.bib
     :filter: docname in docnames
 """
-from __future__ import absolute_import
 from .utility import *
 from .interpolation import clement_interpolant
 

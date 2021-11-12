@@ -1,7 +1,6 @@
 """
 Utility functions and classes for mesh adaptation.
 """
-from __future__ import absolute_import
 from .quality import *
 import firedrake
 from firedrake.petsc import PETSc

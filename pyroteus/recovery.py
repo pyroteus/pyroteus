@@ -1,7 +1,6 @@
 """
 Driver functions for derivative recovery.
 """
-from __future__ import absolute_import
 from .interpolation import clement_interpolant
 from .utility import *
 from petsc4py import PETSc as petsc4py
