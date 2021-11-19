@@ -74,14 +74,11 @@ def test_density_quotients_decomposition(dim, reorder):
     f = np.prod([sin(pi*xi) for xi in SpatialCoordinate(mesh)])
     metric = hessian_metric(recover_hessian(f, mesh=mesh))
 
-    # Extract the eigendecomposition
-    evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
-
-    # Extract the density and anisotropy quotients
-    density, quotients = density_and_quotients(metric, reorder=reorder)
-    evalues.interpolate(as_vector([pow(density/Q, 2/dim) for Q in quotients]))
+    # Extract the density, anisotropy quotients and eigenvectors
+    density, quotients, evectors = density_and_quotients(metric, reorder=reorder)
+    quotients.interpolate(as_vector([pow(density/Q, 2/dim) for Q in quotients]))
 
     # Reassemble the matrix and check the two match
-    metric -= assemble_eigendecomposition(evectors, evalues)
+    metric -= assemble_eigendecomposition(evectors, quotients)
     if not np.isclose(norm(metric), 0.0):
         raise ValueError("Reassembled metric does not match")

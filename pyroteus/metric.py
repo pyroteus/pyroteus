@@ -641,6 +641,8 @@ def density_and_quotients(metric, reorder=False):
         quotients from
     :kwarg reorder: should the eigendecomposition be
         reordered?
+    :return: metric density, anisotropy quotients and
+        eigenvector matrix
     """
     fs_ten = metric.function_space()
     mesh = fs_ten.mesh()
@@ -658,7 +660,7 @@ def density_and_quotients(metric, reorder=False):
     magnitudes = [1/ufl.sqrt(evalues[i]) for i in range(dim)]
     density.interpolate(1/np.prod(magnitudes))
     quotients.interpolate(ufl.as_vector([density*h**dim for h in magnitudes]))
-    return density, quotients
+    return density, quotients, evectors
 
 
 @PETSc.Log.EventDecorator("pyroteus.is_symmetric")
