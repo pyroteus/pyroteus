@@ -14,7 +14,8 @@ __all__ = ["compute_eigendecomposition", "assemble_eigendecomposition",
            "metric_complexity", "isotropic_metric", "anisotropic_metric", "hessian_metric",
            "enforce_element_constraints", "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
-           "determine_metric_complexity", "density_and_quotients", "check_spd"]
+           "determine_metric_complexity", "density_and_quotients", "check_spd",
+           "get_values_at_elements"]
 
 
 def get_metric_kernel(func, dim):
@@ -702,3 +703,31 @@ def check_spd(M):
     """
     assert is_symmetric(M), "FAIL: Matrix is not symmetric"
     assert is_pos_def(M), "FAIL: Matrix is not positive-definite"
+
+
+@PETSc.Log.EventDecorator("pyroteus.get_values_at_elements")
+def get_values_at_elements(M):
+    r"""
+    Extract the values for all degrees of freedom associated
+    with each element.
+
+    :arg M: a :math:`\mathbb P1` metric :class:`Function`
+    :return: a vector :class:`Function` holding all DoFs
+    """
+    mesh = M.function_space().mesh()
+    element = M.ufl_element()
+    if element.degree() != 1 or element.family() != 'Lagrange':
+        raise NotImplementedError(f'{element} elements have not been considered yet')
+    dim = mesh.topological_dimension()
+    if dim == 2:
+        assert element.cell() == ufl.triangle
+    elif dim == 3:
+        assert element.cell() == ufl.tetrahedron
+    else:
+        raise ValueError(f'Dimension {dim} not supported')
+    P0_vec = firedrake.VectorFunctionSpace(mesh, 'DG', 0, dim=(dim+1)*dim**2)
+    values = firedrake.Function(P0_vec)
+    kernel = "for (int i=0; i < vertexwise.dofs; i++) elementwise[i] += vertexwise[i];"
+    keys = {'vertexwise': (M, op2.READ), 'elementwise': (values, op2.INC)}
+    firedrake.par_loop(kernel, ufl.dx, keys)
+    return values
