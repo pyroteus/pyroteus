@@ -76,7 +76,7 @@ def form2estimator(F, absolute_value=False):
 
 
 @PETSc.Log.EventDecorator("pyroteus.get_dwr_indicator")
-def get_dwr_indicator(F, adjoint_error):
+def get_dwr_indicator(F, adjoint_error, test_space=None):
     """
     Generate a dual weighted residual (DWR)
     error indicator, given a form and an
@@ -86,8 +86,10 @@ def get_dwr_indicator(F, adjoint_error):
     :arg F: the form
     :arg adjoint_error: the approximation to
         the adjoint error
+    :kwarg test_space: the :class:`FunctionSpace`
+        that the test function lives in
     """
-    fs = adjoint_error.function_space()
+    fs = test_space or adjoint_error.function_space()
     if F.ufl_domain() != fs.mesh():
         raise ValueError("Meshes underlying the form and adjoint error do not match.")
     return form2indicator(ufl.replace(F, {firedrake.TestFunction(fs): adjoint_error}))
