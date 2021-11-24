@@ -40,8 +40,6 @@ class MeshSeq(object):
             a :class:`MeshSeq`, which returns a function
             that integrates initial data over a subinterval
         :kwarg warnings: print warnings?
-        :kwarg tableau: :class:`ButcherTableau` object for RK
-            methods
         """
         self.time_partition = time_partition
         self.fields = time_partition.fields
@@ -58,7 +56,6 @@ class MeshSeq(object):
         if get_solver is not None:
             self._get_solver = get_solver
         self.warn = warnings
-        self.tableau = kwargs.get('tableau')
         self._lagged_dep_idx = {}
         self.sections = [{} for mesh in self]
 
