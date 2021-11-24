@@ -9,23 +9,17 @@ It is concerned with solid body
 rotation of a collection of shapes,
 as first considered in [LeVeque 1996].
 
-The test case is notable for Pyroteus
-because more than one linear solve is
-required per timestep.
-
 [LeVeque 1996] R. LeVeque, 'High
     -resolution conservative algorithms
     for advection in incompressible
     flow' (1996).
 """
 from firedrake import *
-from pyroteus.runge_kutta import SSPRK33
 from pyroteus.utility import rotate
-import numpy as np
 
 
 # Problem setup
-mesh = UnitSquareMesh(40, 40, quadrilateral=True)
+mesh = UnitSquareMesh(40, 40)
 coords = mesh.coordinates.copy(deepcopy=True)
 coords.interpolate(coords - as_vector([0.5, 0.5]))
 mesh = Mesh(coords)
@@ -36,22 +30,21 @@ dt = pi/300
 dt_per_export = 25
 steady = False
 wq = Constant(1.0)
-tableau = SSPRK33()
 
 
 def get_function_spaces(mesh):
     r"""
-    :math:`\mathbb P1_{DG}` space.
+    :math:`\mathbb P1` space.
     """
-    return {'tracer_2d': FunctionSpace(mesh, "DQ", 1)}
+    return {'tracer_2d': FunctionSpace(mesh, "CG", 1)}
 
 
 def get_solver(self):
     """
     Advection equation solved using an
     iterative method and time integrated
-    using a strong stability preserving
-    third order Runge-Kutta method.
+    using Crank-Nicolson with implicitness
+    one half.
     """
 
     def solver(i, ic, field='tracer_2d'):
@@ -62,78 +55,45 @@ def get_solver(self):
         x, y = SpatialCoordinate(mesh)
         W = VectorFunctionSpace(mesh, "CG", 1)
         u = interpolate(as_vector([-y, x]), W)
+        nu = Constant(0.0)
         dtc = Constant(dt)
-        n = FacetNormal(mesh)
-        un = 0.5*(dot(u, n) + abs(dot(u, n)))
+        theta = Constant(0.5)
 
         # Set initial condition
-        sol = Function(V, name=field)
-        sol.assign(ic[field])
-
-        # Set inflow condition value
-        q_in = Constant(1.0)
+        q = Function(V, name=field)
+        q_old = Function(V, name=field + '_old')
+        q_old.assign(ic[field])
 
         # Setup variational problem
-        q = [Function(V, name=field + '_old'), Function(V), Function(V)]
+        psi = TrialFunction(V)
         phi = TestFunction(V)
-        lhs = dtc*sol*div(phi*u)*dx \
-            - dtc*conditional(dot(u, n) < 0, phi*dot(u, n)*q_in, 0.0)*ds \
-            - dtc*conditional(dot(u, n) > 0, phi*dot(u, n)*sol, 0.0)*ds \
-            - dtc*(phi('+') - phi('-'))*(un('+')*sol('+') - un('-')*sol('-'))*dS
-        lhs = [replace(lhs, {sol: qj}) for qj in q]
-        k = [Function(V), Function(V), Function(V)]
+        a = psi*phi*dx \
+            + dtc*theta*dot(u, grad(psi))*phi*dx \
+            + dtc*theta*nu*inner(grad(psi), grad(phi))*dx
+        L = q_old*phi*dx \
+            - dtc*(1 - theta)*dot(u, grad(q_old))*phi*dx \
+            - dtc*(1 - theta)*nu*inner(grad(q_old), grad(phi))*dx
 
-        # Setup SSPRK33 time integrator
+        # Setup Crank-Nicolson time integrator
         sp = {
-            "ksp_type": "preonly",
-            "pc_type": "bjacobi",
-            "sub_pc_type": "ilu",
+            "ksp_type": "gmres",
+            "pc_type": "ilu",
+            "pc_factor_levels": 0,
         }
-        solvers = [
-            LinearVariationalSolver(
-                LinearVariationalProblem(phi*TrialFunction(V)*dx, L, k[j]),
-                solver_parameters=sp, ad_block_tag=field
-            ) for j, L in enumerate(lhs)
-        ]
+        problem = LinearVariationalProblem(a, L, q, bcs=DirichletBC(V, 0, 'on_boundary'))
+        solver = LinearVariationalSolver(problem, solver_parameters=sp, ad_block_tag=field)
 
         # Time integrate from t_start to t_end
         t = t_start
         qoi = self.get_qoi(i)
-        solutions = {field: Function(V)}
-        sum_k = np.dot(self.tableau.b, k)
+        solutions = {field: q}
         while t < t_end - 0.5*dt:
-
-            # Apply RK method
-            for j in range(3):
-                if j == 0:
-                    q[j].assign(sol)
-                else:
-                    q[j].assign(sol + np.dot(self.tableau.a[j, :j], k[:j]))
-                solvers[j].solve()
-
-            # Evaluate QoI using Simpson's rule
+            solver.solve()
             if self.qoi_type == 'time_integrated':
-
-                # 1/6*f(a)
-                wq.assign(1.0/6.0)
-                solutions[field].assign(sol)
-                self.J += qoi(solutions, t + 0.0*dt)
-
-                # 1/6*f(b)
-                wq.assign(1.0/6.0)
-                solutions[field].assign(sol + sum_k)
-                # solutions[field].assign(sol + 1.0*k[0])
-                self.J += qoi(solutions, t + 1.0*dt)
-
-                # 2/3*f(1/2*(a+b))
-                wq.assign(2.0/3.0)
-                solutions[field].assign(sol + 0.25*(k[0] + k[1]))
-                self.J += qoi(solutions, t + 0.5*dt)
-
-            # Update/increment
-            sol.assign(sol + sum_k)
+                self.J += qoi(solutions, t)
+            q_old.assign(q)
             t += dt
-        return {field: sol}
+        return solutions
     return solver
 
 
@@ -170,7 +130,7 @@ def get_initial_condition(self, coordinates=None):
     bell = bell_initial_condition(x, y, init_fs)
     cone = cone_initial_condition(x, y, init_fs)
     slot_cyl = slot_cyl_initial_condition(x, y, init_fs)
-    return {'tracer_2d': interpolate(1.0 + bell + cone + slot_cyl, init_fs)}
+    return {'tracer_2d': interpolate(bell + cone + slot_cyl, init_fs)}
 
 
 def get_qoi(self, i, exact=get_initial_condition, linear=True):
@@ -190,8 +150,8 @@ def get_qoi(self, i, exact=get_initial_condition, linear=True):
         mesh = V.mesh()
         x = SpatialCoordinate(mesh)
         W = VectorFunctionSpace(mesh, "CG", 1)
-        theta = -2*pi*t/full_rotation
-        X = interpolate(rotate(x, theta), W)
+        angle = -2*pi*t/full_rotation
+        X = interpolate(rotate(x, angle), W)
         q_exact = exact(self, X)
         r0 = 0.15
         if field in ('tracer_2d', 'slot_cyl_2d'):
@@ -202,7 +162,7 @@ def get_qoi(self, i, exact=get_initial_condition, linear=True):
             x0, y0 = 0.0, -0.25
         else:
             raise ValueError(f"Tracer field {field} not recognised")
-        x0, y0 = interpolate(rotate(as_vector([x0, y0]), theta), W)
+        x0, y0 = interpolate(rotate(as_vector([x0, y0]), angle), W)
         ball = conditional((x[0] - x0)**2 + (x[1] - y0)**2 < r0**2, 1.0, 0.0)
         if linear:
             return wq*dtc*ball*q*dx

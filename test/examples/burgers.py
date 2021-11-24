@@ -10,7 +10,6 @@ Code here is based on that found at
     https://firedrakeproject.org/demos/burgers.py.html
 """
 from firedrake import *
-from pyroteus.runge_kutta import BackwardEuler
 
 
 # Problem setup
@@ -21,7 +20,6 @@ end_time = 0.5
 dt = 1/n
 dt_per_export = 2
 steady = False
-tableau = BackwardEuler()
 
 
 def get_function_spaces(mesh):

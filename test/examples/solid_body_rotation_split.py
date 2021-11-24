@@ -10,11 +10,9 @@ See
 for details on the problem itself.
 
 The test case is notable for Pyroteus
-because: (a) the model is comprised of a
+because the model is comprised of a
 system of equations which are solved
-sequentially; and (b) more than one
-linear solve is required per field per
-timestep.
+sequentially.
 """
 from solid_body_rotation import *
 import solid_body_rotation as sbr
@@ -25,7 +23,7 @@ end_time /= 3
 
 
 def get_function_spaces(mesh):
-    return {field: FunctionSpace(mesh, "DQ", 1) for field in fields}
+    return {field: FunctionSpace(mesh, "CG", 1) for field in fields}
 
 
 def get_solver(self):

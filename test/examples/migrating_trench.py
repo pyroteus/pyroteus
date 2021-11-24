@@ -24,7 +24,6 @@ except ImportError:
     import pytest
     pytest.skip("Thetis is not installed")
 from pyroteus.thetis_compat import *
-from pyroteus.runge_kutta import BackwardEuler
 
 
 # Problem setup
@@ -39,7 +38,6 @@ dt = 0.3
 dt_per_export = 5
 morfac = 300
 steady = False
-tableau = BackwardEuler()
 
 
 def get_function_spaces(mesh):
