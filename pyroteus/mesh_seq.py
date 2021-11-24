@@ -177,8 +177,8 @@ class MeshSeq(object):
             and field in block.tag
         ]
         if len(solve_blocks) == 0:
-            self.warning(f"Tape has no solve blocks associated with field {field}.\nHas the options"
-                         + " prefix been applied correctly?")
+            self.warning(f"No solve blocks associated with field '{field}'.\n"
+                         "Has ad_block_tag been used correctly?")
             return solve_blocks
         self.debug(f"Field '{field}' on subinterval {subinterval} has {len(solve_blocks)} solve blocks")
 
@@ -195,7 +195,15 @@ class MeshSeq(object):
         for block in solve_blocks:
             if element != block.function_space.ufl_element():
                 raise ValueError(f"Solve block list for field {field} contains mismatching elements"
-                                 + f" ({element} vs. {block.function_space.ufl_element()})")
+                                 f" ({element} vs. {block.function_space.ufl_element()})")
+
+        # Check the number of timesteps divides the number of solve blocks
+        num_timesteps = self.time_partition[subinterval].num_timesteps
+        ratio = len(solve_blocks)/num_timesteps
+        if not np.isclose(np.round(ratio), ratio):
+            raise ValueError(f"Number of timesteps for field '{field}' does not divide number of solve"
+                             f" blocks ({num_timesteps} vs. {len(solve_blocks)}). If you are trying to"
+                             " use a multi-stage Runge-Kutta method, then this is not supported.")
         return solve_blocks
 
     def get_lagged_dependency_index(self, field, subinterval, solve_blocks):
