@@ -199,16 +199,6 @@ class MeshSeq(object):
             if element != block.function_space.ufl_element():
                 raise ValueError(f"Solve block list for field {field} contains mismatching elements"
                                  + f" ({element} vs. {block.function_space.ufl_element()})")
-
-        # Check the number of timesteps divides the number of solve blocks
-        ratio = len(solve_blocks)/self.time_partition[subinterval].num_timesteps
-        if not np.isclose(np.round(ratio), ratio):
-            self.warning(f"Number of timesteps for field '{field}' does not divide number of solve blocks"
-                         + f" ({self.time_partition[subinterval].num_timesteps} vs. {len(solve_blocks)})")
-        self.solves_per_timestep = int(np.round(ratio))
-        self.debug(f"Number of solves per timestep for field {field}: {self.solves_per_timestep}")
-        if self.solves_per_timestep > 1:
-            self.debug(f"It looks like you have a {self.solves_per_timestep} step RK method")
         return solve_blocks
 
     def get_lagged_dependency_index(self, field, subinterval, solve_blocks):
@@ -244,26 +234,6 @@ class MeshSeq(object):
             fwd_old_idx = fwd_old_idx[0]
         self._lagged_dep_idx[field] = fwd_old_idx
         return fwd_old_idx
-
-    def get_rk_blocks(self, field, subinterval, index, solve_blocks, offset=0):
-        """
-        Get the :class:`GenericSolveBlock`s corresponding
-        to a ``field`` and ``index`` in the case of
-        Runge-Kutta timestepping, as well as the associated
-        quadrature weights.
-
-        :arg field: field of interest
-        :arg subinterval: the subinterval index
-        :arg index: index for the timestep within the subinterval
-        :arg solve_blocks: list of taped
-            :class:`GenericSolveBlocks`
-        :kwarg offset: number of timesteps to offset by
-            (default 0)
-        """
-        assert hasattr(self, 'solves_per_timestep') and self.solves_per_timestep > 1
-        stride = self.time_partition.timesteps_per_export[subinterval]*self.solves_per_timestep
-        istart = index*stride + offset*self.solves_per_timestep
-        return solve_blocks[istart:istart + self.solves_per_timestep]
 
     @PETSc.Log.EventDecorator("pyroteus.MeshSeq.solve_forward")
     def solve_forward(self, solver_kwargs={}):
@@ -335,21 +305,14 @@ class MeshSeq(object):
 
                 # Extract solution data
                 sols = solutions[field]
-                stride = self.time_partition.timesteps_per_export[i]*self.solves_per_timestep
+                stride = self.time_partition.timesteps_per_export[i]
                 if len(solve_blocks[::stride]) >= self.time_partition.exports_per_subinterval[i]:
                     raise ValueError(f"More solve blocks than expected ({len(solve_blocks[::stride])} vs."
                                      + f" {self.time_partition.exports_per_subinterval[i]})")
                 for j, block in enumerate(solve_blocks[::stride]):
                     if fwd_old_idx is not None:
                         sols.forward_old[i][j].assign(block._dependencies[fwd_old_idx].saved_output)
-                    if self.solves_per_timestep == 1:
-                        sols.forward[i][j].assign(block._outputs[0].saved_output)
-                    else:
-                        assert fwd_old_idx is not None, "Need old solution for RK methods"
-                        assert self.tableau is not None, "Need Butcher tableau for RK methods"
-                        sols.forward[i][j].assign(sols.forward_old[i][j])
-                        for rk_block, wq in zip(self.get_rk_blocks(field, i, j, solve_blocks), self.tableau.b):
-                            sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
+                    sols.forward[i][j].assign(block._outputs[0].saved_output)
 
             # Clear tape
             tape.clear_tape()
