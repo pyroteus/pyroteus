@@ -219,7 +219,7 @@ class AdjointMeshSeq(MeshSeq):
 
             # Update adjoint solver kwargs
             for field in self.fields:
-                for block in self.get_solve_blocks(field, subinterval=i):
+                for block in self.get_solve_blocks(field, subinterval=i, has_adj_sol=False):
                     block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
