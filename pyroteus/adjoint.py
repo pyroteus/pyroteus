@@ -219,7 +219,7 @@ class AdjointMeshSeq(MeshSeq):
 
             # Update adjoint solver kwargs
             for field in self.fields:
-                for block in self.get_solve_blocks(field, subinterval=i):
+                for block in self.get_solve_blocks(field, subinterval=i, has_adj_sol=False):
                     block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
@@ -255,7 +255,7 @@ class AdjointMeshSeq(MeshSeq):
 
                 # Extract solution data
                 sols = solutions[field]
-                stride = P.timesteps_per_export[i]*self.solves_per_timestep
+                stride = P.timesteps_per_export[i]
                 if len(solve_blocks[::stride]) >= P.exports_per_subinterval[i]:
                     self.warning(f"More solve blocks than expected ({len(solve_blocks[::stride])} >"
                                  + f" {P.exports_per_subinterval[i]-1})")
@@ -271,14 +271,8 @@ class AdjointMeshSeq(MeshSeq):
                     # Lagged adjoint solution
                     if not steady:
                         if j*stride+1 < num_solve_blocks:
-                            if self.solves_per_timestep == 1:
-                                if solve_blocks[j*stride+1].adj_sol is not None:
-                                    sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
-                            else:
-                                rk_blocks = self.get_rk_blocks(field, i, j, solve_blocks, offset=1)
-                                for rk_block, wq in zip(rk_blocks, self.tableau.b):
-                                    if rk_block.adj_sol is not None:
-                                        sols.adjoint_next[i][j] += wq*rk_block.adj_sol
+                            if solve_blocks[j*stride+1].adj_sol is not None:
+                                sols.adjoint_next[i][j].assign(solve_blocks[j*stride+1].adj_sol)
                         elif j*stride+1 == num_solve_blocks:
                             if i+1 < num_subintervals:
                                 sols.adjoint_next[i][j].assign(
@@ -288,18 +282,9 @@ class AdjointMeshSeq(MeshSeq):
                             raise IndexError(f"Cannot extract solve block {j*stride+1} > {num_solve_blocks}")
 
                     # Forward and adjoint solution at current timestep
-                    if self.solves_per_timestep == 1:
-                        sols.forward[i][j].assign(block._outputs[0].saved_output)
-                        if block.adj_sol is not None:
-                            sols.adjoint[i][j].assign(block.adj_sol)
-                    else:
-                        assert fwd_old_idx is not None, "Need old solution for RK methods"
-                        assert self.tableau is not None, "Need Butcher tableau for RK methods"
-                        sols.forward[i][j].assign(sols.forward_old[i][j])
-                        for rk_block, wq in zip(self.get_rk_blocks(field, i, j, solve_blocks), self.tableau.b):
-                            sols.forward[i][j] += wq*rk_block._outputs[0].saved_output
-                            if rk_block.adj_sol is not None:
-                                sols.adjoint[i][j] += wq*rk_block.adj_sol
+                    sols.forward[i][j].assign(block._outputs[0].saved_output)
+                    if block.adj_sol is not None:
+                        sols.adjoint[i][j].assign(block.adj_sol)
 
                 # Check non-zero adjoint solution/value
                 if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):

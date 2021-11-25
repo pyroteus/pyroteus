@@ -106,11 +106,11 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     mesh_seq = AdjointMeshSeq(
         time_partition, test_case.mesh, test_case.get_function_spaces,
         test_case.get_initial_condition, test_case.get_solver,
-        test_case.get_qoi, qoi_type=qoi_type, steady=steady, tableau=test_case.tableau,
+        test_case.get_qoi, qoi_type=qoi_type, steady=steady,
     )
 
     # Solve forward and adjoint without solve_adjoint
-    pyrint("\n--- Solving the adjoint problem on 1 subinterval using pyadjoint\n")
+    pyrint("\n--- Adjoint solve on 1 subinterval using pyadjoint\n")
     ic = mesh_seq.initial_condition
     controls = [pyadjoint.Control(value) for key, value in ic.items()]
     sols = mesh_seq.solver(0, ic)
@@ -130,14 +130,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     for field, fs in mesh_seq._fs.items():
         solve_blocks = mesh_seq.get_solve_blocks(field)
         fwd_old_idx = mesh_seq.get_lagged_dependency_index(field, 0, solve_blocks)
-        if mesh_seq.solves_per_timestep == 1:
-            adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
-        else:
-            assert mesh_seq.tableau is not None, "Need Butcher tableau for RK methods"
-            rk_blocks = mesh_seq.get_rk_blocks(field, 0, 0, solve_blocks)
-            adj_sols_expected[field] = Function(fs[0])
-            for rk_block, wq in zip(rk_blocks, mesh_seq.tableau.b):
-                adj_sols_expected[field] += wq*rk_block.adj_sol
+        adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
         if not steady:
             adj_values_expected[field] = Function(
                 fs[0], val=solve_blocks[0]._dependencies[fwd_old_idx].adj_value
@@ -145,8 +138,8 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
 
     # Loop over having one or two subintervals
     for N in range(1, 2 if steady else 3):
-        pyrint(f"\n--- Solving the adjoint problem on {N} subinterval"
-               + f"{'' if N == 1 else 's'} using pyroteus\n")
+        pl = '' if N == 1 else 's'
+        pyrint(f"\n--- Adjoint solve on {N} subinterval{pl} using pyroteus\n")
 
         # Solve forward and adjoint on each subinterval
         time_partition = TimePartition(
@@ -156,21 +149,21 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         mesh_seq = AdjointMeshSeq(
             time_partition, test_case.mesh, test_case.get_function_spaces,
             test_case.get_initial_condition, test_case.get_solver,
-            test_case.get_qoi, qoi_type=qoi_type, tableau=test_case.tableau,
+            test_case.get_qoi, qoi_type=qoi_type,
         )
         solutions = mesh_seq.solve_adjoint(get_adj_values=not steady, test_checkpoint_qoi=True)
 
         # Check quantities of interest match
-        assert np.isclose(J_expected, mesh_seq.J), f"QoIs do not match ({J_expected} vs." \
-                                                   + f"{mesh_seq.J})"
+        if not np.isclose(J_expected, mesh_seq.J):
+            raise ValueError(f"QoIs do not match ({J_expected} vs. {mesh_seq.J})")
 
         # Check adjoint solutions at initial time match
         for field in time_partition.fields:
             adj_sol_expected = adj_sols_expected[field]
             adj_sol_computed = solutions[field].adjoint[0][0]
             err = errornorm(adj_sol_expected, adj_sol_computed)/norm(adj_sol_expected)
-            assert np.isclose(err, 0.0), "Adjoint solutions at initial time do not match." \
-                                         + f" (Error {err:.4e}.)"
+            if not np.isclose(err, 0.0):
+                raise ValueError(f"Adjoint solutions do not match at t=0 (error {err:.4e}.)")
 
         # Check adjoint actions at initial time match
         if not steady:
@@ -178,8 +171,8 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
                 adj_value_expected = adj_values_expected[field]
                 adj_value_computed = solutions[field].adj_value[0][0]
                 err = errornorm(adj_value_expected, adj_value_computed)/norm(adj_value_expected)
-                assert np.isclose(err, 0.0), "Adjoint values at initial time do not match." \
-                                             + f" (Error {err:.4e}.)"
+                if not np.isclose(err, 0.0):
+                    raise ValueError(f"Adjoint values do not match at t=0 (error {err:.4e}.)")
 
 
 @pytest.mark.parallel
@@ -213,7 +206,7 @@ def plot_solutions(problem, qoi_type, debug=True):
     solutions = AdjointMeshSeq(
         time_partition, test_case.mesh, test_case.get_function_spaces,
         test_case.get_initial_condition, test_case.get_solver,
-        test_case.get_qoi, qoi_type=qoi_type, steady=steady, tableau=test_case.tableau,
+        test_case.get_qoi, qoi_type=qoi_type, steady=steady,
     ).solve_adjoint(get_adj_values=not steady, test_checkpoint_qoi=True)
     output_dir = os.path.join(os.path.dirname(__file__), 'outputs', problem)
     outfiles = AttrDict({
