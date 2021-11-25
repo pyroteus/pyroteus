@@ -15,7 +15,7 @@ __all__ = ["compute_eigendecomposition", "assemble_eigendecomposition",
            "enforce_element_constraints", "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
            "determine_metric_complexity", "density_and_quotients", "check_spd",
-           "get_values_at_elements"]
+           "get_values_at_elements", "metric_exponential", "metric_logarithm"]
 
 
 def get_metric_kernel(func, dim):
@@ -738,3 +738,51 @@ def get_values_at_elements(M):
     keys = {'vertexwise': (M, op2.READ), 'elementwise': (values, op2.INC)}
     firedrake.par_loop(kernel, ufl.dx, keys)
     return values
+
+
+@PETSc.Log.EventDecorator("pyroteus.metric_exponential")
+def metric_exponential(M):
+    """
+    Compute the matrix exponential of a metric.
+
+    :arg M: a :math:`\mathbb P1` metric :class:`Function`
+    :return: its matrix exponential
+    """
+    V, Lambda = compute_eigendecomposition(M)
+    if not Lambda.vector().gather().min() > 0.0:
+        lmin = Lambda.vector().gather().min()
+        raise ValueError(f'Input matrix is not positive-definite (min {lmin})')
+    kernel = """
+    int dim = %d;
+    for (int i=0; i < L.dofs; i++) {
+      for (int d=0; d < dim; d++) {
+        L[dim*i+d] = exp(L[dim*i+d]);
+      }
+    }
+    """ % M.function_space().mesh().topological_dimension()
+    firedrake.par_loop(kernel, ufl.dx, {'L': (Lambda, op2.RW)})
+    return assemble_eigendecomposition(V, Lambda)
+
+
+@PETSc.Log.EventDecorator("pyroteus.metric_logarithm")
+def metric_logarithm(M):
+    """
+    Compute the matrix logarithm of a metric.
+
+    :arg M: a :math:`\mathbb P1` metric :class:`Function`
+    :return: its matrix logarithm
+    """
+    V, Lambda = compute_eigendecomposition(M)
+    if not Lambda.vector().gather().min() > 0.0:
+        lmin = Lambda.vector().gather().min()
+        raise ValueError(f'Input matrix is not positive-definite (min {lmin})')
+    kernel = """
+    int dim = %d;
+    for (int i=0; i < L.dofs; i++) {
+      for (int d=0; d < dim; d++) {
+        L[dim*i+d] = log(L[dim*i+d]);
+      }
+    }
+    """ % M.function_space().mesh().topological_dimension()
+    firedrake.par_loop(kernel, ufl.dx, {'L': (Lambda, op2.RW)})
+    return assemble_eigendecomposition(V, Lambda)
