@@ -264,7 +264,7 @@ def anisotropic_dwr_metric(error_indicator, hessian=None, target_space=None, int
         evectors, evalues = compute_eigendecomposition(P0_metric, reorder=True)
         lmin = evalues.vector().gather().min()
         if lmin <= 0.0:
-            raise ValueError(f'At least one eigenvalue is not positive (lmin)')
+            raise ValueError(f'At least one eigenvalue is not positive ({lmin})')
         S = abs(evalues/pow(np.prod(evalues), 1/dim))
 
         # Assemble metric with modified eigenvalues
@@ -272,7 +272,7 @@ def anisotropic_dwr_metric(error_indicator, hessian=None, target_space=None, int
         v = evalues.vector().gather()
         lmin = v.min()
         if lmin <= 0.0:
-            raise ValueError(f'At least one eigenvalue is not positive (lmin)')
+            raise ValueError(f'At least one eigenvalue is not positive ({lmin})')
         if np.isnan(v).any():
             raise ValueError('At least one modified eigenvalue is not finite')
         P0_metric.assign(assemble_eigendecomposition(evectors, evalues))
@@ -749,7 +749,7 @@ def get_values_at_elements(M):
 
 @PETSc.Log.EventDecorator("pyroteus.metric_exponential")
 def metric_exponential(M):
-    """
+    r"""
     Compute the matrix exponential of a metric.
 
     :arg M: a :math:`\mathbb P1` metric :class:`Function`
@@ -773,7 +773,7 @@ def metric_exponential(M):
 
 @PETSc.Log.EventDecorator("pyroteus.metric_logarithm")
 def metric_logarithm(M):
-    """
+    r"""
     Compute the matrix logarithm of a metric.
 
     :arg M: a :math:`\mathbb P1` metric :class:`Function`
