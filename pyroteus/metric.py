@@ -629,11 +629,11 @@ def density_and_quotients(metric, reorder=False):
         \underline{\mathbf R}(\mathbf x)^{-\frac2n}
         \underline{\mathbf V}(\mathbf x)^T
 
-    can also be deduced, in terms of the <em>metric density</em>
-    and <em>anisotropy quotients</em>,
+    can also be deduced, in terms of the `metric density`
+    and `anisotropy quotients`,
 
     .. math::
-        d = \sum_{i=1}^n h_i,\qquad
+        d = \prod_{i=1}^n h_i,\qquad
         r_i = \frac{h_i^n}d,\qquad \forall i=1:n,
 
     where :math:`h_i := \frac1{\sqrt{\lambda_i}}`.
