@@ -201,7 +201,7 @@ def anisotropic_metric(error_indicator, hessian, **kwargs):
 
 
 @PETSc.Log.EventDecorator("pyroteus.anisotropic_dwr_metric")
-def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpolant='Clement', **kwargs):
+def anisotropic_dwr_metric(error_indicator, hessian=None, target_space=None, interpolant='Clement', **kwargs):
     r"""
     Compute an anisotropic metric from some error
     indicator, given a Hessian field.
@@ -217,8 +217,11 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpol
     construction and involves the `convergence_rate`
     parameter, named :math:`alpha` in :cite:`CP13`.
 
+    If a Hessian is not provided then an isotropic
+    formulation is used.
+
     :arg error_indicator: the error indicator
-    :arg hessian: the Hessian
+    :kwarg hessian: the Hessian
     :kwarg target_space: :class:`TensorFunctionSpace` in
         which the metric will exist
     :kwarg target_complexity: target metric complexity
@@ -227,16 +230,18 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpol
         'interpolate', 'project'
     """
     if isinstance(error_indicator, list):  # FIXME: This is hacky
-        assert len(error_indicator) == len(hessian)
         error_indicator = error_indicator[0]
+    if isinstance(hessian, list):  # FIXME: This is hacky
         hessian = hessian[0]
     target_complexity = kwargs.get('target_complexity', None)
     assert target_complexity > 0.0, "Target complexity must be positive"
-    mesh = hessian.ufl_domain()
+    mesh = error_indicator.ufl_domain()
     dim = mesh.topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
     convergence_rate = kwargs.get('convergence_rate', 1.0)
     assert convergence_rate >= 1.0, "Convergence rate must be at least one"
+    P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
+    P0_metric = firedrake.Function(P0_ten)
 
     # Get reference element volume
     K_hat = 1/2 if dim == 2 else 1/6
@@ -248,18 +253,20 @@ def anisotropic_dwr_metric(error_indicator, hessian, target_space=None, interpol
     # Get optimal element volume
     K_opt = firedrake.interpolate(pow(error_indicator, 1/(convergence_rate+1)), P0)
     K_opt.interpolate(K/target_complexity*K_opt.vector().gather().sum()/K_opt)
+    K_ratio = pow(abs(K_hat/K_opt), 2/dim)
+    if hessian is None:
+        P0_metric.interpolate(K_ratio*ufl.Identity(dim))
+    else:
+        # Interpolate from P1 to P0 by averaging the vertex-wise values
+        P0_metric.assign(hessian_metric(firedrake.project(hessian, P0_ten)))
 
-    # Interpolate from P1 to P0 by averaging the vertex-wise values
-    P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
-    P0_metric = hessian_metric(firedrake.project(hessian, P0_ten))
+        # Compute stretching factors, in ascending order
+        evectors, evalues = compute_eigendecomposition(P0_metric, reorder=True)
+        S = abs(evalues/pow(np.prod(evalues), 1/dim))
 
-    # Compute stretching factors, in ascending order
-    evectors, evalues = compute_eigendecomposition(P0_metric, reorder=True)
-    S = abs(evalues/pow(np.prod(evalues), 1/dim))
-
-    # Assemble metric with modified eigenvalues
-    evalues.interpolate(pow(abs(K_hat/K_opt), 2/dim)*S)
-    P0_metric = assemble_eigendecomposition(evectors, evalues)
+        # Assemble metric with modified eigenvalues
+        evalues.interpolate(K_ratio*S)
+        P0_metric.assign(assemble_eigendecomposition(evectors, evalues))
 
     # Interpolate the metric into target space and ensure SPD
     target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
