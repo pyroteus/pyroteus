@@ -721,32 +721,6 @@ def check_spd(M):
     assert is_pos_def(M), "FAIL: Matrix is not positive-definite"
 
 
-@PETSc.Log.EventDecorator("pyroteus.get_values_at_elements")
-def get_values_at_elements(M):
-    r"""
-    Extract the values for all degrees of freedom associated
-    with each element.
-
-    :arg M: a :math:`\mathbb P1` metric :class:`Function`
-    :return: a vector :class:`Function` holding all DoFs
-    """
-    fs = M.function_space()
-    mesh = fs.mesh()
-    dim = mesh.topological_dimension()
-    if dim == 2:
-        assert fs.ufl_element().cell() == ufl.triangle, 'Simplex meshes only'
-    elif dim == 3:
-        assert fs.ufl_element().cell() == ufl.tetrahedron, 'Simplex meshes only'
-    else:
-        raise ValueError(f'Dimension {dim} not supported')
-    P0_vec = firedrake.VectorFunctionSpace(mesh, 'DG', 0, dim=(dim+1)*np.prod(fs.dof_dset.dim))
-    values = firedrake.Function(P0_vec)
-    kernel = "for (int i=0; i < vertexwise.dofs; i++) elementwise[i] += vertexwise[i];"
-    keys = {'vertexwise': (M, op2.READ), 'elementwise': (values, op2.INC)}
-    firedrake.par_loop(kernel, ufl.dx, keys)
-    return values
-
-
 @PETSc.Log.EventDecorator("pyroteus.metric_exponential")
 def metric_exponential(M):
     r"""
