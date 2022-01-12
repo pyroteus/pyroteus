@@ -15,7 +15,7 @@ __all__ = ["compute_eigendecomposition", "assemble_eigendecomposition",
            "enforce_element_constraints", "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
            "determine_metric_complexity", "density_and_quotients", "check_spd",
-           "get_values_at_elements", "metric_exponential", "metric_logarithm"]
+           "metric_exponential", "metric_logarithm"]
 
 
 def get_metric_kernel(func, dim):
