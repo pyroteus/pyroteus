@@ -247,10 +247,10 @@ def anisotropic_dwr_metric(error_indicator, hessian=None, target_space=None, int
     K_hat = 1/2 if dim == 2 else 1/6
 
     # Get current element volume
-    P0 = firedrake.FunctionSpace(mesh, "DG", 0)
-    K = firedrake.interpolate(K_hat*abs(ufl.JacobianDeterminant(mesh)), P0)
+    K = K_hat*abs(ufl.JacobianDeterminant(mesh))
 
     # Get optimal element volume
+    P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     K_opt = firedrake.interpolate(pow(error_indicator, 1/(convergence_rate+1)), P0)
     K_opt.interpolate(K/target_complexity*K_opt.vector().gather().sum()/K_opt)
     K_ratio = pow(abs(K_hat/K_opt), 2/dim)
