@@ -15,7 +15,7 @@ __all__ = ["compute_eigendecomposition", "assemble_eigendecomposition",
            "enforce_element_constraints", "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
            "determine_metric_complexity", "density_and_quotients", "check_spd",
-           "get_values_at_elements"]
+           "get_values_at_elements", "metric_exponential", "metric_logarithm"]
 
 
 def get_metric_kernel(func, dim):
@@ -247,10 +247,10 @@ def anisotropic_dwr_metric(error_indicator, hessian=None, target_space=None, int
     K_hat = 1/2 if dim == 2 else 1/6
 
     # Get current element volume
-    P0 = firedrake.FunctionSpace(mesh, "DG", 0)
-    K = firedrake.interpolate(K_hat*abs(ufl.JacobianDeterminant(mesh)), P0)
+    K = K_hat*abs(ufl.JacobianDeterminant(mesh))
 
     # Get optimal element volume
+    P0 = firedrake.FunctionSpace(mesh, "DG", 0)
     K_opt = firedrake.interpolate(pow(error_indicator, 1/(convergence_rate+1)), P0)
     K_opt.interpolate(K/target_complexity*K_opt.vector().gather().sum()/K_opt)
     K_ratio = pow(abs(K_hat/K_opt), 2/dim)
@@ -262,10 +262,19 @@ def anisotropic_dwr_metric(error_indicator, hessian=None, target_space=None, int
 
         # Compute stretching factors, in ascending order
         evectors, evalues = compute_eigendecomposition(P0_metric, reorder=True)
+        lmin = evalues.vector().gather().min()
+        if lmin <= 0.0:
+            raise ValueError(f'At least one eigenvalue is not positive ({lmin})')
         S = abs(evalues/pow(np.prod(evalues), 1/dim))
 
         # Assemble metric with modified eigenvalues
         evalues.interpolate(K_ratio*S)
+        v = evalues.vector().gather()
+        lmin = v.min()
+        if lmin <= 0.0:
+            raise ValueError(f'At least one stretching factor is not positive ({lmin})')
+        if np.isnan(v).any():
+            raise ValueError('At least one modified stretching factor is not finite')
         P0_metric.assign(assemble_eigendecomposition(evectors, evalues))
 
     # Interpolate the metric into target space and ensure SPD
@@ -712,29 +721,49 @@ def check_spd(M):
     assert is_pos_def(M), "FAIL: Matrix is not positive-definite"
 
 
-@PETSc.Log.EventDecorator("pyroteus.get_values_at_elements")
-def get_values_at_elements(M):
+@PETSc.Log.EventDecorator("pyroteus.metric_exponential")
+def metric_exponential(M):
     r"""
-    Extract the values for all degrees of freedom associated
-    with each element.
+    Compute the matrix exponential of a metric.
 
     :arg M: a :math:`\mathbb P1` metric :class:`Function`
-    :return: a vector :class:`Function` holding all DoFs
+    :return: its matrix exponential
     """
-    mesh = M.function_space().mesh()
-    element = M.ufl_element()
-    if element.degree() != 1 or element.family() != 'Lagrange':
-        raise NotImplementedError(f'{element} elements have not been considered yet')
-    dim = mesh.topological_dimension()
-    if dim == 2:
-        assert element.cell() == ufl.triangle
-    elif dim == 3:
-        assert element.cell() == ufl.tetrahedron
-    else:
-        raise ValueError(f'Dimension {dim} not supported')
-    P0_vec = firedrake.VectorFunctionSpace(mesh, 'DG', 0, dim=(dim+1)*dim**2)
-    values = firedrake.Function(P0_vec)
-    kernel = "for (int i=0; i < vertexwise.dofs; i++) elementwise[i] += vertexwise[i];"
-    keys = {'vertexwise': (M, op2.READ), 'elementwise': (values, op2.INC)}
-    firedrake.par_loop(kernel, ufl.dx, keys)
-    return values
+    V, Lambda = compute_eigendecomposition(M)
+    if not Lambda.vector().gather().min() > 0.0:
+        lmin = Lambda.vector().gather().min()
+        raise ValueError(f'Input matrix is not positive-definite (min {lmin})')
+    kernel = """
+    int dim = %d;
+    for (int i=0; i < L.dofs; i++) {
+      for (int d=0; d < dim; d++) {
+        L[dim*i+d] = exp(L[dim*i+d]);
+      }
+    }
+    """ % M.function_space().mesh().topological_dimension()
+    firedrake.par_loop(kernel, ufl.dx, {'L': (Lambda, op2.RW)})
+    return assemble_eigendecomposition(V, Lambda)
+
+
+@PETSc.Log.EventDecorator("pyroteus.metric_logarithm")
+def metric_logarithm(M):
+    r"""
+    Compute the matrix logarithm of a metric.
+
+    :arg M: a :math:`\mathbb P1` metric :class:`Function`
+    :return: its matrix logarithm
+    """
+    V, Lambda = compute_eigendecomposition(M)
+    if not Lambda.vector().gather().min() > 0.0:
+        lmin = Lambda.vector().gather().min()
+        raise ValueError(f'Input matrix is not positive-definite (min {lmin})')
+    kernel = """
+    int dim = %d;
+    for (int i=0; i < L.dofs; i++) {
+      for (int d=0; d < dim; d++) {
+        L[dim*i+d] = log(L[dim*i+d]);
+      }
+    }
+    """ % M.function_space().mesh().topological_dimension()
+    firedrake.par_loop(kernel, ufl.dx, {'L': (Lambda, op2.RW)})
+    return assemble_eigendecomposition(V, Lambda)

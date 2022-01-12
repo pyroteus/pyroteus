@@ -5,7 +5,7 @@ import firedrake
 from firedrake.petsc import PETSc
 from .interpolation import project
 from .log import debug, warning
-from .utility import AttrDict, Mesh, classify_element, create_section
+from .utility import AttrDict, Mesh
 from collections import OrderedDict
 from collections.abc import Iterable
 import numpy as np
