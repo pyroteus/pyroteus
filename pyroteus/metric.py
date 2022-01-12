@@ -272,9 +272,9 @@ def anisotropic_dwr_metric(error_indicator, hessian=None, target_space=None, int
         v = evalues.vector().gather()
         lmin = v.min()
         if lmin <= 0.0:
-            raise ValueError(f'At least one eigenvalue is not positive ({lmin})')
+            raise ValueError(f'At least one stretching factor is not positive ({lmin})')
         if np.isnan(v).any():
-            raise ValueError('At least one modified eigenvalue is not finite')
+            raise ValueError('At least one modified stretching factor is not finite')
         P0_metric.assign(assemble_eigendecomposition(evectors, evalues))
 
     # Interpolate the metric into target space and ensure SPD
