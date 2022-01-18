@@ -8,6 +8,7 @@ from pyroteus.mesh_seq import *          # noqa
 from pyroteus.log import *               # noqa
 from pyroteus.interpolation import *     # noqa
 from pyroteus.error_estimation import *  # noqa
+from pyroteus.form import *              # noqa
 
 import numpy as np                       # noqa
 import os                                # noqa
