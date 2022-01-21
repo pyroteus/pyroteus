@@ -241,7 +241,7 @@ class MeshSeq(object):
         return fwd_old_idx
 
     @PETSc.Log.EventDecorator("pyroteus.MeshSeq.solve_forward")
-    def solve_forward(self, solver_kwargs={}):
+    def solve_forward(self, solver_kwargs={}, clear_tape=True):
         """
         Solve a forward problem on a sequence of subintervals.
 
@@ -260,6 +260,8 @@ class MeshSeq(object):
         :kwarg solver_kwargs: a dictionary providing parameters
             to the solver. Any keyword arguments for the QoI
             should be included as a subdict with label 'qoi_kwargs'
+        :kwarg clear_tape: should the tape be cleared at the end
+            of an iteration?
 
         :return solution: an :class:`AttrDict` containing
             solution fields and their lagged versions.
@@ -320,6 +322,7 @@ class MeshSeq(object):
                     sols.forward[i][j].assign(block._outputs[0].saved_output)
 
             # Clear tape
-            tape.clear_tape()
+            if clear_tape:
+                tape.clear_tape()
 
         return solutions

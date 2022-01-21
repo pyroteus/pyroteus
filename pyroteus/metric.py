@@ -15,7 +15,7 @@ __all__ = ["compute_eigendecomposition", "assemble_eigendecomposition",
            "enforce_element_constraints", "space_normalise", "space_time_normalise",
            "metric_relaxation", "metric_average", "metric_intersection", "combine_metrics",
            "determine_metric_complexity", "density_and_quotients", "check_spd",
-           "metric_exponential", "metric_logarithm"]
+           "metric_exponential", "metric_logarithm", "ramp_complexity"]
 
 
 def get_metric_kernel(func, dim):
@@ -767,3 +767,22 @@ def metric_logarithm(M):
     """ % M.function_space().mesh().topological_dimension()
     firedrake.par_loop(kernel, ufl.dx, {'L': (Lambda, op2.RW)})
     return assemble_eigendecomposition(V, Lambda)
+
+
+def ramp_complexity(base, target, i, num_iterations=3):
+    """
+    Ramp up the target complexity over the first few iterations.
+
+    :arg base: the base complexity to start from
+    :arg target: the desired complexity
+    :arg i: the current iteration
+    :kwarg num_iterations: how many iterations to ramp over?
+    """
+    assert base > 0.0
+    assert target > 0.0
+    assert i >= 0
+    if num_iterations == 0:
+        return target
+    assert num_iterations > 0
+    alpha = min(i/num_iterations, 1)
+    return alpha*target + (1 - alpha)*base
