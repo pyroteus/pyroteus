@@ -1,5 +1,7 @@
 ## Pyroteus Goal-Oriented Mesh Adaptation Toolkit
 
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 Pyroteus provides metric-based goal-oriented mesh
 adaptation functionality to the Python-based finite
 element library [Firedrake][firedrake]. The 'y' is
