@@ -1,12 +1,11 @@
 #!/bin/bash
 
 # ====================================================================== #
-# Bash script for installing PETSc with Pragmatic.                       #
+# Bash script for installing PETSc with Mmg and ParMmg.                  #
 #                                                                        #
-# Note that we use the custom branch joe/adapt.                          #
+# Note that we use a custom PETSc branch.                                #
 #                                                                        #
-# Most of the modifications were made by Nicolas Barral. Minor updates   #
-# by Joe Wallwork.                                                       #
+# Joe Wallwork, 2022.                                                    #
 # ====================================================================== #
 
 # Set environment variables
@@ -15,7 +14,7 @@ if [ ! -e "$SOFTWARE" ]; then
 	exit 1
 fi
 export PETSC_DIR=$SOFTWARE/petsc
-export PETSC_ARCH=arch-pragmatic
+export PETSC_ARCH=arch-adapt
 
 # Check environment variables
 echo "INSTALL_DIR="$SOFTWARE
@@ -24,14 +23,17 @@ echo "PETSC_ARCH="$PETSC_ARCH
 echo "Are these settings okay? Press enter to continue."
 read chk
 
+# Checkout appropriate branch
 cd $SOFTWARE
 git clone https://gitlab.com/petsc/petsc.git petsc
 cp configure_petsc.py petsc/
 cd petsc
 git remote add firedrake https://github.com/firedrakeproject/petsc.git
-git fetch firedrake joe/adapt
-git checkout firedrake/joe/adapt
-git checkout -b joe/adapt
+git fetch firedrake jwallwork23/firedrake
+git checkout firedrake/jwallwork23/firedrake
+git checkout -b jwallwork23/firedrake
+
+# Configure and install
 ./configure_petsc.py
 make PETSC_DIR=$PETSC_DIR PETSC_ARCH=$PETSC_ARCH all
 make PETSC_DIR=$PETSC_DIR PETSC_ARCH=$PETSC_ARCH check

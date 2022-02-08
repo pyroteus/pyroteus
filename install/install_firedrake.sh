@@ -2,15 +2,13 @@
 
 # ====================================================================== #
 # Bash script for installing Firedrake based on a PETSc installation     #
-# which uses Pragmatic.                                                  #
+# which uses Mmg and ParMmg.                                             #
 #                                                                        #
 # The `install_petsc.sh` script should be run first.                     #
 #                                                                        #
-# Note that we use custom PETSc and Firedrake branches                   #
-# joe/adapt and joe/meshadapt_patched.                                   #
+# Note that we use custom PETSc and Firedrake branches.                  #
 #                                                                        #
-# Most of the modifications were made by Nicolas Barral. Minor updates   #
-# by Joe Wallwork.                                                       #
+# Joe Wallwork, 2022.                                                    #
 # ====================================================================== #
 
 # Unset PYTHONPATH
@@ -30,7 +28,7 @@ for mpi in $MPICC $MPICXX $MPIEXEC $MPIF90; do
 done
 
 # Environment variables for Firedrake installation
-export FIREDRAKE_ENV=firedrake-pragmatic
+export FIREDRAKE_ENV=firedrake-adapt
 export FIREDRAKE_DIR=$SOFTWARE/$FIREDRAKE_ENV
 
 # Check environment variables
@@ -44,13 +42,14 @@ echo "python3="$(which python3)
 echo "Are these settings okay? Press enter to continue."
 read chk
 
-export PETSC_CONFIGURE_OPTIONS=$(echo '--with-debugging=0 --with-fortran-bindings=0 --with-cxx-dialect=C++11 --download-zlib --download-metis --download-parmetis --download-hdf5 --download-scalapack --download-mumps --download-triangle --download-chaco --download-hypre --download-eigen --download-pragmatic --with-mpiexec=$MPIEXEC --CC=$MPICC --CXX=$MPICXX --FC=$MPIF90')
+# Set PETSc configure options
+export PETSC_CONFIGURE_OPTIONS=$(echo '--with-debugging=0 --with-fortran-bindings=0 --download-zlib --download-metis --download-parmetis --download-ptscotch --download-hdf5 --download-scalapack --download-mumps --download-chaco --download-hypre --download-eigen --download-mmg --download-parmmg --with-mpiexec=$MPIEXEC --CC=$MPICC --CXX=$MPICXX --FC=$MPIF90')
 
 # Install Firedrake
 curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
 python3 firedrake-install --install thetis --venv-name $FIREDRAKE_ENV \
 	--mpicc $MPICC --mpicxx $MPICXX --mpif90 $MPIF90 --mpiexec $MPIEXEC \
-	--package-branch firedrake joe/meshadapt_patched --package-branch petsc joe/adapt \
+	--package-branch firedrake jwallwork23/metric-based --package-branch petsc jwallwork23/firedrake \
     --disable-ssh
 source $FIREDRAKE_DIR/bin/activate
 

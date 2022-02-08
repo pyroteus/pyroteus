@@ -2,14 +2,13 @@
 
 # ====================================================================== #
 # Bash script for installing Firedrake based on a PETSc installation     #
-# which uses Pragmatic.                                                  #
+# which uses Mmg and ParMmg.                                             #
 #                                                                        #
 # The `install_petsc.sh` script should be run first.                     #
 #                                                                        #
-# Note that we use the custom branch joe/meshadapt_patched.              #
+# Note that we use a custom Firedrake branch.                            #
 #                                                                        #
-# Most of the modifications were made by Nicolas Barral. Minor updates   #
-# by Joe Wallwork.                                                       #
+# Joe Wallwork, 2022.                                                    #
 # ====================================================================== #
 
 # Unset PYTHONPATH
@@ -53,7 +52,7 @@ read chk
 curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
 python3 firedrake-install --honour-petsc-dir --install thetis --venv-name $FIREDRAKE_ENV \
 	--mpicc $MPICC --mpicxx $MPICXX --mpif90 $MPIF90 --mpiexec $MPIEXEC \
-	--package-branch firedrake joe/meshadapt_patched --disable-ssh
+	--package-branch firedrake jwallwork23/metric-based --disable-ssh
 source $FIREDRAKE_DIR/bin/activate
 
 # Reset PYTHONPATH
