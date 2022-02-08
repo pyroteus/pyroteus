@@ -1,6 +1,6 @@
 ## Pyroteus Goal-Oriented Mesh Adaptation Toolkit
 
-![Language](https://img.shields.io/github/languages/top/pyroteus/pyroteus)
+![GitHub top language](https://img.shields.io/github/languages/top/pyroteus/pyroteus)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 Pyroteus provides metric-based goal-oriented mesh
