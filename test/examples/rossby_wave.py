@@ -25,6 +25,7 @@ except ImportError:
 
     pytest.skip("Thetis is not installed")
 from pyroteus.thetis_compat import *
+import numpy as np
 
 
 # Problem setup

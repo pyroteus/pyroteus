@@ -26,6 +26,7 @@ effectivity index can be computed.
 """
 from firedrake import *
 from pyroteus.math import bessk0
+import numpy as np
 
 
 # Problem setup
