@@ -7,10 +7,20 @@ import firedrake
 import logging
 
 
-__all__ = ['logger', 'output_logger', 'debug', 'info', 'warning', 'error', 'critical', 'pyrint', 'set_log_level']
+__all__ = [
+    "logger",
+    "output_logger",
+    "debug",
+    "info",
+    "warning",
+    "error",
+    "critical",
+    "pyrint",
+    "set_log_level",
+]
 
 
-def get_new_logger(name, fmt='%(levelname)s %(message)s'):
+def get_new_logger(name, fmt="%(levelname)s %(message)s"):
     logger = logging.getLogger(name)
     for handler in logger.handlers:
         logger.removeHandler(handler)
@@ -22,7 +32,7 @@ def get_new_logger(name, fmt='%(levelname)s %(message)s'):
     return logger
 
 
-logger = get_new_logger('pyroteus')
+logger = get_new_logger("pyroteus")
 logger.setLevel(logging.WARNING)
 log = logger.log
 debug = logger.debug
@@ -31,7 +41,7 @@ warning = logger.warning
 error = logger.error
 critical = logger.critical
 
-output_logger = get_new_logger('pyroteus_output', fmt='%(message)s')
+output_logger = get_new_logger("pyroteus_output", fmt="%(message)s")
 output_logger.setLevel(logging.INFO)
 pyrint = output_logger.info
 

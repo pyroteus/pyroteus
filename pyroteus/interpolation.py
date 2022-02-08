@@ -27,7 +27,7 @@ def clement_interpolant(source, target_space=None, boundary_tag=None):
         Clement interpolant over.
     """
     V = source.function_space()
-    assert V.ufl_element().family() == 'Discontinuous Lagrange'
+    assert V.ufl_element().family() == "Discontinuous Lagrange"
     assert V.ufl_element().degree() == 0
     rank = len(V.ufl_element().value_shape())
     mesh = V.mesh()
@@ -44,7 +44,7 @@ def clement_interpolant(source, target_space=None, boundary_tag=None):
         else:
             raise ValueError(f"Rank-{rank} tensors are not supported.")
     else:
-        assert target_space.ufl_element().family() == 'Lagrange'
+        assert target_space.ufl_element().family() == "Lagrange"
         assert target_space.ufl_element().degree() == 1
     target = firedrake.Function(target_space)
 
@@ -52,40 +52,50 @@ def clement_interpolant(source, target_space=None, boundary_tag=None):
     if boundary_tag is None:
         P0 = firedrake.FunctionSpace(mesh, "DG", 0)
         dx = ufl.dx(domain=mesh)
-        volume = firedrake.assemble(firedrake.TestFunction(P0)*dx)
+        volume = firedrake.assemble(firedrake.TestFunction(P0) * dx)
     else:
         volume = get_facet_areas(mesh)
     patch_volume = firedrake.Function(P1)
     kernel = "for (int i=0; i < p.dofs; i++) p[i] += v[0];"
     keys = {
-        'v': (volume, op2.READ),
-        'p': (patch_volume, op2.INC),
+        "v": (volume, op2.READ),
+        "p": (patch_volume, op2.INC),
     }
     firedrake.par_loop(kernel, dX, keys)
 
     # Volume average
     keys = {
-        's': (source, op2.READ),
-        'v': (volume, op2.READ),
-        't': (target, op2.INC),
+        "s": (source, op2.READ),
+        "v": (volume, op2.READ),
+        "t": (target, op2.INC),
     }
     if rank == 0:
-        firedrake.par_loop("""
+        firedrake.par_loop(
+            """
             for (int i=0; i < t.dofs; i++) {
               t[i] += s[0]*v[0];
             }
-            """, dX, keys)
+            """,
+            dX,
+            keys,
+        )
     elif rank == 1:
-        firedrake.par_loop("""
+        firedrake.par_loop(
+            """
             int d = %d;
             for (int i=0; i < t.dofs; i++) {
               for (int j=0; j < d; j++) {
                 t[i*d + j] += s[j]*v[0];
               }
             }
-            """ % dim, dX, keys)
+            """
+            % dim,
+            dX,
+            keys,
+        )
     elif rank == 2:
-        firedrake.par_loop("""
+        firedrake.par_loop(
+            """
             int d = %d;
             int Nd = d*d;
             for (int i=0; i < t.dofs; i++) {
@@ -95,10 +105,14 @@ def clement_interpolant(source, target_space=None, boundary_tag=None):
                 }
               }
             }
-            """ % dim, dX, keys)
+            """
+            % dim,
+            dX,
+            keys,
+        )
     else:
         raise ValueError(f"Rank-{rank} tensors are not supported.")
-    target.interpolate(target/patch_volume)
+    target.interpolate(target / patch_volume)
     if boundary_tag is not None:
         target.dat.data_with_halos[:] = np.nan_to_num(target.dat.data_with_halos)
     return target
@@ -109,6 +123,7 @@ def clement_interpolant(source, target_space=None, boundary_tag=None):
 # TODO
 
 # --- Conservative interpolation by supermesh projection
+
 
 def project(source, target_space, adjoint=False, **kwargs):
     """
@@ -168,8 +183,8 @@ def mesh2mesh_project(source, target, adjoint=False, **kwargs):
     target_space = target.function_space()
     if source_space == target_space:
         target.assign(source)
-    elif hasattr(target_space, 'num_sub_spaces'):
-        assert hasattr(source_space, 'num_sub_spaces')
+    elif hasattr(target_space, "num_sub_spaces"):
+        assert hasattr(source_space, "num_sub_spaces")
         assert target_space.num_sub_spaces() == source_space.num_sub_spaces()
         for s, t in zip(source.split(), target.split()):
             t.project(s, **kwargs)
@@ -208,14 +223,14 @@ def mesh2mesh_project_adjoint(target_b, source_b, **kwargs):
     if source_space == target_space:
         source_b.assign(target_b)
         return source_b
-    elif hasattr(source_space, 'num_sub_spaces'):
-        if not hasattr(target_space, 'num_sub_spaces'):
+    elif hasattr(source_space, "num_sub_spaces"):
+        if not hasattr(target_space, "num_sub_spaces"):
             raise ValueError(f"Incompatible spaces {source_space} and {target_space}")
         if not target_space.num_sub_spaces() == source_space.num_sub_spaces():
             raise ValueError(f"Incompatible spaces {source_space} and {target_space}")
         target_b_split = target_b.split()
         source_b_split = source_b.split()
-    elif hasattr(target_space, 'num_sub_spaces'):
+    elif hasattr(target_space, "num_sub_spaces"):
         raise ValueError(f"Incompatible spaces {source_space} and {target_space}")
     else:
         target_b_split = [target_b]
@@ -225,7 +240,9 @@ def mesh2mesh_project_adjoint(target_b, source_b, **kwargs):
     for i, (t_b, s_b) in enumerate(zip(target_b_split, source_b_split)):
         ksp = petsc4py.KSP().create()
         ksp.setOperators(assemble_mass_matrix(t_b.function_space()))
-        mixed_mass = assemble_mixed_mass_matrix(t_b.function_space(), s_b.function_space())
+        mixed_mass = assemble_mixed_mass_matrix(
+            t_b.function_space(), s_b.function_space()
+        )
         with t_b.dat.vec_ro as tb, s_b.dat.vec_wo as sb:
             residual = tb.copy()
             ksp.solveTranspose(tb, residual)

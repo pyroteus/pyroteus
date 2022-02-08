@@ -26,12 +26,13 @@ effectivity index can be computed.
 """
 from firedrake import *
 from pyroteus.math import bessk0
+import numpy as np
 
 
 # Problem setup
 n = 0
-mesh = BoxMesh(100*2**n, 20*2**n, 20*2**n, 50, 10, 10)
-fields = ['tracer_3d']
+mesh = BoxMesh(100 * 2**n, 20 * 2**n, 20 * 2**n, 50, 10, 10)
+fields = ["tracer_3d"]
 end_time = 20.0
 dt = 20.0
 dt_per_export = 1
@@ -44,7 +45,7 @@ def get_function_spaces(mesh):
     r"""
     :math:`\mathbb P1` space.
     """
-    return {'tracer_3d': FunctionSpace(mesh, "CG", 1)}
+    return {"tracer_3d": FunctionSpace(mesh, "CG", 1)}
 
 
 def source(mesh):
@@ -54,7 +55,9 @@ def source(mesh):
     given mesh.
     """
     x, y, z = SpatialCoordinate(mesh)
-    return 100.0*exp(-((x - src_x)**2 + (y - src_y)**2 + (z - src_z)**2)/src_r**2)
+    return 100.0 * exp(
+        -((x - src_x) ** 2 + (y - src_y) ** 2 + (z - src_z) ** 2) / src_r**2
+    )
 
 
 def get_solver(self):
@@ -62,40 +65,43 @@ def get_solver(self):
     Advection-diffusion equation
     solved using a direct method.
     """
+
     def solver(i, ic):
-        fs = self.function_spaces['tracer_3d'][i]
+        fs = self.function_spaces["tracer_3d"][i]
         D = Constant(0.1)
         u = Constant(as_vector([1.0, 0.0, 0.0]))
         h = CellSize(self[i])
         S = source(self[i])
 
         # Ensure dependence on initial condition
-        c = Function(fs, name='tracer_3d_old')
-        c.assign(ic['tracer_3d'])
+        c = Function(fs, name="tracer_3d_old")
+        c.assign(ic["tracer_3d"])
 
         # Stabilisation parameter
         unorm = sqrt(dot(u, u))
-        tau = 0.5*h/unorm
-        tau = min_value(tau, unorm*h/(6*D))
+        tau = 0.5 * h / unorm
+        tau = min_value(tau, unorm * h / (6 * D))
 
         # Setup variational problem
         psi = TestFunction(fs)
-        psi = psi + tau*dot(u, grad(psi))
-        F = S*psi*dx \
-            - dot(u, grad(c))*psi*dx \
-            - inner(D*grad(c), grad(psi))*dx
+        psi = psi + tau * dot(u, grad(psi))
+        F = (
+            S * psi * dx
+            - dot(u, grad(c)) * psi * dx
+            - inner(D * grad(c), grad(psi)) * dx
+        )
         bc = DirichletBC(fs, 0, 1)
 
         # Solve
         sp = {
-            'mat_type': 'aij',
-            'snes_type': 'ksponly',
-            'ksp_type': 'preonly',
-            'pc_type': 'lu',
-            'pc_factor_mat_solver_type': 'mumps',
+            "mat_type": "aij",
+            "snes_type": "ksponly",
+            "ksp_type": "preonly",
+            "pc_type": "lu",
+            "pc_factor_mat_solver_type": "mumps",
         }
-        solve(F == 0, c, bcs=bc, solver_parameters=sp, ad_block_tag='tracer_3d')
-        return {'tracer_3d': c}
+        solve(F == 0, c, bcs=bc, solver_parameters=sp, ad_block_tag="tracer_3d")
+        return {"tracer_3d": c}
 
     return solver
 
@@ -106,7 +112,7 @@ def get_initial_condition(self):
     acts merely to pass over the
     :class:`FunctionSpace`.
     """
-    return {'tracer_3d': Function(self.function_spaces['tracer_3d'][0])}
+    return {"tracer_3d": Function(self.function_spaces["tracer_3d"][0])}
 
 
 def get_qoi(self, i):
@@ -115,14 +121,17 @@ def get_qoi(self, i):
     the tracer concentration over an offset
     receiver region.
     """
+
     def steady_qoi(sol):
-        c = sol['tracer_3d']
+        c = sol["tracer_3d"]
         x, y, z = SpatialCoordinate(self[i])
-        kernel = conditional((x - rec_x)**2 + (y - rec_y)**2 + (z - rec_z)**2 < rec_r**2, 1, 0)
-        area = assemble(kernel*dx)
-        area_analytical = pi*rec_r**2
-        scaling = 1.0 if np.allclose(area, 0.0) else area_analytical/area
-        return scaling*kernel*c*dx
+        kernel = conditional(
+            (x - rec_x) ** 2 + (y - rec_y) ** 2 + (z - rec_z) ** 2 < rec_r**2, 1, 0
+        )
+        area = assemble(kernel * dx)
+        area_analytical = pi * rec_r**2
+        scaling = 1.0 if np.allclose(area, 0.0) else area_analytical / area
+        return scaling * kernel * c * dx
 
     return steady_qoi
 
@@ -135,6 +144,6 @@ def analytical_solution(mesh):
     x, y, z = SpatialCoordinate(mesh)
     u = Constant(1.0)
     D = Constant(0.1)
-    Pe = 0.5*u/D
-    r = max_value(sqrt((x - src_x)**2 + (y - src_y)**2 + (z - src_z)**2), src_r)
-    return 0.5/(pi*D)*exp(Pe*(x - src_x))*bessk0(Pe*r)
+    Pe = 0.5 * u / D
+    r = max_value(sqrt((x - src_x) ** 2 + (y - src_y) ** 2 + (z - src_z) ** 2), src_r)
+    return 0.5 / (pi * D) * exp(Pe * (x - src_x)) * bessk0(Pe * r)

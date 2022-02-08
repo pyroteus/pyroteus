@@ -30,13 +30,31 @@ def parallel(item):
     # Only spew tracebacks on rank 0.
     # Run xfailing tests to ensure that errors are reported to calling process.
     call = [
-        "mpiexec", "-n", "1", "python", "-m", "pytest", "--runxfail", "-s", "-q",
-        "%s::%s" % (item.fspath, item.name)
+        "mpiexec",
+        "-n",
+        "1",
+        "python",
+        "-m",
+        "pytest",
+        "--runxfail",
+        "-s",
+        "-q",
+        "%s::%s" % (item.fspath, item.name),
     ]
-    call.extend([
-        ":", "-n", "%d" % (nprocs - 1), "python", "-m", "pytest", "--runxfail", "--tb=no", "-q",
-        "%s::%s" % (item.fspath, item.name)
-    ])
+    call.extend(
+        [
+            ":",
+            "-n",
+            "%d" % (nprocs - 1),
+            "python",
+            "-m",
+            "pytest",
+            "--runxfail",
+            "--tb=no",
+            "-q",
+            "%s::%s" % (item.fspath, item.name),
+        ]
+    )
     check_call(call)
 
 
@@ -58,6 +76,7 @@ def pytest_runtest_setup(item):
     """
     if item.get_closest_marker("parallel"):
         from mpi4py import MPI
+
         if MPI.COMM_WORLD.size > 1:
             # Turn on source hash checking
             from firedrake import parameters
@@ -83,6 +102,7 @@ def pytest_runtest_call(item):
     **Disclaimer: copied from firedrake/src/tests/conftest.py
     """
     from mpi4py import MPI
+
     if item.get_closest_marker("parallel") and MPI.COMM_WORLD.size == 1:
         # Spawn parallel processes to run test
         parallel(item)
@@ -95,6 +115,7 @@ def check_empty_tape(request):
 
     **Disclaimer: copied from firedrake/src/tests/conftest.py
     """
+
     def fin():
         tape = pyadjoint.get_working_tape()
         if tape is not None:

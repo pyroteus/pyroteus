@@ -33,10 +33,9 @@ from burgers import fields, get_solver, get_initial_condition, get_function_spac
 
 
 def get_qoi(mesh_seq, i):
-
     def end_time_qoi(sol):
-        u = sol['uv_2d']
-        return inner(u, u)*ds(2)
+        u = sol["uv_2d"]
+        return inner(u, u) * ds(2)
 
     return end_time_qoi
 
@@ -47,7 +46,7 @@ def get_qoi(mesh_seq, i):
 n = 32
 mesh = UnitSquareMesh(n, n)
 end_time = 0.5
-dt = 1/n
+dt = 1 / n
 
 # Another requirement to solve the adjoint problem using
 # Pyroteus is a :class:`TimePartition`. In our case, there is a
@@ -67,8 +66,13 @@ P = TimeInterval(end_time, dt, fields, timesteps_per_export=2)
 # the adjoint solution at the next timestep, respectively. ::
 
 mesh_seq = AdjointMeshSeq(
-    P, mesh, get_function_spaces, get_initial_condition,
-    get_solver, get_qoi, qoi_type='end_time',
+    P,
+    mesh,
+    get_function_spaces,
+    get_initial_condition,
+    get_solver,
+    get_qoi,
+    qoi_type="end_time",
 )
 solutions = mesh_seq.solve_adjoint()
 
@@ -76,7 +80,9 @@ solutions = mesh_seq.solve_adjoint()
 # looping over ``solutions['adjoint']``. This can also be achieved using
 # the plotting driver function ``plot_snapshots``.
 
-fig, axes = plot_snapshots(solutions, P, 'uv_2d', 'adjoint', levels=np.linspace(0, 0.8, 9))
+fig, axes = plot_snapshots(
+    solutions, P, "uv_2d", "adjoint", levels=np.linspace(0, 0.8, 9)
+)
 fig.savefig("burgers1-end_time.jpg")
 
 # .. figure:: burgers1-end_time.jpg

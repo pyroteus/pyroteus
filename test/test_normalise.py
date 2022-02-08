@@ -35,12 +35,13 @@ def unit_mesh(sensor, mesh, target, degree, num_iterations=3):
 # standard tests for pytest
 # ---------------------------
 
+
 @pytest.fixture(params=[bowl, hyperbolic, multiscale, interweaved])
 def sensor(request):
     return request.param
 
 
-@pytest.fixture(params=[1, 2, 'inf'])
+@pytest.fixture(params=[1, 2, "inf"])
 def degree(request):
     return request.param
 
@@ -67,10 +68,10 @@ def test_space_normalise(sensor, degree, target=1000.0):
     space_normalise(M, target, degree)
 
     # Check that the target metric complexity is (approximately) attained
-    if degree == 'inf':
+    if degree == "inf":
         assert np.isclose(metric_complexity(M), target)
     else:
-        assert abs(metric_complexity(M) - target) < 0.1*target
+        assert abs(metric_complexity(M) - target) < 0.1 * target
 
 
 @pytest.mark.skip("Adaptation does not currently work in parallel")

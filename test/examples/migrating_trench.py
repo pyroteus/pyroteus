@@ -22,18 +22,20 @@ try:
     import thetis  # noqa
 except ImportError:
     import pytest
+
     pytest.skip("Thetis is not installed")
 from pyroteus.thetis_compat import *
+import numpy as np
 
 
 # Problem setup
 lx, ly = 16, 1.1
-nx, ny = lx*5, 5
+nx, ny = lx * 5, 5
 mesh = RectangleMesh(nx, ny, lx, ly)
 x, y = SpatialCoordinate(mesh)
-fields = ['swe2d', 'sediment', 'exner']
+fields = ["swe2d", "sediment", "exner"]
 morfac = 300
-end_time = 0.75*3600/morfac
+end_time = 0.75 * 3600 / morfac
 dt = 0.3
 dt_per_export = 5
 morfac = 300
@@ -48,15 +50,14 @@ def get_function_spaces(mesh):
     the Exner equation is solved in P1 space.
     """
     return {
-        'swe2d':
-            MixedFunctionSpace([
+        "swe2d": MixedFunctionSpace(
+            [
                 VectorFunctionSpace(mesh, "DG", 1, name="U_2d"),
                 get_functionspace(mesh, "DG", 1, name="H_2d"),
-            ]),
-        'sediment':
-            get_functionspace(mesh, "DG", 1, name="Q_2d"),
-        'exner':
-            get_functionspace(mesh, "CG", 1, name="P1_2d"),
+            ]
+        ),
+        "sediment": get_functionspace(mesh, "DG", 1, name="Q_2d"),
+        "exner": get_functionspace(mesh, "CG", 1, name="P1_2d"),
     }
 
 
@@ -70,8 +71,8 @@ def get_solver(self):
         """
         t_start, t_end = self.time_partition[i].subinterval
         dt = self.time_partition[i].timestep
-        bathymetry2d = Function(self.function_spaces['exner'][i])
-        bathymetry2d.assign(ic['exner'])
+        bathymetry2d = Function(self.function_spaces["exner"][i])
+        bathymetry2d.assign(ic["exner"])
         mesh2d = bathymetry2d.function_space().mesh()
 
         # Setup solver
@@ -90,41 +91,45 @@ def get_solver(self):
         sed_options.horizontal_diffusivity = Constant(0.15)
 
         # Setup problem
-        options.set_timestepper_type('CrankNicolson', implicitness_theta=1.0)
+        options.set_timestepper_type("CrankNicolson", implicitness_theta=1.0)
         options.norm_smoother = Constant(0.1)
         options.timestep = dt
-        options.simulation_export_time = dt*self.time_partition[i].timesteps_per_export
+        options.simulation_export_time = (
+            dt * self.time_partition[i].timesteps_per_export
+        )
         options.simulation_end_time = t_end
         options.horizontal_viscosity = Constant(1.0e-06)
-        options.nikuradse_bed_roughness = Constant(3*sed_options.average_sediment_size)
-        options.output_directory = 'outputs/migrating_trench'
-        model_options.setdefault('no_exports', True)
+        options.nikuradse_bed_roughness = Constant(
+            3 * sed_options.average_sediment_size
+        )
+        options.output_directory = "outputs/migrating_trench"
+        model_options.setdefault("no_exports", True)
         options.update(model_options)
 
         # Apply boundary conditions
-        solver_obj.bnd_functions['shallow_water'] = {
-            1: {'flux': Constant(-0.22)},
-            2: {'elev': Constant(0.397)},
+        solver_obj.bnd_functions["shallow_water"] = {
+            1: {"flux": Constant(-0.22)},
+            2: {"elev": Constant(0.397)},
         }
-        solver_obj.bnd_functions['sediment'] = {
-            1: {'flux': Constant(-0.22), 'equilibrium': None},
-            2: {'elev': Constant(0.397)},
+        solver_obj.bnd_functions["sediment"] = {
+            1: {"flux": Constant(-0.22), "equilibrium": None},
+            2: {"elev": Constant(0.397)},
         }
 
         # Apply initial conditions
-        uv, elev = ic['swe2d'].split()
-        solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=ic['sediment'])
+        uv, elev = ic["swe2d"].split()
+        solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=ic["sediment"])
 
         # Setup QoI
         qoi = self.get_qoi(i)
         solutions = {
-            'swe2d': solver_obj.fields.solution_2d,
-            'sediment': solver_obj.fields.sediment_2d,
-            'exner': solver_obj.fields.bathymetry_2d,
+            "swe2d": solver_obj.fields.solution_2d,
+            "sediment": solver_obj.fields.sediment_2d,
+            "exner": solver_obj.fields.bathymetry_2d,
         }
 
         def update_forcings(t):
-            if self.qoi_type == 'time_integrated':
+            if self.qoi_type == "time_integrated":
                 self.J += qoi(solutions, t - dt)
                 # TODO: Use a callback instead
 
@@ -132,7 +137,7 @@ def get_solver(self):
         solver_obj.correct_counters(self.time_partition[i])
         solver_obj.iterate(update_forcings=update_forcings)
 
-        if self.qoi_type == 'time_integrated':
+        if self.qoi_type == "time_integrated":
             for solution in solutions:  # FIXME: HACK
                 self.J += qoi(solutions, t_end)
         return solutions
@@ -148,9 +153,9 @@ def get_initial_condition(self):
     constant values.
     """
     fs = self.function_spaces
-    q_init = Function(fs['swe2d'][0])
-    sediment_init = Function(fs['sediment'][0])
-    bed_init = Function(fs['exner'][0])
+    q_init = Function(fs["swe2d"][0])
+    sediment_init = Function(fs["sediment"][0])
+    bed_init = Function(fs["exner"][0])
 
     uv_init, elev_init = q_init.split()
     uv_init.interpolate(as_vector([0.51, 0.0]))
@@ -166,24 +171,24 @@ def get_initial_condition(self):
             depth_riv,
             conditional(
                 le(x, 6.5),
-                (1/1.5)*depth_diff*(x - 6.5) + depth_trench,
+                (1 / 1.5) * depth_diff * (x - 6.5) + depth_trench,
                 conditional(
                     le(x, 9.5),
                     depth_trench,
                     conditional(
                         le(x, 11),
-                        -(1/1.5)*depth_diff*(x - 11) + depth_riv,
-                        depth_riv
-                    )
-                )
-            )
+                        -(1 / 1.5) * depth_diff * (x - 11) + depth_riv,
+                        depth_riv,
+                    ),
+                ),
+            ),
         )
     )
 
     return {
-        'swe2d': q_init,
-        'sediment': sediment_init,
-        'exner': bed_init,
+        "swe2d": q_init,
+        "sediment": sediment_init,
+        "exner": bed_init,
     }
 
 
@@ -198,16 +203,18 @@ def get_qoi(self, i):
 
     def time_integrated_qoi(sol, t):
         t_start, t_end = self.time_partition[i].subinterval
-        wq.assign(0.0 if np.isclose(t, t_start) or self.counter % 3 != 2 else 1.0)  # Backward Euler
-        b = sol['exner']
+        wq.assign(
+            0.0 if np.isclose(t, t_start) or self.counter % 3 != 2 else 1.0
+        )  # Backward Euler
+        b = sol["exner"]
         self.counter += 1
-        return wq*dtc*inner(grad(b), grad(b))*dx
+        return wq * dtc * inner(grad(b), grad(b)) * dx
 
     def end_time_qoi(sol):
-        b = sol['exner']
-        return inner(grad(b), grad(b))*dx
+        b = sol["exner"]
+        return inner(grad(b), grad(b)) * dx
 
-    if self.qoi_type == 'end_time':
+    if self.qoi_type == "end_time":
         return end_time_qoi
     else:
         return time_integrated_qoi

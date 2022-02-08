@@ -34,7 +34,7 @@ from pyroteus import *
 end_time = 1.0
 num_subintervals = 1
 dt = 0.125
-fields = ['solution']
+fields = ["solution"]
 
 # With these definitions, we should get
 # a subinterval of :math:`(0,1]` containing
@@ -64,8 +64,7 @@ P = TimePartition(end_time, num_subintervals, dt, fields)
 # than one subinterval. ::
 
 num_subintervals = 2
-P = TimePartition(end_time, num_subintervals, dt, fields,
-                  timesteps_per_export=2)
+P = TimePartition(end_time, num_subintervals, dt, fields, timesteps_per_export=2)
 
 # In some problems, the dynamics evolve such
 # that different timesteps are suitable during
@@ -74,16 +73,14 @@ P = TimePartition(end_time, num_subintervals, dt, fields,
 # timesteps corresponding to each subinterval. ::
 
 dt = [0.125, 0.0625]
-P = TimePartition(end_time, num_subintervals, dt, fields,
-                  timesteps_per_export=2)
+P = TimePartition(end_time, num_subintervals, dt, fields, timesteps_per_export=2)
 
 # Note that this means that there are more
 # exports in the second subinterval than the first.
 # This can be remedied by also setting
 # ``timesteps_per_export`` as a list. ::
 
-P = TimePartition(end_time, num_subintervals, dt, fields,
-                  timesteps_per_export=[2, 4])
+P = TimePartition(end_time, num_subintervals, dt, fields, timesteps_per_export=[2, 4])
 
 # So far, we have assumed that the subintervals
 # are of uniform length. This need not be the case.
@@ -92,8 +89,14 @@ P = TimePartition(end_time, num_subintervals, dt, fields,
 # to the constructor as a list of tuples. ::
 
 subintervals = [(0.0, 0.75), (0.75, 1.0)]
-P = TimePartition(end_time, num_subintervals, dt, fields,
-                  timesteps_per_export=[2, 4], subintervals=subintervals)
+P = TimePartition(
+    end_time,
+    num_subintervals,
+    dt,
+    fields,
+    timesteps_per_export=[2, 4],
+    subintervals=subintervals,
+)
 
 #
 # In the `next demo <./burgers.py.html>`__, we

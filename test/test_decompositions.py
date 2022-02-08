@@ -11,6 +11,7 @@ import pytest
 # standard tests for pytest
 # ---------------------------
 
+
 @pytest.fixture(params=[2, 3])
 def dim(request):
     return request.param
@@ -33,7 +34,7 @@ def test_eigendecomposition(dim, reorder):
     mesh = uniform_mesh(dim, 20)
 
     # Recover Hessian metric for some arbitrary sensor
-    f = np.prod([sin(pi*xi) for xi in SpatialCoordinate(mesh)])
+    f = np.prod([sin(pi * xi) for xi in SpatialCoordinate(mesh)])
     metric = hessian_metric(recover_hessian(f, mesh=mesh))
     P1_ten = metric.function_space()
 
@@ -49,9 +50,9 @@ def test_eigendecomposition(dim, reorder):
     # Check eigenvalues are in descending order
     if reorder:
         P1 = FunctionSpace(mesh, "CG", 1)
-        for i in range(dim-1):
+        for i in range(dim - 1):
             f = interpolate(evalues[i], P1)
-            f -= interpolate(evalues[i+1], P1)
+            f -= interpolate(evalues[i + 1], P1)
             if f.vector().gather().min() < 0.0:
                 raise ValueError("Eigenvalues are not in descending order")
 
@@ -71,12 +72,12 @@ def test_density_quotients_decomposition(dim, reorder):
     mesh = uniform_mesh(dim, 20)
 
     # Recover Hessian metric for some arbitrary sensor
-    f = np.prod([sin(pi*xi) for xi in SpatialCoordinate(mesh)])
+    f = np.prod([sin(pi * xi) for xi in SpatialCoordinate(mesh)])
     metric = hessian_metric(recover_hessian(f, mesh=mesh))
 
     # Extract the density, anisotropy quotients and eigenvectors
     density, quotients, evectors = density_and_quotients(metric, reorder=reorder)
-    quotients.interpolate(as_vector([pow(density/Q, 2/dim) for Q in quotients]))
+    quotients.interpolate(as_vector([pow(density / Q, 2 / dim) for Q in quotients]))
 
     # Reassemble the matrix and check the two match
     metric -= assemble_eigendecomposition(evectors, quotients)

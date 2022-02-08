@@ -29,7 +29,7 @@ from pyroteus import *
 # :math:`\mathbf u`. Its name is recorded in a list of
 # fields. ::
 
-fields = ['uv_2d']
+fields = ["uv_2d"]
 
 # First, we specify how to build a :class:`FunctionSpace`,
 # given some mesh. Function spaces are given as a dictionary,
@@ -40,7 +40,7 @@ fields = ['uv_2d']
 
 
 def get_function_spaces(mesh):
-    return {'uv_2d': VectorFunctionSpace(mesh, "CG", 2)}
+    return {"uv_2d": VectorFunctionSpace(mesh, "CG", 2)}
 
 
 # Pyroteus requires a solver with two arguments: the index
@@ -63,35 +63,36 @@ def get_function_spaces(mesh):
 
 
 def get_solver(mesh_seq):
-
     def solver(index, ic):
         P = mesh_seq.time_partition
         t_start, t_end = P.subintervals[index]
         dt = P.timesteps[index]
-        function_space = mesh_seq.function_spaces['uv_2d'][index]
+        function_space = mesh_seq.function_spaces["uv_2d"][index]
 
         # Specify constants
         dtc = Constant(dt)
         nu = Constant(0.0001)
 
         # Set initial condition
-        u_ = Function(function_space, name='uv_2d_old')
-        u_.assign(ic['uv_2d'])
+        u_ = Function(function_space, name="uv_2d_old")
+        u_.assign(ic["uv_2d"])
 
         # Setup variational problem
         v = TestFunction(function_space)
         u = Function(function_space)
-        F = inner((u - u_)/dtc, v)*dx \
-            + inner(dot(u, nabla_grad(u)), v)*dx \
-            + nu*inner(grad(u), grad(v))*dx
+        F = (
+            inner((u - u_) / dtc, v) * dx
+            + inner(dot(u, nabla_grad(u)), v) * dx
+            + nu * inner(grad(u), grad(v)) * dx
+        )
 
         # Time integrate from t_start to t_end
         t = t_start
         while t < t_end - 1.0e-05:
-            solve(F == 0, u, ad_block_tag='uv_2d')
+            solve(F == 0, u, ad_block_tag="uv_2d")
             u_.assign(u)
             t += dt
-        return {'uv_2d': u}
+        return {"uv_2d": u}
 
     return solver
 
@@ -101,9 +102,9 @@ def get_solver(mesh_seq):
 
 
 def get_initial_condition(mesh_seq):
-    fs = mesh_seq.function_spaces['uv_2d'][0]
+    fs = mesh_seq.function_spaces["uv_2d"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
-    return {'uv_2d': interpolate(as_vector([sin(pi*x), 0]), fs)}
+    return {"uv_2d": interpolate(as_vector([sin(pi * x), 0]), fs)}
 
 
 # Now that we have the above functions defined, we move onto the
@@ -115,29 +116,33 @@ meshes = [
     UnitSquareMesh(n, n),
 ]
 end_time = 0.5
-dt = 1/n
+dt = 1 / n
 
 # Create a :class:`TimePartition` for the problem with two
 # subintervals. ::
 
 num_subintervals = 2
 P = TimePartition(
-    end_time, num_subintervals, dt, fields, timesteps_per_export=2,
+    end_time,
+    num_subintervals,
+    dt,
+    fields,
+    timesteps_per_export=2,
 )
 
 # Finally, we are able to construct a :class:`MeshSeq` and
 # solve Burgers equation over the meshes in sequence. ::
 
-mesh_seq = MeshSeq(
-    P, meshes, get_function_spaces, get_initial_condition, get_solver
-)
+mesh_seq = MeshSeq(P, meshes, get_function_spaces, get_initial_condition, get_solver)
 solutions = mesh_seq.solve_forward()
 
 # Finally, we plot the solution at each exported timestep by
 # looping over ``solutions['forward']``. This can be achieved using
 # the plotting driver function ``plot_snapshots``.
 
-fig, axes = plot_snapshots(solutions, P, 'uv_2d', 'forward', levels=np.linspace(0, 1, 9))
+fig, axes = plot_snapshots(
+    solutions, P, "uv_2d", "forward", levels=np.linspace(0, 1, 9)
+)
 fig.savefig("burgers.jpg")
 
 # .. figure:: burgers.jpg

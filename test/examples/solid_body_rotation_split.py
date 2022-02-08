@@ -18,7 +18,7 @@ from solid_body_rotation import *
 import solid_body_rotation as sbr
 
 
-fields = ['bell_2d', 'cone_2d', 'slot_cyl_2d']
+fields = ["bell_2d", "cone_2d", "slot_cyl_2d"]
 end_time /= 3
 
 
@@ -57,9 +57,9 @@ def get_initial_condition(self, coordinates=None):
     else:
         x, y = SpatialCoordinate(self.meshes[0])
     init = {
-        'bell_2d': bell_initial_condition,
-        'cone_2d': cone_initial_condition,
-        'slot_cyl_2d': slot_cyl_initial_condition,
+        "bell_2d": bell_initial_condition,
+        "cone_2d": cone_initial_condition,
+        "slot_cyl_2d": slot_cyl_initial_condition,
     }
     return {
         field: interpolate(1.0 + init[field](x, y, fs[field][0]), fs[field][0])

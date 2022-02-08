@@ -8,7 +8,7 @@ import ufl
 try:
     from firedrake.slate.slac.compiler import PETSC_ARCH
 except ImportError:
-    PETSC_ARCH = os.path.join(os.environ.get('PETSC_DIR'), os.environ.get('PETSC_ARCH'))
+    PETSC_ARCH = os.path.join(os.environ.get("PETSC_DIR"), os.environ.get("PETSC_ARCH"))
 include_dir = ["%s/include/eigen3" % PETSC_ARCH]
 
 
@@ -26,7 +26,9 @@ def get_pyop2_kernel(func, dim):
         func = "get_volume"
     elif func == "get_volume" and dim == 2:
         func = "get_area"
-    code = open(os.path.join(os.path.dirname(__file__), f"cxx/quality{dim}d.cxx")).read()
+    code = open(
+        os.path.join(os.path.dirname(__file__), f"cxx/quality{dim}d.cxx")
+    ).read()
     return op2.Kernel(code, func, cpp=True, include_dirs=include_dir)
 
 
@@ -47,9 +49,12 @@ def get_min_angles2d(mesh, python=False):
     else:
         coords = mesh.coordinates
         min_angles = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_min_angle", 2), mesh.cell_set,
-                     min_angles.dat(op2.WRITE, min_angles.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_min_angle", 2),
+            mesh.cell_set,
+            min_angles.dat(op2.WRITE, min_angles.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return min_angles
 
 
@@ -70,9 +75,12 @@ def get_min_angles3d(mesh, python=False):
     else:
         coords = mesh.coordinates
         min_angles = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_min_angle", 3), mesh.cell_set,
-                     min_angles.dat(op2.WRITE, min_angles.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_min_angle", 3),
+            mesh.cell_set,
+            min_angles.dat(op2.WRITE, min_angles.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return min_angles
 
 
@@ -93,9 +101,12 @@ def get_areas2d(mesh, python=False):
     else:
         coords = mesh.coordinates
         areas = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_area", 2), mesh.cell_set,
-                     areas.dat(op2.WRITE, areas.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_area", 2),
+            mesh.cell_set,
+            areas.dat(op2.WRITE, areas.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return areas
 
 
@@ -116,9 +127,12 @@ def get_volumes3d(mesh, python=False):
     else:
         coords = mesh.coordinates
         volumes = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_volume", 3), mesh.cell_set,
-                     volumes.dat(op2.WRITE, volumes.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_volume", 3),
+            mesh.cell_set,
+            volumes.dat(op2.WRITE, volumes.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return volumes
 
 
@@ -141,8 +155,8 @@ def get_facet_areas(mesh):
     v = firedrake.TestFunction(HDivTrace)
     u = firedrake.TrialFunction(HDivTrace)
     facet_areas = firedrake.Function(HDivTrace, name="Facet areas")
-    mass_term = v('+')*u('+')*ufl.dS + v*u*ufl.ds
-    rhs = v('+')*ufl.FacetArea(mesh)*ufl.dS + v*ufl.FacetArea(mesh)*ufl.ds
+    mass_term = v("+") * u("+") * ufl.dS + v * u * ufl.ds
+    rhs = v("+") * ufl.FacetArea(mesh) * ufl.dS + v * ufl.FacetArea(mesh) * ufl.ds
     sp = {
         "mat_type": "matfree",
         "ksp_type": "preonly",
@@ -207,13 +221,18 @@ def get_aspect_ratios2d(mesh, python=False):
         a = ufl.sqrt(ufl.dot(edge1, edge1))
         b = ufl.sqrt(ufl.dot(edge2, edge2))
         c = ufl.sqrt(ufl.dot(edge3, edge3))
-        aspect_ratios = firedrake.interpolate(a*b*c/((a+b-c)*(b+c-a)*(c+a-b)), P0)
+        aspect_ratios = firedrake.interpolate(
+            a * b * c / ((a + b - c) * (b + c - a) * (c + a - b)), P0
+        )
     else:
         coords = mesh.coordinates
         aspect_ratios = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_aspect_ratio", 2), mesh.cell_set,
-                     aspect_ratios.dat(op2.WRITE, aspect_ratios.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_aspect_ratio", 2),
+            mesh.cell_set,
+            aspect_ratios.dat(op2.WRITE, aspect_ratios.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return aspect_ratios
 
 
@@ -234,9 +253,12 @@ def get_aspect_ratios3d(mesh, python=False):
     else:
         coords = mesh.coordinates
         aspect_ratios = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_aspect_ratio", 3), mesh.cell_set,
-                     aspect_ratios.dat(op2.WRITE, aspect_ratios.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_aspect_ratio", 3),
+            mesh.cell_set,
+            aspect_ratios.dat(op2.WRITE, aspect_ratios.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return aspect_ratios
 
 
@@ -257,9 +279,12 @@ def get_eskews2d(mesh, python=False):
     else:
         coords = mesh.coordinates
         eskews = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_eskew", 2), mesh.cell_set,
-                     eskews.dat(op2.WRITE, eskews.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_eskew", 2),
+            mesh.cell_set,
+            eskews.dat(op2.WRITE, eskews.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return eskews
 
 
@@ -280,9 +305,12 @@ def get_eskews3d(mesh, python=False):
     else:
         coords = mesh.coordinates
         eskews = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_eskew", 3), mesh.cell_set,
-                     eskews.dat(op2.WRITE, eskews.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_eskew", 3),
+            mesh.cell_set,
+            eskews.dat(op2.WRITE, eskews.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return eskews
 
 
@@ -303,9 +331,12 @@ def get_skewnesses2d(mesh, python=False):
     else:
         coords = mesh.coordinates
         skews = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_skewness", 2), mesh.cell_set,
-                     skews.dat(op2.WRITE, skews.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_skewness", 2),
+            mesh.cell_set,
+            skews.dat(op2.WRITE, skews.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return skews
 
 
@@ -347,14 +378,18 @@ def get_scaled_jacobians2d(mesh, python=False):
         detJ = ufl.JacobianDeterminant(mesh)
         jacobian_sign = ufl.sign(detJ)
         max_product = ufl.Max(
-            ufl.Max(ufl.Max(a*b, a*c), ufl.Max(b*c, b*a)), ufl.Max(c*a, c*b))
-        scaled_jacobians = firedrake.interpolate(detJ/max_product*jacobian_sign, P0)
+            ufl.Max(ufl.Max(a * b, a * c), ufl.Max(b * c, b * a)), ufl.Max(c * a, c * b)
+        )
+        scaled_jacobians = firedrake.interpolate(detJ / max_product * jacobian_sign, P0)
     else:
         coords = mesh.coordinates
         scaled_jacobians = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_scaled_jacobian", 2), mesh.cell_set,
-                     scaled_jacobians.dat(op2.WRITE, scaled_jacobians.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_scaled_jacobian", 2),
+            mesh.cell_set,
+            scaled_jacobians.dat(op2.WRITE, scaled_jacobians.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return scaled_jacobians
 
 
@@ -375,9 +410,12 @@ def get_scaled_jacobians3d(mesh, python=False):
     else:
         coords = mesh.coordinates
         scaled_jacobians = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_scaled_jacobian", 3), mesh.cell_set,
-                     scaled_jacobians.dat(op2.WRITE, scaled_jacobians.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_scaled_jacobian", 3),
+            mesh.cell_set,
+            scaled_jacobians.dat(op2.WRITE, scaled_jacobians.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return scaled_jacobians
 
 
@@ -400,10 +438,13 @@ def get_quality_metrics2d(mesh, metric, python=False):
     else:
         coords = mesh.coordinates
         quality = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_metric", 2), mesh.cell_set,
-                     quality.dat(op2.WRITE, quality.cell_node_map()),
-                     metric.dat(op2.READ, metric.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_metric", 2),
+            mesh.cell_set,
+            quality.dat(op2.WRITE, quality.cell_node_map()),
+            metric.dat(op2.READ, metric.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return quality
 
 
@@ -426,8 +467,11 @@ def get_quality_metrics3d(mesh, metric, python=False):
     else:
         coords = mesh.coordinates
         quality = firedrake.Function(P0)
-        op2.par_loop(get_pyop2_kernel("get_metric", 3), mesh.cell_set,
-                     quality.dat(op2.WRITE, quality.cell_node_map()),
-                     metric.dat(op2.READ, metric.cell_node_map()),
-                     coords.dat(op2.READ, coords.cell_node_map()))
+        op2.par_loop(
+            get_pyop2_kernel("get_metric", 3),
+            mesh.cell_set,
+            quality.dat(op2.WRITE, quality.cell_node_map()),
+            metric.dat(op2.READ, metric.cell_node_map()),
+            coords.dat(op2.READ, coords.cell_node_map()),
+        )
     return quality
