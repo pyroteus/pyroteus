@@ -14,19 +14,21 @@ __all__ = ["bowl", "hyperbolic", "multiscale", "interweaved", "mesh_for_sensors"
 
 
 def bowl(*coords):
-    return 0.5*sum([xi**2 for xi in coords])
+    return 0.5 * sum([xi**2 for xi in coords])
 
 
 def hyperbolic(x, y):
-    return conditional(abs(x*y) < 2*pi/50, 0.01*sin(50*x*y), sin(50*x*y))
+    return conditional(
+        abs(x * y) < 2 * pi / 50, 0.01 * sin(50 * x * y), sin(50 * x * y)
+    )
 
 
 def multiscale(x, y):
-    return 0.1*sin(50*x) + atan(0.1/(sin(5*y) - 2*x))
+    return 0.1 * sin(50 * x) + atan(0.1 / (sin(5 * y) - 2 * x))
 
 
 def interweaved(x, y):
-    return atan(0.1/(sin(5*y) - 2*x)) + atan(0.5/(sin(3*y) - 7*x))
+    return atan(0.1 / (sin(5 * y) - 2 * x)) + atan(0.5 / (sin(3 * y) - 7 * x))
 
 
 def mesh_for_sensors(dim, n):

@@ -21,6 +21,7 @@ def handle_taping():
     """
     yield
     import pyadjoint
+
     tape = pyadjoint.get_working_tape()
     tape.clear_tape()
 
@@ -36,6 +37,7 @@ def handle_exit_annotation():
     """
     yield
     import pyadjoint
+
     annotate = pyadjoint.annotate_tape()
     if annotate:
         pyadjoint.pause_annotation()
@@ -62,10 +64,12 @@ def problem(request):
     return request.param
 
 
-@pytest.fixture(params=[
-    "end_time",
-    "time_integrated",
-])
+@pytest.fixture(
+    params=[
+        "end_time",
+        "time_integrated",
+    ]
+)
 def qoi_type(request):
     return request.param
 
@@ -93,7 +97,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     steady = test_case.steady
     if steady:
         assert test_case.dt_per_export == 1
-        assert np.isclose(end_time/test_case.dt, 1.0)
+        assert np.isclose(end_time / test_case.dt, 1.0)
     if "solid_body_rotation" in problem:
         end_time /= 4  # Reduce testing time
     elif steady and qoi_type == "time_integrated":
@@ -101,13 +105,21 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
 
     # Partition time interval and create MeshSeq
     time_partition = TimePartition(
-        end_time, 1, test_case.dt, test_case.fields,
+        end_time,
+        1,
+        test_case.dt,
+        test_case.fields,
         timesteps_per_export=test_case.dt_per_export,
     )
     mesh_seq = AdjointMeshSeq(
-        time_partition, test_case.mesh, test_case.get_function_spaces,
-        test_case.get_initial_condition, test_case.get_solver,
-        test_case.get_qoi, qoi_type=qoi_type, steady=steady,
+        time_partition,
+        test_case.mesh,
+        test_case.get_function_spaces,
+        test_case.get_initial_condition,
+        test_case.get_solver,
+        test_case.get_qoi,
+        qoi_type=qoi_type,
+        steady=steady,
     )
 
     # Solve forward and adjoint without solve_adjoint
@@ -116,7 +128,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     controls = [pyadjoint.Control(value) for key, value in ic.items()]
     sols = mesh_seq.solver(0, ic)
     qoi = mesh_seq.get_qoi(0)
-    J = mesh_seq.J if qoi_type == 'time_integrated' else qoi(sols)
+    J = mesh_seq.J if qoi_type == "time_integrated" else qoi(sols)
     m = pyadjoint.enlisting.Enlist(controls)
     tape = pyadjoint.get_working_tape()
     with pyadjoint.stop_annotating():
@@ -139,20 +151,29 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
 
     # Loop over having one or two subintervals
     for N in range(1, 2 if steady else 3):
-        pl = '' if N == 1 else 's'
+        pl = "" if N == 1 else "s"
         pyrint(f"\n--- Adjoint solve on {N} subinterval{pl} using pyroteus\n")
 
         # Solve forward and adjoint on each subinterval
         time_partition = TimePartition(
-            end_time, N, test_case.dt, test_case.fields,
+            end_time,
+            N,
+            test_case.dt,
+            test_case.fields,
             timesteps_per_export=test_case.dt_per_export,
         )
         mesh_seq = AdjointMeshSeq(
-            time_partition, test_case.mesh, test_case.get_function_spaces,
-            test_case.get_initial_condition, test_case.get_solver,
-            test_case.get_qoi, qoi_type=qoi_type,
+            time_partition,
+            test_case.mesh,
+            test_case.get_function_spaces,
+            test_case.get_initial_condition,
+            test_case.get_solver,
+            test_case.get_qoi,
+            qoi_type=qoi_type,
         )
-        solutions = mesh_seq.solve_adjoint(get_adj_values=not steady, test_checkpoint_qoi=True)
+        solutions = mesh_seq.solve_adjoint(
+            get_adj_values=not steady, test_checkpoint_qoi=True
+        )
 
         # Check quantities of interest match
         if not np.isclose(J_expected, mesh_seq.J):
@@ -162,18 +183,24 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         for field in time_partition.fields:
             adj_sol_expected = adj_sols_expected[field]
             adj_sol_computed = solutions[field].adjoint[0][0]
-            err = errornorm(adj_sol_expected, adj_sol_computed)/norm(adj_sol_expected)
+            err = errornorm(adj_sol_expected, adj_sol_computed) / norm(adj_sol_expected)
             if not np.isclose(err, 0.0):
-                raise ValueError(f"Adjoint solutions do not match at t=0 (error {err:.4e}.)")
+                raise ValueError(
+                    f"Adjoint solutions do not match at t=0 (error {err:.4e}.)"
+                )
 
         # Check adjoint actions at initial time match
         if not steady:
             for field in time_partition.fields:
                 adj_value_expected = adj_values_expected[field]
                 adj_value_computed = solutions[field].adj_value[0][0]
-                err = errornorm(adj_value_expected, adj_value_computed)/norm(adj_value_expected)
+                err = errornorm(adj_value_expected, adj_value_computed) / norm(
+                    adj_value_expected
+                )
                 if not np.isclose(err, 0.0):
-                    raise ValueError(f"Adjoint values do not match at t=0 (error {err:.4e}.)")
+                    raise ValueError(
+                        f"Adjoint values do not match at t=0 (error {err:.4e}.)"
+                    )
 
 
 @pytest.mark.parallel
@@ -201,40 +228,51 @@ def plot_solutions(problem, qoi_type, debug=True):
     end_time = test_case.end_time
     steady = test_case.steady
     time_partition = TimePartition(
-        end_time, 1, test_case.dt, test_case.fields,
+        end_time,
+        1,
+        test_case.dt,
+        test_case.fields,
         timesteps_per_export=test_case.dt_per_export,
     )
     solutions = AdjointMeshSeq(
-        time_partition, test_case.mesh, test_case.get_function_spaces,
-        test_case.get_initial_condition, test_case.get_solver,
-        test_case.get_qoi, qoi_type=qoi_type, steady=steady,
+        time_partition,
+        test_case.mesh,
+        test_case.get_function_spaces,
+        test_case.get_initial_condition,
+        test_case.get_solver,
+        test_case.get_qoi,
+        qoi_type=qoi_type,
+        steady=steady,
     ).solve_adjoint(get_adj_values=not steady, test_checkpoint_qoi=True)
-    output_dir = os.path.join(os.path.dirname(__file__), 'outputs', problem)
-    outfiles = AttrDict({
-        'forward': File(os.path.join(output_dir, 'forward.pvd')),
-        'forward_old': File(os.path.join(output_dir, 'forward_old.pvd')),
-        'adjoint': File(os.path.join(output_dir, 'adjoint.pvd')),
-    })
+    output_dir = os.path.join(os.path.dirname(__file__), "outputs", problem)
+    outfiles = AttrDict(
+        {
+            "forward": File(os.path.join(output_dir, "forward.pvd")),
+            "forward_old": File(os.path.join(output_dir, "forward_old.pvd")),
+            "adjoint": File(os.path.join(output_dir, "adjoint.pvd")),
+        }
+    )
     if not steady:
-        outfiles.adjoint_next = File(os.path.join(output_dir, 'adjoint_next.pvd'))
-        outfiles.adj_value = File(os.path.join(output_dir, 'adj_value.pvd'))
+        outfiles.adjoint_next = File(os.path.join(output_dir, "adjoint_next.pvd"))
+        outfiles.adj_value = File(os.path.join(output_dir, "adj_value.pvd"))
     for label in outfiles:
-        for k in range(time_partition.exports_per_subinterval[0]-1):
+        for k in range(time_partition.exports_per_subinterval[0] - 1):
             to_plot = []
             for field in time_partition.fields:
                 sol = solutions[field][label][0][k]
-                to_plot += [sol] if not hasattr(sol, 'split') else list(sol.split())
+                to_plot += [sol] if not hasattr(sol, "split") else list(sol.split())
             outfiles[label].write(*to_plot)
 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(prog='test/test_adjoint.py')
-    parser.add_argument('problem')
-    parser.add_argument('qoi_type')
-    parser.add_argument('-plot')
+
+    parser = argparse.ArgumentParser(prog="test/test_adjoint.py")
+    parser.add_argument("problem")
+    parser.add_argument("qoi_type")
+    parser.add_argument("-plot")
     args = parser.parse_args()
-    assert args.qoi_type in ('end_time', 'time_integrated')
+    assert args.qoi_type in ("end_time", "time_integrated")
     assert args.problem in all_problems
     plot = bool(args.plot or False)
     if plot:

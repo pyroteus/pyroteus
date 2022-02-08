@@ -7,7 +7,7 @@ import pytest
 import numpy as np
 
 
-@pytest.fixture(params=['scalar', 'vector', 'tensor'])
+@pytest.fixture(params=["scalar", "vector", "tensor"])
 def shape(request):
     return request.param
 
@@ -22,11 +22,11 @@ def test_clement_interpolant(shape):
     :arg shape: choose from 'scalar', 'vector', 'tensor'
     """
     mesh = UnitSquareMesh(1, 1)
-    if shape == 'scalar':
+    if shape == "scalar":
         fs = FunctionSpace
-    elif shape == 'vector':
+    elif shape == "vector":
         fs = VectorFunctionSpace
-    elif shape == 'tensor':
+    elif shape == "tensor":
         fs = TensorFunctionSpace
     else:
         raise ValueError(f"Shape '{shape} not recognised.")
