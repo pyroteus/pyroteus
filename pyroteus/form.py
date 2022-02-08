@@ -32,13 +32,17 @@ def transfer_form(F, newmesh, transfer=firedrake.prolong, replace_map={}):
     # As well as any spatially varying coefficients
     for c in F.coefficients():
         if isinstance(c, firedrake.Function) and c not in replace_map:
-            replace_map[c] = firedrake.Function(firedrake.FunctionSpace(newmesh, c.ufl_element()))
+            replace_map[c] = firedrake.Function(
+                firedrake.FunctionSpace(newmesh, c.ufl_element())
+            )
             transfer(c, replace_map[c])
 
     # The form is reconstructed by cell type
-    for cell_type, dX in zip(('cell', 'exterior_facet', 'interior_facet'), (ufl.dx, ufl.ds, ufl.dS)):
+    for cell_type, dX in zip(
+        ("cell", "exterior_facet", "interior_facet"), (ufl.dx, ufl.ds, ufl.dS)
+    ):
         for integral in F.integrals_by_type(cell_type):
             differential = dX(integral.subdomain_id(), domain=newmesh)
-            f += ufl.replace(integral.integrand(), replace_map)*differential
+            f += ufl.replace(integral.integrand(), replace_map) * differential
 
     return f

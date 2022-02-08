@@ -5,6 +5,7 @@ from firedrake import *
 from pyroteus_adjoint import *
 import pytest
 import importlib
+import numpy as np
 import os
 import sys
 

@@ -20,7 +20,7 @@ lint:
 
 test: lint
 	@echo "Running test suite..."
-	@pytest -v test
+	@python3 -m pytest -v test
 	@echo "PASS"
 
 demo:

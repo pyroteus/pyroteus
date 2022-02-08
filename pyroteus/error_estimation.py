@@ -22,20 +22,20 @@ def form2indicator(F):
 
     # Contributions from surface integrals
     flux_terms = 0
-    integrals = F.integrals_by_type('exterior_facet')
+    integrals = F.integrals_by_type("exterior_facet")
     if len(integrals) > 0:
         for integral in integrals:
             ds = firedrake.ds(integral.subdomain_id())
-            flux_terms += p0test*integral.integrand()*ds
-    integrals = F.integrals_by_type('interior_facet')
+            flux_terms += p0test * integral.integrand() * ds
+    integrals = F.integrals_by_type("interior_facet")
     if len(integrals) > 0:
         for integral in integrals:
             dS = firedrake.dS(integral.subdomain_id())
-            flux_terms += p0test('+')*integral.integrand()*dS
-            flux_terms += p0test('-')*integral.integrand()*dS
+            flux_terms += p0test("+") * integral.integrand() * dS
+            flux_terms += p0test("-") * integral.integrand() * dS
     if flux_terms != 0:
         dx = firedrake.dx
-        mass_term = firedrake.TrialFunction(P0)*p0test*dx
+        mass_term = firedrake.TrialFunction(P0) * p0test * dx
         sp = {
             "mat_type": "matfree",
             "snes_type": "ksponly",
@@ -46,11 +46,11 @@ def form2indicator(F):
 
     # Contributions from volume integrals
     cell_terms = 0
-    integrals = F.integrals_by_type('cell')
+    integrals = F.integrals_by_type("cell")
     if len(integrals) > 0:
         for integral in integrals:
             dx = firedrake.dx(integral.subdomain_id())
-            cell_terms += p0test*integral.integrand()*dx
+            cell_terms += p0test * integral.integrand() * dx
     indicator += firedrake.assemble(cell_terms)
 
     return indicator
