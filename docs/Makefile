@@ -1,12 +1,13 @@
 # Minimal makefile for Sphinx documentation
 
 # You can set these variables from the command line.
-SPHINXOPTS    =
-SPHINXBUILD   = sphinx-build
-SPHINXAPIDOC  = sphinx-apidoc
-SPHINXPROJ    = Pyroteus
-SOURCEDIR     = source
-BUILDDIR      = build
+SPHINXOPTS  	=
+SPHINXBUILD 	= sphinx-build
+SPHINXAPIDOC	= sphinx-apidoc
+SPHINXPROJ  	= Pyroteus
+SOURCEDIR   	= source
+BUILDDIR    	= build
+PYTHON			= ${VIRTUAL_ENV}/bin/python3
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -42,7 +43,7 @@ html: apidoc $(GENERATED_FILES)
 
 .PHONY: apidoc
 apidoc:
-	$(SPHINXAPIDOC) $$(python -c 'import pyroteus; import os; print(os.path.dirname(pyroteus.__file__))') -o source -f -T
+	$(SPHINXAPIDOC) $$($(PYTHON) -c 'import pyroteus; import os; print(os.path.dirname(pyroteus.__file__))') -o source -f -T
 	# TODO: link references.bib
 
 
