@@ -18,33 +18,42 @@ from pyroteus_adjoint import *
 # velocity space (which actually coincide). They are represented
 # in a list. ::
 
-from burgers1 import fields, get_solver, get_initial_condition, get_qoi, get_function_spaces
+from burgers1 import (
+    fields,
+    get_solver,
+    get_initial_condition,
+    get_qoi,
+    get_function_spaces,
+)
 
 n = 32
-meshes = [
-    UnitSquareMesh(n, n, diagonal='left'),
-    UnitSquareMesh(n, n, diagonal='left')
-]
+meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
 end_time = 0.5
-dt = 1/n
+dt = 1 / n
 
 # This time, the ``TimePartition`` is defined on **two** subintervals,
 # associated with the two function spaces. ::
 
 num_subintervals = 2
 P = TimePartition(
-    end_time, num_subintervals, dt, fields,
-    timesteps_per_export=2, debug=True
+    end_time, num_subintervals, dt, fields, timesteps_per_export=2, debug=True
 )
 mesh_seq = AdjointMeshSeq(
-    P, meshes, get_function_spaces, get_initial_condition,
-    get_solver, get_qoi, qoi_type='end_time',
+    P,
+    meshes,
+    get_function_spaces,
+    get_initial_condition,
+    get_solver,
+    get_qoi,
+    qoi_type="end_time",
 )
 solutions = mesh_seq.solve_adjoint()
 
 # Finally, plot snapshots of the adjoint solution. ::
 
-fig, axes = plot_snapshots(solutions, P, 'uv_2d', 'adjoint', levels=np.linspace(0, 0.8, 9))
+fig, axes = plot_snapshots(
+    solutions, P, "uv_2d", "adjoint", levels=np.linspace(0, 0.8, 9)
+)
 fig.savefig("burgers2-end_time.jpg")
 
 # .. figure:: burgers2-end_time.jpg
