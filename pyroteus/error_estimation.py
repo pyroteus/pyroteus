@@ -37,7 +37,6 @@ def form2indicator(F):
         dx = firedrake.dx
         mass_term = firedrake.TrialFunction(P0) * p0test * dx
         sp = {
-            "mat_type": "matfree",
             "snes_type": "ksponly",
             "ksp_type": "preonly",
             "pc_type": "jacobi",

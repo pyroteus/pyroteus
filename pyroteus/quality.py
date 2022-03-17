@@ -158,7 +158,7 @@ def get_facet_areas(mesh):
     mass_term = v("+") * u("+") * ufl.dS + v * u * ufl.ds
     rhs = v("+") * ufl.FacetArea(mesh) * ufl.dS + v * ufl.FacetArea(mesh) * ufl.ds
     sp = {
-        "mat_type": "matfree",
+        "snes_type": "ksponly",
         "ksp_type": "preonly",
         "pc_type": "jacobi",
     }
