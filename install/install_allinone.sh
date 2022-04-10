@@ -44,7 +44,7 @@ echo "Are these settings okay? Press enter to continue."
 read chk
 
 # Set PETSc options
-export PETSC_CONFIGURE_OPTIONS="--with-debugging=yes --with-fortran-bindings=0 --download-zlib --download-metis --download-parmetis --download-ptscotch --download-hdf5 --download-scalapack --download-mumps --download-chaco --download-hypre --download-eigen --download-mmg --download-parmmg --with-mpiexec=$MPIEXEC --CC=$MPICC --CXX=$MPICXX --FC=$MPIF90"
+export PETSC_CONFIGURE_OPTIONS="--with-debugging=yes --with-fortran-bindings=0 --download-zlib --download-metis --download-parmetis --download-ptscotch --download-hdf5 --download-scalapack --download-mumps --download-superlu_dist --download-chaco --download-hypre --download-eigen --download-mmg --download-parmmg --with-mpiexec=$MPIEXEC --CC=$MPICC --CXX=$MPICXX --FC=$MPIF90"
 
 # Install Firedrake
 curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
