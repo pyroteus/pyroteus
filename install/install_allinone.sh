@@ -58,5 +58,5 @@ source $FIREDRAKE_DIR/bin/activate
 export PYTHONPATH=$PYTHONPATH_TMP
 
 # Basic test of metric-based functionality
-cd $FIREDRAKE_DIR/src/firedrake/tests/meshadapt
-pytest test_metric_based.py
+cd $FIREDRAKE_DIR/src/firedrake/tests/regression
+pytest test_meshadapt.py
