@@ -30,6 +30,7 @@ class MeshSeq(object):
         get_initial_condition,
         get_form,
         get_solver,
+        get_bcs=None,
         warnings=True,
         **kwargs,
     ):
@@ -52,6 +53,9 @@ class MeshSeq(object):
         :arg get_solver: a function, whose only argument is
             a :class:`MeshSeq`, which returns a function
             that integrates initial data over a subinterval
+        :kwarg get_bcs: a function, whose only argument is a
+            :class:`MeshSeq`, which returns a function that
+            determines any Dirichlet boundary conditions
         :kwarg warnings: print warnings?
         """
         self.time_partition = time_partition
@@ -70,6 +74,7 @@ class MeshSeq(object):
             self._get_form = get_form
         if get_solver is not None:
             self._get_solver = get_solver
+        self._get_bcs = get_bcs
         self.warn = warnings
         self._lagged_dep_idx = {}
         self.sections = [{} for mesh in self]
@@ -100,6 +105,9 @@ class MeshSeq(object):
 
     def get_solver(self):
         return self._get_solver(self)
+
+    def get_bcs(self):
+        return self._get_bcs(self)
 
     @property
     def _function_spaces_consistent(self):
@@ -151,6 +159,10 @@ class MeshSeq(object):
     @property
     def solver(self):
         return self.get_solver()
+
+    @property
+    def bcs(self):
+        return self.get_bcs()
 
     @PETSc.Log.EventDecorator("pyroteus.MeshSeq.get_checkpoints")
     def get_checkpoints(self, solver_kwargs={}):
