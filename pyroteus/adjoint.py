@@ -75,18 +75,15 @@ class AdjointMeshSeq(MeshSeq):
         else:
             raise ValueError(f"QoI should have 1 or 2 args, not {num_args}")
 
-        # Wrap as appropriate
-        if pyadjoint.tape.annotate_tape():
-
-            @wraps(qoi)
-            def wrapper(*args, **kwargs):
-                j = firedrake.assemble(qoi(*args, **kwargs))
+        @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.evaluate_qoi")
+        @wraps(qoi)
+        def wrapper(*args, **kwargs):
+            j = firedrake.assemble(qoi(*args, **kwargs))
+            if pyadjoint.tape.annotate_tape():
                 j.block_variable.adj_value = 1.0
-                return j
+            return j
 
-            self.qoi = wrapper
-        else:
-            self.qoi = lambda *args, **kwargs: firedrake.assemble(qoi(*args, **kwargs))
+        self.qoi = wrapper
         return self.qoi
 
     @pyadjoint.no_annotations
@@ -116,12 +113,13 @@ class AdjointMeshSeq(MeshSeq):
         for i in range(N if run_final_subinterval else N - 1):
             sols = self.solver(i, checkpoints[i], **solver_kwargs)
             assert issubclass(sols.__class__, dict), "solver should return a dict"
-            assert set(self.fields).issubset(
-                set(sols.keys())
-            ), "missing fields from solver"
-            assert set(sols.keys()).issubset(
-                set(self.fields)
-            ), "more solver outputs than fields"
+            fields = set(sols.keys())
+            if not set(self.fields).issubset(fields):
+                diff = set(self.fields).difference(fields)
+                raise ValueError(f"Missing fields {diff} from solver")
+            if not fields.issubset(set(self.fields)):
+                diff = fields.difference(set(self.fields))
+                raise ValueError(f"More solver outputs than fields ({diff} unexpected)")
             if i < N - 1:
                 checkpoints.append(
                     AttrDict(
@@ -160,7 +158,7 @@ class AdjointMeshSeq(MeshSeq):
         * ``'forward'``: the forward solution after taking the
             timestep;
         * ``'forward_old'``: the forward solution before taking
-            the timestep;
+            the timestep
         * ``'adjoint'``: the adjoint solution after taking the
             timestep;
         * ``'adjoint_next'``: the adjoint solution before taking
@@ -221,6 +219,7 @@ class AdjointMeshSeq(MeshSeq):
         # Wrap solver to extract controls
         solver = self.solver
 
+        @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.solve_adjoint.evaluate_fwd")
         @wraps(solver)
         def wrapped_solver(i, ic, **kwargs):
             init = AttrDict(
@@ -262,10 +261,11 @@ class AdjointMeshSeq(MeshSeq):
                     block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
-            m = pyadjoint.enlisting.Enlist(self.controls)
-            with pyadjoint.stop_annotating():
-                with tape.marked_nodes(m):
-                    tape.evaluate_adj(markings=True)
+            with PETSc.Log.Event("pyroteus.AdjointMeshSeq.solve_adjoint.evaluate_adj"):
+                m = pyadjoint.enlisting.Enlist(self.controls)
+                with pyadjoint.stop_annotating():
+                    with tape.marked_nodes(m):
+                        tape.evaluate_adj(markings=True)
             # FIXME: Using mixed Functions as Controls not correct
 
             # Loop over prognostic variables
