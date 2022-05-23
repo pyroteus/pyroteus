@@ -99,7 +99,7 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
     else:
         if test_space is None:
             test_space = {
-                key: err.function_space()
+                key: firedrake.TestFunction(err.function_space())
                 for key, err in adjoint_error.items()
             }
         for key, err in adjoint_error.items():
