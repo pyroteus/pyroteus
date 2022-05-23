@@ -73,6 +73,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             meshes,
             get_function_spaces,
             self._get_initial_condition,
+            self._get_form,
             self._get_solver,
             self._get_qoi,
             qoi_type=self.qoi_type,

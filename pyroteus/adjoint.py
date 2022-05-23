@@ -30,6 +30,7 @@ class AdjointMeshSeq(MeshSeq):
         initial_meshes,
         get_function_spaces,
         get_initial_condition,
+        get_form,
         get_solver,
         get_qoi,
         **kwargs,
@@ -49,6 +50,7 @@ class AdjointMeshSeq(MeshSeq):
             initial_meshes,
             get_function_spaces,
             get_initial_condition,
+            get_form,
             get_solver,
             **kwargs,
         )
@@ -401,6 +403,9 @@ def solve_adjoint(*args, **kwargs):
     :arg get_initial_condition: a function, whose only
         argument is a :class:`MeshSeq`, which specifies
         initial conditions on the first mesh
+    :arg get_form: a function, whose only argument is a
+        :class:`MeshSeq`, which returns a function that
+        generates the PDE weak form
     :arg get_solver: a function, whose only argument is
         a :class:`MeshSeq`, which returns a function
         that integrates initial data over a subinterval

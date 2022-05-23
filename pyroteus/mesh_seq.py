@@ -28,6 +28,7 @@ class MeshSeq(object):
         initial_meshes,
         get_function_spaces,
         get_initial_condition,
+        get_form,
         get_solver,
         warnings=True,
         **kwargs,
@@ -45,6 +46,9 @@ class MeshSeq(object):
         :arg get_initial_condition: a function, whose only
             argument is a :class:`MeshSeq`, which specifies
             initial conditions on the first mesh
+        :arg get_form: a function, whose only argument is a
+            :class:`MeshSeq`, which returns a function that
+            generates the PDE weak form
         :arg get_solver: a function, whose only argument is
             a :class:`MeshSeq`, which returns a function
             that integrates initial data over a subinterval
@@ -62,6 +66,8 @@ class MeshSeq(object):
             self._get_function_spaces = get_function_spaces
         if get_initial_condition is not None:
             self._get_initial_condition = get_initial_condition
+        if get_form is not None:
+            self._get_form = get_form
         if get_solver is not None:
             self._get_solver = get_solver
         self.warn = warnings
@@ -88,6 +94,9 @@ class MeshSeq(object):
 
     def get_initial_condition(self):
         return self._get_initial_condition(self)
+
+    def get_form(self):
+        return self._get_form(self)
 
     def get_solver(self):
         return self._get_solver(self)
@@ -134,6 +143,10 @@ class MeshSeq(object):
             set(self.fields)
         ), "more initial conditions than fields"
         return AttrDict(ic)
+
+    @property
+    def form(self):
+        return self.get_form()
 
     @property
     def solver(self):
