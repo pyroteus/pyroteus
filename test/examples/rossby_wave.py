@@ -42,6 +42,7 @@ dt_per_export = int(10.0 / dt)
 order = 1
 soliton_amplitude = 0.395
 steady = False
+get_bcs = None
 
 
 def get_function_spaces(mesh):
@@ -51,11 +52,15 @@ def get_function_spaces(mesh):
     return {
         "swe2d": MixedFunctionSpace(
             [
-                VectorFunctionSpace(mesh, "DG", 1, name="U_2d"),
+                get_functionspace(mesh, "DG", 1, name="U_2d", vector=True),
                 get_functionspace(mesh, "DG", 1, name="H_2d"),
             ]
         )
     }
+
+
+def get_form(self):
+    raise NotImplementedError  # TODO
 
 
 def get_solver(self):

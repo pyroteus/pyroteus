@@ -20,6 +20,7 @@ end_time = 0.5
 dt = 1 / n
 dt_per_export = 2
 steady = False
+get_bcs = None
 
 
 def get_function_spaces(mesh):
@@ -27,6 +28,26 @@ def get_function_spaces(mesh):
     :math:`\mathbb P2` space.
     """
     return {"uv_2d": VectorFunctionSpace(mesh, "CG", 2)}
+
+
+def get_form(self):
+    """
+    Burgers equation weak form.
+    """
+    def form(i, sols):
+        u, u_ = sols["uv_2d"]
+        dt = self.time_partition[i].timestep
+        fs = self.function_spaces["uv_2d"][i]
+        dtc = Constant(dt)
+        nu = Constant(0.0001)
+        v = TestFunction(fs)
+        F = (
+            inner((u - u_) / dtc, v) * dx
+            + inner(dot(u, nabla_grad(u)), v) * dx
+            + nu * inner(grad(u), grad(v)) * dx
+        )
+        return F
+    return form
 
 
 def get_solver(self):
@@ -41,22 +62,13 @@ def get_solver(self):
         dt = self.time_partition[i].timestep
         fs = self.function_spaces["uv_2d"][i]
 
-        # Specify constants
-        dtc = Constant(dt)
-        nu = Constant(0.0001)
-
         # Set initial condition
         u_ = Function(fs, name="uv_2d_old")
         u_.assign(ic["uv_2d"])
 
         # Setup variational problem
-        v = TestFunction(fs)
         u = Function(fs, name="uv_2d")
-        F = (
-            inner((u - u_) / dtc, v) * dx
-            + inner(dot(u, nabla_grad(u)), v) * dx
-            + nu * inner(grad(u), grad(v)) * dx
-        )
+        F = self.form(i, {"uv_2d": (u, u_)})
 
         # Time integrate from t_start to t_end
         t = t_start

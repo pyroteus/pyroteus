@@ -39,44 +39,67 @@ def get_function_spaces(mesh):
     return {"tracer_2d": FunctionSpace(mesh, "CG", 1)}
 
 
+def get_form(self):
+    """
+    Weak form for advection-diffusion
+    using Crank-Nicolson with implicitness
+    one half.
+    """
+    def form(i, sols):
+        q, q_ = sols["tracer_2d"]
+        dt = self.time_partition[i].timestep
+        V = q_.function_space()
+        mesh = V.mesh()
+        x, y = SpatialCoordinate(mesh)
+        W = VectorFunctionSpace(mesh, "CG", 1)
+        u = interpolate(as_vector([-y, x]), W)
+        dtc = Constant(dt)
+        theta = Constant(0.5)
+        psi = TrialFunction(V)
+        phi = TestFunction(V)
+        a = (
+            psi * phi * dx
+            + dtc * theta * dot(u, grad(psi)) * phi * dx
+        )
+        L = (
+            q_ * phi * dx
+            - dtc * (1 - theta) * dot(u, grad(q_)) * phi * dx
+        )
+        return a, L
+    return form
+
+
+def get_bcs(self):
+    """
+    Zero Dirichlet condition on all boundaries.
+    """
+    def bcs(i):
+        return [
+            DirichletBC(fs[i], 0, "on_boundary")
+            for fs in self.function_spaces.values()
+        ]
+    return bcs
+
+
 def get_solver(self):
     """
     Advection equation solved using an
-    iterative method and time integrated
-    using Crank-Nicolson with implicitness
-    one half.
+    iterative method.
     """
 
     def solver(i, ic, field="tracer_2d"):
         t_start, t_end = self.time_partition[i].subinterval
         dt = self.time_partition[i].timestep
         V = ic[field].function_space()
-        mesh = V.mesh()
-        x, y = SpatialCoordinate(mesh)
-        W = VectorFunctionSpace(mesh, "CG", 1)
-        u = interpolate(as_vector([-y, x]), W)
-        nu = Constant(0.0)
-        dtc = Constant(dt)
-        theta = Constant(0.5)
 
         # Set initial condition
         q = Function(V, name=field)
-        q_old = Function(V, name=field + "_old")
-        q_old.assign(ic[field])
+        q_ = Function(V, name=field + "_old")
+        q_.assign(ic[field])
 
         # Setup variational problem
-        psi = TrialFunction(V)
-        phi = TestFunction(V)
-        a = (
-            psi * phi * dx
-            + dtc * theta * dot(u, grad(psi)) * phi * dx
-            + dtc * theta * nu * inner(grad(psi), grad(phi)) * dx
-        )
-        L = (
-            q_old * phi * dx
-            - dtc * (1 - theta) * dot(u, grad(q_old)) * phi * dx
-            - dtc * (1 - theta) * nu * inner(grad(q_old), grad(phi)) * dx
-        )
+        a, L = self.form(i, {"tracer_2d": (q, q_)})
+        bc = self.bcs(i)
 
         # Setup Crank-Nicolson time integrator
         sp = {
@@ -84,9 +107,7 @@ def get_solver(self):
             "pc_type": "ilu",
             "pc_factor_levels": 0,
         }
-        problem = LinearVariationalProblem(
-            a, L, q, bcs=DirichletBC(V, 0, "on_boundary")
-        )
+        problem = LinearVariationalProblem(a, L, q, bcs=bc)
         solver = LinearVariationalSolver(
             problem, solver_parameters=sp, ad_block_tag=field
         )
@@ -99,7 +120,7 @@ def get_solver(self):
             solver.solve()
             if self.qoi_type == "time_integrated":
                 self.J += qoi(solutions, t)
-            q_old.assign(q)
+            q_.assign(q)
             t += dt
         return solutions
 
@@ -108,13 +129,8 @@ def get_solver(self):
 
 def bell_initial_condition(x, y, fs):
     bell_r0, bell_x0, bell_y0 = 0.15, -0.25, 0.0
-    return 0.25 * (
-        1
-        + cos(
-            pi
-            * min_value(sqrt(pow(x - bell_x0, 2) + pow(y - bell_y0, 2)) / bell_r0, 1.0)
-        )
-    )
+    r = sqrt(pow(x - bell_x0, 2) + pow(y - bell_y0, 2))
+    return 0.25 * (1 + cos(pi * min_value(r / bell_r0, 1.0)))
 
 
 def cone_initial_condition(x, y, fs):
