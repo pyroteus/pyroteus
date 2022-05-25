@@ -108,12 +108,12 @@ def get_solver(self):
         solver_obj.assign_initial_conditions(uv=uv_a, elev=elev_a)
 
         # Setup QoI
-        qoi = self.get_qoi(i)
         solutions = {"swe2d": solver_obj.fields.solution_2d}
+        qoi = self.get_qoi(solutions, i)
 
         def update_forcings(t):
             if self.qoi_type == "time_integrated":
-                self.J += qoi(solutions, t - dt)
+                self.J += qoi(t - dt)
                 # TODO: Use a callback instead
 
         # Correct counters and iterate
@@ -124,7 +124,7 @@ def get_solver(self):
         physical_constants["g_grav"].assign(g)
 
         if self.qoi_type == "time_integrated":
-            self.J += qoi(solutions, t_end)
+            self.J += qoi(t_end)
         return solutions
 
     return solver
@@ -240,7 +240,7 @@ def asymptotic_expansion(fs, time=0.0):
     return q_a
 
 
-def get_qoi(self, i):
+def get_qoi(self, sol, i):
     """
     Quantity of interest which computes
     the square L2 error of the advected
@@ -249,7 +249,7 @@ def get_qoi(self, i):
     dtc = Constant(self.time_partition[i].timestep)
     wq = Constant(1.0)
 
-    def time_integrated_qoi(sol, t):
+    def time_integrated_qoi(t):
         t_start, t_end = self.time_partition[i].subinterval
         wq.assign(
             0.5 if np.isclose(t, t_start) or np.isclose(t, t_end) else 1.0
@@ -258,7 +258,7 @@ def get_qoi(self, i):
         q_a = asymptotic_expansion(q.function_space(), t)
         return wq * dtc * inner(q - q_a, q - q_a) * dx
 
-    def end_time_qoi(sol):
+    def end_time_qoi():
         q = sol["swe2d"]
         q_a = asymptotic_expansion(q.function_space(), end_time)
         return inner(q - q_a, q - q_a) * dx

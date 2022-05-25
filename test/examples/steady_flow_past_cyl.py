@@ -48,6 +48,7 @@ def get_form(self):
             - inner(q, div(u)) * dx
         )
         return F
+
     return form
 
 
@@ -63,6 +64,7 @@ def get_bcs(self):
         noslip = DirichletBC(W.sub(0), (0, 0), (3, 5))
         inflow = DirichletBC(W.sub(0), interpolate(u_inflow, W.sub(0)), 1)
         return [inflow, noslip, DirichletBC(W.sub(0), 0, 4)]
+
     return bcs
 
 
@@ -118,13 +120,13 @@ def get_initial_condition(self):
     return {"up": up}
 
 
-def get_qoi(self, i):
+def get_qoi(self, sol, i):
     """
     Quantity of interest which integrates
     pressure over the boundary of the hole.
     """
 
-    def steady_qoi(sol):
+    def steady_qoi():
         u, p = sol["up"].split()
         return p * ds(4)
 

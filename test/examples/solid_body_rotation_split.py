@@ -67,10 +67,10 @@ def get_initial_condition(self, coordinates=None):
     }
 
 
-def get_qoi(self, i):
+def get_qoi(self, sol, i):
     """
     Unlike in the original version, the QoI
     is the squared L2 error for each shape,
     rather than just the slotted cylinder.
     """
-    return sbr.get_qoi(self, i, exact=get_initial_condition)
+    return sbr.get_qoi(self, sol, i, exact=get_initial_condition)
