@@ -24,19 +24,9 @@ class AdjointMeshSeq(MeshSeq):
     holds the QoI value.
     """
 
-    def __init__(
-        self,
-        time_partition,
-        initial_meshes,
-        get_function_spaces,
-        get_initial_condition,
-        get_form,
-        get_solver,
-        get_qoi,
-        **kwargs,
-    ):
+    def __init__(self, time_partition, initial_meshes, get_qoi=None, **kwargs):
         """
-        :arg get_qoi: a function, with two arguments,
+        :kwarg get_qoi: a function, with two arguments,
             a :class:`AdjointMeshSeq`, which returns
             a function of either one or two variables,
             corresponding to either an end time or time
@@ -45,37 +35,33 @@ class AdjointMeshSeq(MeshSeq):
         """
         self.qoi_type = kwargs.pop("qoi_type")
         self.steady = kwargs.pop("steady", False)
-        super(AdjointMeshSeq, self).__init__(
-            time_partition,
-            initial_meshes,
-            get_function_spaces,
-            get_initial_condition,
-            get_form,
-            get_solver,
-            **kwargs,
-        )
-        if get_qoi is not None:
-            self._get_qoi = get_qoi
+        super().__init__(time_partition, initial_meshes, **kwargs)
+        self._get_qoi = get_qoi
         self.J = 0
         self.controls = None
 
     @property
     @pyadjoint.no_annotations
     def initial_condition(self):
-        return super(AdjointMeshSeq, self).initial_condition
+        return super().initial_condition
 
-    def get_qoi(self, i):
-        qoi = self._get_qoi(self, i)
+    def get_qoi_function(self, solution_map, i):
+        if self._get_qoi is None:
+            raise NotImplementedError("get_qoi needs implementing")
+        return self._get_qoi(self, solution_map, i)
+
+    def get_qoi(self, solution_map, i):
+        qoi = self.get_qoi_function(solution_map, i)
 
         # Count number of arguments
         num_kwargs = 0 if qoi.__defaults__ is None else len(qoi.__defaults__)
         num_args = qoi.__code__.co_argcount - num_kwargs
-        if num_args == 1:
+        if num_args == 0:
             self.qoi_type = "end_time"
-        elif num_args == 2:
+        elif num_args == 1:
             self.qoi_type = "time_integrated"
         else:
-            raise ValueError(f"QoI should have 1 or 2 args, not {num_args}")
+            raise ValueError(f"QoI should have 0 or 1 args, not {num_args}")
 
         @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.evaluate_qoi")
         @wraps(qoi)
@@ -134,8 +120,8 @@ class AdjointMeshSeq(MeshSeq):
 
         # Account for end time QoI
         if self.qoi_type == "end_time":
-            qoi = self.get_qoi(N - 1)
-            self.J = qoi(sols, **solver_kwargs.get("qoi_kwargs", {}))
+            qoi = self.get_qoi(sols, N - 1)
+            self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
         return checkpoints
 
     @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.solve_adjoint")
@@ -244,8 +230,8 @@ class AdjointMeshSeq(MeshSeq):
             # Get seed vector for reverse propagation
             if i == num_subintervals - 1:
                 if self.qoi_type == "end_time":
-                    qoi = self.get_qoi(i)
-                    self.J = qoi(sols, **solver_kwargs.get("qoi_kwargs", {}))
+                    qoi = self.get_qoi(sols, i)
+                    self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
                     if self.warn and np.isclose(float(self.J), 0.0):
                         self.warning("Zero QoI. Is it implemented as intended?")
             else:
