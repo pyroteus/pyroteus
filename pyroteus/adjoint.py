@@ -11,7 +11,7 @@ from functools import wraps
 import numpy as np
 
 
-__all__ = ["AdjointMeshSeq", "solve_adjoint"]
+__all__ = ["AdjointMeshSeq"]
 
 
 class AdjointMeshSeq(MeshSeq):
@@ -371,56 +371,3 @@ class AdjointMeshSeq(MeshSeq):
                 f" run do not match ({J_chk} vs. {self.J})"
             )
         return solutions
-
-
-def solve_adjoint(*args, **kwargs):
-    """
-    Solve an adjoint problem on a sequence of subintervals.
-
-    :arg time_partition: the :class:`TimePartition` which
-        partitions the temporal domain
-    :arg initial_meshes: list of meshes corresponding to
-        the subintervals of the :class:`TimePartition`,
-        or a single mesh to use for all subintervals
-    :arg get_function_spaces: a function, whose only
-        argument is a :class:`MeshSeq`, which constructs
-        prognostic :class:`FunctionSpace` s for each
-        subinterval
-    :arg get_initial_condition: a function, whose only
-        argument is a :class:`MeshSeq`, which specifies
-        initial conditions on the first mesh
-    :arg get_form: a function, whose only argument is a
-        :class:`MeshSeq`, which returns a function that
-        generates the PDE weak form
-    :arg get_solver: a function, whose only argument is
-        a :class:`MeshSeq`, which returns a function
-        that integrates initial data over a subinterval
-    :arg get_qoi: a function, with two arguments,
-        a :class:`AdjointMeshSeq`, which returns
-        a function of either one or two variables,
-        corresponding to either an end time or time
-        integrated quantity of interest, respectively,
-        as well as an index for the :class:`MeshSeq`
-    :kwarg get_bcs: a function, whose only argument is a
-        :class:`MeshSeq`, which returns a function that
-        determines any Dirichlet boundary conditions
-    :kwarg warnings: print warnings?
-    :kwarg solver_kwargs: a dictionary providing parameters
-        to the solver. Any keyword arguments for the QoI
-        should be included as a subdict with label 'qoi_kwargs'
-    :kwarg get_adj_values: additionally output adjoint
-        actions at exported timesteps
-    :kwarg test_checkpoint_qoi: solve over the final
-        subinterval when checkpointing so that the QoI
-        value can be checked across runs
-
-    :return solution: an :class:`AttrDict` containing
-        solution fields and their lagged versions.
-    """
-    assert len(args) == 7
-    solve_adjoint_kwargs = dict(
-        solver_kwargs=kwargs.pop("solver_kwargs", {}),
-        get_adj_values=kwargs.pop("get_adj_values", False),
-        test_checkpoint_qoi=kwargs.pop("test_checkpoint_qoi", False),
-    )
-    return AdjointMeshSeq(*args, **kwargs).solve_adjoint(**solve_adjoint_kwargs)
