@@ -17,11 +17,18 @@ from pyroteus_adjoint import *
 # The solver, initial condition and function spaces may be
 # imported from the previous demo. ::
 
-from burgers import fields, get_solver, get_initial_condition, get_function_spaces
+from burgers import (
+    fields,
+    get_function_spaces,
+    get_form,
+    get_solver,
+    get_initial_condition,
+)
 
 # In line with the
 # `firedrake-adjoint demo
-# <https://nbviewer.jupyter.org/github/firedrakeproject/firedrake/blob/master/docs/notebooks/11-extract-adjoint-solutions.ipynb>`__, we choose the QoI
+# <https://nbviewer.jupyter.org/github/firedrakeproject/firedrake/blob/master/docs/notebooks/11-extract-adjoint-solutions.ipynb>`__,
+# we choose the QoI
 #
 # .. math::
 #    J(u) = \int_0^1 \mathbf u(1,y,T_{\mathrm{end}})
@@ -33,8 +40,8 @@ from burgers import fields, get_solver, get_initial_condition, get_function_spac
 
 
 def get_qoi(mesh_seq, i):
-    def end_time_qoi(sol):
-        u = sol["uv_2d"]
+    def end_time_qoi(solutions):
+        u = solutions["u"]
         return inner(u, u) * ds(2)
 
     return end_time_qoi
@@ -70,6 +77,7 @@ mesh_seq = AdjointMeshSeq(
     mesh,
     get_function_spaces,
     get_initial_condition,
+    get_form,
     get_solver,
     get_qoi,
     qoi_type="end_time",
@@ -80,9 +88,7 @@ solutions = mesh_seq.solve_adjoint()
 # looping over ``solutions['adjoint']``. This can also be achieved using
 # the plotting driver function ``plot_snapshots``.
 
-fig, axes = plot_snapshots(
-    solutions, P, "uv_2d", "adjoint", levels=np.linspace(0, 0.8, 9)
-)
+fig, axes = plot_snapshots(solutions, P, "u", "adjoint", levels=np.linspace(0, 0.8, 9))
 fig.savefig("burgers1-end_time.jpg")
 
 # .. figure:: burgers1-end_time.jpg

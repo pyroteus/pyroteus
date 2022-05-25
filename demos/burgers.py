@@ -29,7 +29,7 @@ from pyroteus import *
 # :math:`\mathbf u`. Its name is recorded in a list of
 # fields. ::
 
-fields = ["uv_2d"]
+fields = ["u"]
 
 # First, we specify how to build a :class:`FunctionSpace`,
 # given some mesh. Function spaces are given as a dictionary,
@@ -40,22 +40,55 @@ fields = ["uv_2d"]
 
 
 def get_function_spaces(mesh):
-    return {"uv_2d": VectorFunctionSpace(mesh, "CG", 2)}
+    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
 
-# Pyroteus requires a solver with two arguments: the index
-# within the :class:`MeshSeq` and a dictionary containing a
-# starting value :class:`Function` for each prognostic solution.
+# In order to solve PDEs using the finite element method, we
+# require a weak form. For this, Pyroteus requires a function
+# that maps the :class:`MeshSeq` index and a dictionary of
+# solution data to the form. For each field, the dictionary
+# should provide a tuple containing the solution :class:`Function`\s
+# from the current timestep and the previous one.
 #
 # Timestepping information associated with the mesh within
 # the sequence can be accessed via the :attr:`TimePartition`
-# attribute of the :class:`MeshSeq`.
+# attribute of the :class:`MeshSeq`. ::
+
+
+def get_form(mesh_seq):
+    def form(index, solutions):
+        u, u_ = solutions["u"]
+        P = mesh_seq.time_partition
+        dt = Constant(P.timesteps[index])
+
+        # Specify viscosity coefficient
+        nu = Constant(0.0001)
+
+        # Setup variational problem
+        v = TestFunction(u.function_space())
+        F = (
+            inner((u - u_) / dt, v) * dx
+            + inner(dot(u, nabla_grad(u)), v) * dx
+            + nu * inner(grad(u), grad(v)) * dx
+        )
+        return F
+
+    return form
+
+
+# The dictionary usage may seem cumbersome when applied to such a
+# simple problem, but it comes in handy when solving adjoint
+# problems associated with coupled systems of equations.
 #
-# The following pattern is used for the QoI, which will be
-# specified later. The dictionary usage may seem cumbersome when
-# applied to such a simple problem, but it comes in handy when
-# solving adjoint problems associated with coupled systems of
-# equations. It is important that the PDE solve is labelled
+# We have a weak form. In order to solve the PDE, we need to choose
+# a time integration routine and solver parameters for the underlying
+# linear and nonlinear systems. This is achieved using a function
+# whose inputs are the :class:`MeshSeq` index and a dictionary of
+# initialisation data. For the :math:`0^{th}` index, this will be
+# provided by the initial conditions, otherwise it will be transferred
+# from the previous mesh in the sequence.
+#
+# Note that it is important that the PDE solve is labelled
 # with an ``ad_block_tag`` which matches the corresponding
 # prognostic variable name. It is also important that the
 # lagged solution field be given a name which is the field name,
@@ -64,47 +97,39 @@ def get_function_spaces(mesh):
 
 def get_solver(mesh_seq):
     def solver(index, ic):
+        function_space = mesh_seq.function_spaces["u"][index]
+        u = Function(function_space)
+
+        # Initialise 'lagged' solution
+        u_ = Function(function_space, name="u_old")
+        u_.assign(ic["u"])
+
+        # Define form
+        F = mesh_seq.form(index, {"u": (u, u_)})
+
+        # Time integrate from t_start to t_end
         P = mesh_seq.time_partition
         t_start, t_end = P.subintervals[index]
         dt = P.timesteps[index]
-        function_space = mesh_seq.function_spaces["uv_2d"][index]
-
-        # Specify constants
-        dtc = Constant(dt)
-        nu = Constant(0.0001)
-
-        # Set initial condition
-        u_ = Function(function_space, name="uv_2d_old")
-        u_.assign(ic["uv_2d"])
-
-        # Setup variational problem
-        v = TestFunction(function_space)
-        u = Function(function_space)
-        F = (
-            inner((u - u_) / dtc, v) * dx
-            + inner(dot(u, nabla_grad(u)), v) * dx
-            + nu * inner(grad(u), grad(v)) * dx
-        )
-
-        # Time integrate from t_start to t_end
         t = t_start
         while t < t_end - 1.0e-05:
-            solve(F == 0, u, ad_block_tag="uv_2d")
+            solve(F == 0, u, ad_block_tag="u")
             u_.assign(u)
             t += dt
-        return {"uv_2d": u}
+        return {"u": u}
 
     return solver
 
 
 # Pyroteus also requires a function for generating an initial
-# condition from a function space. ::
+# condition from the function space defined on the
+# :math:`0^{th}` mesh. ::
 
 
 def get_initial_condition(mesh_seq):
-    fs = mesh_seq.function_spaces["uv_2d"][0]
+    fs = mesh_seq.function_spaces["u"][0]
     x, y = SpatialCoordinate(mesh_seq[0])
-    return {"uv_2d": interpolate(as_vector([sin(pi * x), 0]), fs)}
+    return {"u": interpolate(as_vector([sin(pi * x), 0]), fs)}
 
 
 # Now that we have the above functions defined, we move onto the
@@ -133,16 +158,16 @@ P = TimePartition(
 # Finally, we are able to construct a :class:`MeshSeq` and
 # solve Burgers equation over the meshes in sequence. ::
 
-mesh_seq = MeshSeq(P, meshes, get_function_spaces, get_initial_condition, get_solver)
+mesh_seq = MeshSeq(
+    P, meshes, get_function_spaces, get_initial_condition, get_form, get_solver
+)
 solutions = mesh_seq.solve_forward()
 
 # Finally, we plot the solution at each exported timestep by
 # looping over ``solutions['forward']``. This can be achieved using
 # the plotting driver function ``plot_snapshots``.
 
-fig, axes = plot_snapshots(
-    solutions, P, "uv_2d", "forward", levels=np.linspace(0, 1, 9)
-)
+fig, axes = plot_snapshots(solutions, P, "u", "forward", levels=np.linspace(0, 1, 9))
 fig.savefig("burgers.jpg")
 
 # .. figure:: burgers.jpg
