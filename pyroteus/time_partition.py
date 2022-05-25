@@ -184,7 +184,7 @@ class TimeInterval(TimePartition):
             end_time = args[0]
         timestep = args[1]
         fields = args[2]
-        super(TimeInterval, self).__init__(end_time, 1, timestep, fields, **kwargs)
+        super().__init__(end_time, 1, timestep, fields, **kwargs)
 
     def __repr__(self):
         return str(self[0])

@@ -53,7 +53,7 @@ class FlowSolver2d(thetis.solver2d.FlowSolver2d):
         associated with its solvers.
         """
         self.update_tags()
-        super(FlowSolver2d, self).iterate(**kwargs)
+        super().iterate(**kwargs)
 
     def correct_counters(self, ts_data):
         """

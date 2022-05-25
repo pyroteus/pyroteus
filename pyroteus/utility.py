@@ -63,7 +63,7 @@ class File(firedrake.output.File):
 
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("adaptive", True)
-        super(File, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def _write_vtu(self, *functions):
         """
@@ -79,7 +79,7 @@ class File(firedrake.output.File):
             for name, f in zip(self._fnames, functions):
                 if f.name() != name:
                     f.rename(name)
-        return super(File, self)._write_vtu(*functions)
+        return super()._write_vtu(*functions)
 
 
 @PETSc.Log.EventDecorator("pyroteus.assemble_mass_matrix")
@@ -267,7 +267,7 @@ class AttrDict(dict):
     """
 
     def __init__(self, *args, **kwargs):
-        super(AttrDict, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.__dict__ = self
 
 
