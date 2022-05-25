@@ -28,7 +28,9 @@ class MeshSeq(object):
         initial_meshes,
         get_function_spaces,
         get_initial_condition,
+        get_form,
         get_solver,
+        get_bcs=None,
         warnings=True,
         **kwargs,
     ):
@@ -45,9 +47,15 @@ class MeshSeq(object):
         :arg get_initial_condition: a function, whose only
             argument is a :class:`MeshSeq`, which specifies
             initial conditions on the first mesh
+        :arg get_form: a function, whose only argument is a
+            :class:`MeshSeq`, which returns a function that
+            generates the PDE weak form
         :arg get_solver: a function, whose only argument is
             a :class:`MeshSeq`, which returns a function
             that integrates initial data over a subinterval
+        :kwarg get_bcs: a function, whose only argument is a
+            :class:`MeshSeq`, which returns a function that
+            determines any Dirichlet boundary conditions
         :kwarg warnings: print warnings?
         """
         self.time_partition = time_partition
@@ -62,8 +70,11 @@ class MeshSeq(object):
             self._get_function_spaces = get_function_spaces
         if get_initial_condition is not None:
             self._get_initial_condition = get_initial_condition
+        if get_form is not None:
+            self._get_form = get_form
         if get_solver is not None:
             self._get_solver = get_solver
+        self._get_bcs = get_bcs
         self.warn = warnings
         self._lagged_dep_idx = {}
         self.sections = [{} for mesh in self]
@@ -89,8 +100,14 @@ class MeshSeq(object):
     def get_initial_condition(self):
         return self._get_initial_condition(self)
 
+    def get_form(self):
+        return self._get_form(self)
+
     def get_solver(self):
         return self._get_solver(self)
+
+    def get_bcs(self):
+        return self._get_bcs(self)
 
     @property
     def _function_spaces_consistent(self):
@@ -136,8 +153,16 @@ class MeshSeq(object):
         return AttrDict(ic)
 
     @property
+    def form(self):
+        return self.get_form()
+
+    @property
     def solver(self):
         return self.get_solver()
+
+    @property
+    def bcs(self):
+        return self.get_bcs()
 
     @PETSc.Log.EventDecorator("pyroteus.MeshSeq.get_checkpoints")
     def get_checkpoints(self, solver_kwargs={}):

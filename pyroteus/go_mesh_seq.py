@@ -2,7 +2,8 @@
 Drivers for goal-oriented error estimation on sequences of meshes.
 """
 from .adjoint import AdjointMeshSeq
-from firedrake import FunctionSpace, MeshHierarchy
+from .error_estimation import get_dwr_indicator
+from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager, project
 from firedrake.petsc import PETSc
 
 
@@ -15,10 +16,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     goal-oriented problems.
     """
 
-    @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.global_enrichment")
-    def global_enrichment(
-        self, enrichment_method="p", num_enrichments_h=1, num_enrichments_p=1, **kwargs
-    ):
+    @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.get_enriched_mesh_seq")
+    def get_enriched_mesh_seq(self, enrichment_method="p", num_h_enrichments=1, num_p_enrichments=1):
         """
         Solve the forward and adjoint problems
         associated with :attr:`solver` in a
@@ -32,21 +31,17 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         The number of refinements in each direction
         may be controlled by the keyword arguments
-        ``num_enrichments_h`` and ``num_enrichments_p``.
-
-        Any additional keyword arguments are passed
-        to the :attr:`solve_adjoint` method of the
-        enriched :class:`AdjointMeshSeq`.
+        ``num_h_enrichments`` and ``num_p_enrichments``.
         """
         assert enrichment_method in ("h", "p", "hp")
-        assert num_enrichments_h >= 0
-        assert num_enrichments_p >= 0
-        assert num_enrichments_h > 0 or num_enrichments_p > 0
+        assert num_h_enrichments >= 0
+        assert num_p_enrichments >= 0
+        assert num_h_enrichments > 0 or num_p_enrichments > 0
 
         # Apply h-refinement
-        if "h" in enrichment_method and num_enrichments_h > 0:
+        if "h" in enrichment_method and num_h_enrichments > 0:
             meshes = [
-                MeshHierarchy(mesh, num_enrichments_h)[-1] for mesh in self.meshes
+                MeshHierarchy(mesh, num_h_enrichments)[-1] for mesh in self.meshes
             ]
         else:
             meshes = self.meshes
@@ -55,30 +50,130 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             """
             Apply p-refinement, if requested.
             """
-            if num_enrichments_p == 0:
+            if num_p_enrichments == 0:
                 return self._get_function_spaces(mesh)
             enriched_spaces = {}
             for label, fs in self.function_spaces.items():
                 element = fs[0].ufl_element()
                 if "p" in enrichment_method:
                     element = element.reconstruct(
-                        degree=element.degree() + num_enrichments_p
+                        degree=element.degree() + num_p_enrichments
                     )
                 enriched_spaces[label] = FunctionSpace(mesh, element)
             return enriched_spaces
 
-        # Solve adjoint in higher order space
-        adj_mesh_seq = AdjointMeshSeq(
+        # Construct enriched AdjointMeshSeq
+        return AdjointMeshSeq(
             self.time_partition,
             meshes,
             get_function_spaces,
             self._get_initial_condition,
+            self._get_form,
             self._get_solver,
             self._get_qoi,
             qoi_type=self.qoi_type,
             steady=self.steady,
         )
-        return adj_mesh_seq.solve_adjoint(**kwargs)
+
+    @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.global_enrichment")
+    def global_enrichment(self, enrichment_method="p", num_h_enrichments=1, num_p_enrichments=1, **kwargs):
+        """
+        Solve the forward and adjoint problems
+        associated with :attr:`solver` in a
+        sequence of globally enriched spaces.
+
+        Currently, global enrichment may be
+        achieved using one of:
+        * h-refinement (``enrichment_method = 'h'``);
+        * p-refinement (``enrichment_method = 'p'``);
+        * hp-refinement (``enrichment_method = 'hp'``).
+
+        The number of refinements in each direction
+        may be controlled by the keyword arguments
+        ``num_h_enrichments`` and ``num_p_enrichments``.
+
+        :kwarg kwargs: keyword arguments to pass to the
+            :attr:`solve_adjoint` method of the
+            enriched :class:`AdjointMeshSeq`.
+        """
+        mesh_seq = self.get_enriched_mesh_seq(
+            enrichment_method=enrichment_method,
+            num_h_enrichments=num_h_enrichments,
+            num_p_enrichments=num_p_enrichments,
+        )
+        return mesh_seq.solve_adjoint(**kwargs)
+
+    @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.indicate_errors")
+    def indicate_errors(self, enrichment_kwargs={}, adj_kwargs={}):
+        """
+        Compute goal-oriented error indicators for each
+        subinterval based on solving the adjoint problem
+        in a globally enriched space.
+
+        :kwarg enrichment_kwargs: keyword arguments to pass
+            to the global enrichment method
+        :kwarg adj_kwargs: keyword arguments to pass to the
+            adjoint solver
+        """
+        mesh_seq_e = self.get_enriched_mesh_seq(**enrichment_kwargs)
+        sols = self.solve_adjoint(**adj_kwargs)
+        sols_e = mesh_seq_e.solve_adjoint(**adj_kwargs)
+        tm = TransferManager()
+        indicators = []
+        for i, mesh in enumerate(self):
+            P0 = FunctionSpace(self[i], "DG", 0)
+            indicator = []
+
+            # Get Functions
+            u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
+            solutions = {}
+            enriched_spaces = {
+                f: mesh_seq_e.function_spaces[f][i]
+                for f in self.fields
+            }
+            mapping = {}
+            for f, fs_e in enriched_spaces.items():
+                u[f] = Function(fs_e)
+                u_[f] = Function(fs_e)
+                mapping[f] = (u[f], u_[f])
+                u_star[f] = Function(fs_e)
+                u_star_next[f] = Function(fs_e)
+                u_star_e[f] = Function(fs_e)
+                solutions[f] = [
+                    sols[f]["forward"][i],
+                    sols[f]["forward_old"][i],
+                    sols[f]["adjoint"][i],
+                    sols[f]["adjoint_next"][i],
+                    sols_e[f]["adjoint"][i],
+                    sols_e[f]["adjoint_next"][i],
+                ]
+
+            # Get form in enriched space
+            F = mesh_seq_e.form(i, mapping)
+
+            for j in range(len(sols[self.fields[0]]["forward"][i])):
+                for f in self.fields:
+
+                    # Update fields
+                    tm.prolong(sols[f]["forward"][i][j], u[f])
+                    tm.prolong(sols[f]["forward_old"][i][j], u_[f])
+                    tm.prolong(sols[f]["adjoint"][i][j], u_star[f])
+                    tm.prolong(sols[f]["adjoint_next"][i][j], u_star_next[f])
+
+                    # Combine adjoint solutions as appropriate
+                    u_star[f].assign(0.5 * (u_star[f] + u_star_next[f]))
+                    u_star_e[f].assign(0.5 * (sols_e[f]["adjoint"][i][j] + sols_e[f]["adjoint_next"][i][j]))
+                    u_star_e[f] -= u_star[f]
+
+                # Evaluate error indicator
+                indi_e = get_dwr_indicator(F, u_star_e, enriched_spaces)
+
+                # Project back to the base space
+                indi = project(indi_e, P0)
+                indi.interpolate(abs(indi))
+                indicator.append(indi)
+            indicators.append(indicator)
+        return sols, indicators
 
     @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.fixed_point_iteration")
     def fixed_point_iteration(self, **kwargs):

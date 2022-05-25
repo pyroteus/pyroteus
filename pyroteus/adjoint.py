@@ -30,6 +30,7 @@ class AdjointMeshSeq(MeshSeq):
         initial_meshes,
         get_function_spaces,
         get_initial_condition,
+        get_form,
         get_solver,
         get_qoi,
         **kwargs,
@@ -49,6 +50,7 @@ class AdjointMeshSeq(MeshSeq):
             initial_meshes,
             get_function_spaces,
             get_initial_condition,
+            get_form,
             get_solver,
             **kwargs,
         )
@@ -401,6 +403,9 @@ def solve_adjoint(*args, **kwargs):
     :arg get_initial_condition: a function, whose only
         argument is a :class:`MeshSeq`, which specifies
         initial conditions on the first mesh
+    :arg get_form: a function, whose only argument is a
+        :class:`MeshSeq`, which returns a function that
+        generates the PDE weak form
     :arg get_solver: a function, whose only argument is
         a :class:`MeshSeq`, which returns a function
         that integrates initial data over a subinterval
@@ -410,6 +415,9 @@ def solve_adjoint(*args, **kwargs):
         corresponding to either an end time or time
         integrated quantity of interest, respectively,
         as well as an index for the :class:`MeshSeq`
+    :kwarg get_bcs: a function, whose only argument is a
+        :class:`MeshSeq`, which returns a function that
+        determines any Dirichlet boundary conditions
     :kwarg warnings: print warnings?
     :kwarg solver_kwargs: a dictionary providing parameters
         to the solver. Any keyword arguments for the QoI
@@ -423,7 +431,7 @@ def solve_adjoint(*args, **kwargs):
     :return solution: an :class:`AttrDict` containing
         solution fields and their lagged versions.
     """
-    assert len(args) == 6
+    assert len(args) == 7
     solve_adjoint_kwargs = dict(
         solver_kwargs=kwargs.pop("solver_kwargs", {}),
         get_adj_values=kwargs.pop("get_adj_values", False),

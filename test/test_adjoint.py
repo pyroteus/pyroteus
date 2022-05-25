@@ -115,8 +115,10 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         test_case.mesh,
         test_case.get_function_spaces,
         test_case.get_initial_condition,
+        test_case.get_form,
         test_case.get_solver,
         test_case.get_qoi,
+        get_bcs=test_case.get_bcs,
         qoi_type=qoi_type,
         steady=steady,
     )
@@ -166,8 +168,10 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
             test_case.mesh,
             test_case.get_function_spaces,
             test_case.get_initial_condition,
+            test_case.get_form,
             test_case.get_solver,
             test_case.get_qoi,
+            get_bcs=test_case.get_bcs,
             qoi_type=qoi_type,
         )
         solutions = mesh_seq.solve_adjoint(
@@ -238,8 +242,10 @@ def plot_solutions(problem, qoi_type, debug=True):
         test_case.mesh,
         test_case.get_function_spaces,
         test_case.get_initial_condition,
+        test_case.get_form,
         test_case.get_solver,
         test_case.get_qoi,
+        get_bcs=test_case.get_bcs,
         qoi_type=qoi_type,
         steady=steady,
     ).solve_adjoint(get_adj_values=not steady, test_checkpoint_qoi=True)

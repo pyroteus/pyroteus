@@ -129,9 +129,7 @@ def pytest_runtest_teardown(item, nextitem):
     Clear caches after running a test
     """
     from firedrake.tsfc_interface import TSFCKernel
-    from pyop2.op2 import Kernel
-    from pyop2.parloop import JITModule
+    from pyop2.global_kernel import GlobalKernel
 
-    Kernel._cache.clear()
     TSFCKernel._cache.clear()
-    JITModule._cache.clear()
+    GlobalKernel._cache.clear()

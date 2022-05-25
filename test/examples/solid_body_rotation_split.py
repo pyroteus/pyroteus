@@ -62,7 +62,7 @@ def get_initial_condition(self, coordinates=None):
         "slot_cyl_2d": slot_cyl_initial_condition,
     }
     return {
-        field: interpolate(1.0 + init[field](x, y, fs[field][0]), fs[field][0])
+        field: interpolate(init[field](x, y, fs[field][0]), fs[field][0])
         for field in fs
     }
 
