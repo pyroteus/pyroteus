@@ -147,7 +147,7 @@ dt = 1 / n
 # subintervals. ::
 
 num_subintervals = 2
-P = TimePartition(
+time_partition = TimePartition(
     end_time,
     num_subintervals,
     dt,
@@ -159,7 +159,12 @@ P = TimePartition(
 # solve Burgers equation over the meshes in sequence. ::
 
 mesh_seq = MeshSeq(
-    P, meshes, get_function_spaces, get_initial_condition, get_form, get_solver
+    time_partition,
+    meshes,
+    get_function_spaces=get_function_spaces,
+    get_initial_condition=get_initial_condition,
+    get_form=get_form,
+    get_solver=get_solver,
 )
 solutions = mesh_seq.solve_forward()
 
@@ -167,7 +172,9 @@ solutions = mesh_seq.solve_forward()
 # looping over ``solutions['forward']``. This can be achieved using
 # the plotting driver function ``plot_snapshots``.
 
-fig, axes = plot_snapshots(solutions, P, "u", "forward", levels=np.linspace(0, 1, 9))
+fig, axes = plot_snapshots(
+    solutions, time_partition, "u", "forward", levels=np.linspace(0, 1, 9)
+)
 fig.savefig("burgers.jpg")
 
 # .. figure:: burgers.jpg
