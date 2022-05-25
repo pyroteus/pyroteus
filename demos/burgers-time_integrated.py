@@ -111,4 +111,8 @@ fig.savefig("burgers-time_integrated.jpg")
 # has a source term at the right hand boundary, rather
 # than a instantaneous pulse at the terminal time.
 #
+# In the `next demo <./burgers-oo.py.html>`__, we solve
+# the Burgers problem one last time, but using an
+# object-oriented approach.
+#
 # This demo can also be accessed as a `Python script <burgers-time_integrated.py>`__.
