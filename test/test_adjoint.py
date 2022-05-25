@@ -54,7 +54,6 @@ all_problems = [
     "solid_body_rotation",
     "solid_body_rotation_split",
     "rossby_wave",
-    "migrating_trench",
 ]
 
 
@@ -113,11 +112,11 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     mesh_seq = AdjointMeshSeq(
         time_partition,
         test_case.mesh,
-        test_case.get_function_spaces,
-        test_case.get_initial_condition,
-        test_case.get_form,
-        test_case.get_solver,
-        test_case.get_qoi,
+        get_function_spaces=test_case.get_function_spaces,
+        get_initial_condition=test_case.get_initial_condition,
+        get_form=test_case.get_form,
+        get_solver=test_case.get_solver,
+        get_qoi=test_case.get_qoi,
         get_bcs=test_case.get_bcs,
         qoi_type=qoi_type,
         steady=steady,
@@ -128,8 +127,8 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     ic = mesh_seq.initial_condition
     controls = [pyadjoint.Control(value) for key, value in ic.items()]
     sols = mesh_seq.solver(0, ic)
-    qoi = mesh_seq.get_qoi(0)
-    J = mesh_seq.J if qoi_type == "time_integrated" else qoi(sols)
+    qoi = mesh_seq.get_qoi(sols, 0)
+    J = mesh_seq.J if qoi_type == "time_integrated" else qoi()
     m = pyadjoint.enlisting.Enlist(controls)
     tape = pyadjoint.get_working_tape()
     with pyadjoint.stop_annotating():
@@ -166,11 +165,11 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         mesh_seq = AdjointMeshSeq(
             time_partition,
             test_case.mesh,
-            test_case.get_function_spaces,
-            test_case.get_initial_condition,
-            test_case.get_form,
-            test_case.get_solver,
-            test_case.get_qoi,
+            get_function_spaces=test_case.get_function_spaces,
+            get_initial_condition=test_case.get_initial_condition,
+            get_form=test_case.get_form,
+            get_solver=test_case.get_solver,
+            get_qoi=test_case.get_qoi,
             get_bcs=test_case.get_bcs,
             qoi_type=qoi_type,
         )
@@ -240,11 +239,11 @@ def plot_solutions(problem, qoi_type, debug=True):
     solutions = AdjointMeshSeq(
         time_partition,
         test_case.mesh,
-        test_case.get_function_spaces,
-        test_case.get_initial_condition,
-        test_case.get_form,
-        test_case.get_solver,
-        test_case.get_qoi,
+        get_function_spaces=test_case.get_function_spaces,
+        get_initial_condition=test_case.get_initial_condition,
+        get_form=test_case.get_form,
+        get_solver=test_case.get_solver,
+        get_qoi=test_case.get_qoi,
         get_bcs=test_case.get_bcs,
         qoi_type=qoi_type,
         steady=steady,

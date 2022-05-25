@@ -65,6 +65,7 @@ def get_form(self):
     Advection-diffusion with SUPG
     stabilisation.
     """
+
     def form(i, sols):
         c, c_ = sols["tracer_3d"]
         fs = self.function_spaces["tracer_3d"][i]
@@ -87,6 +88,7 @@ def get_form(self):
             - inner(D * grad(c), grad(psi)) * dx
         )
         return F
+
     return form
 
 
@@ -95,9 +97,11 @@ def get_bcs(self):
     Zero Dirichlet condition on the
     left-hand (inlet) boundary.
     """
+
     def bcs(i):
         fs = self.function_spaces["tracer_3d"][i]
         return DirichletBC(fs, 0, 1)
+
     return bcs
 
 
@@ -141,14 +145,14 @@ def get_initial_condition(self):
     return {"tracer_3d": Function(self.function_spaces["tracer_3d"][0])}
 
 
-def get_qoi(self, i):
+def get_qoi(self, sol, i):
     """
     Quantity of interest which integrates
     the tracer concentration over an offset
     receiver region.
     """
 
-    def steady_qoi(sol):
+    def steady_qoi():
         c = sol["tracer_3d"]
         x, y, z = SpatialCoordinate(self[i])
         kernel = conditional(

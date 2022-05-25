@@ -45,6 +45,7 @@ def get_form(self):
     using Crank-Nicolson with implicitness
     one half.
     """
+
     def form(i, sols):
         q, q_ = sols["tracer_2d"]
         dt = self.time_partition[i].timestep
@@ -57,15 +58,10 @@ def get_form(self):
         theta = Constant(0.5)
         psi = TrialFunction(V)
         phi = TestFunction(V)
-        a = (
-            psi * phi * dx
-            + dtc * theta * dot(u, grad(psi)) * phi * dx
-        )
-        L = (
-            q_ * phi * dx
-            - dtc * (1 - theta) * dot(u, grad(q_)) * phi * dx
-        )
+        a = psi * phi * dx + dtc * theta * dot(u, grad(psi)) * phi * dx
+        L = q_ * phi * dx - dtc * (1 - theta) * dot(u, grad(q_)) * phi * dx
         return a, L
+
     return form
 
 
@@ -73,11 +69,12 @@ def get_bcs(self):
     """
     Zero Dirichlet condition on all boundaries.
     """
+
     def bcs(i):
         return [
-            DirichletBC(fs[i], 0, "on_boundary")
-            for fs in self.function_spaces.values()
+            DirichletBC(fs[i], 0, "on_boundary") for fs in self.function_spaces.values()
         ]
+
     return bcs
 
 
@@ -91,9 +88,10 @@ def get_solver(self):
         t_start, t_end = self.time_partition[i].subinterval
         dt = self.time_partition[i].timestep
         V = ic[field].function_space()
+        q = Function(V, name=field)
+        solutions = {field: q}
 
         # Set initial condition
-        q = Function(V, name=field)
         q_ = Function(V, name=field + "_old")
         q_.assign(ic[field])
 
@@ -114,12 +112,11 @@ def get_solver(self):
 
         # Time integrate from t_start to t_end
         t = t_start
-        qoi = self.get_qoi(i)
-        solutions = {field: q}
+        qoi = self.get_qoi(solutions, i)
         while t < t_end - 0.5 * dt:
             solver.solve()
             if self.qoi_type == "time_integrated":
-                self.J += qoi(solutions, t)
+                self.J += qoi(t)
             q_.assign(q)
             t += dt
         return solutions
@@ -168,7 +165,7 @@ def get_initial_condition(self, coordinates=None):
     return {"tracer_2d": interpolate(bell + cone + slot_cyl, init_fs)}
 
 
-def get_qoi(self, i, exact=get_initial_condition, linear=True):
+def get_qoi(self, sol, i, exact=get_initial_condition, linear=True):
     """
     Quantity of interest which
     computes square L2 error of the
@@ -177,37 +174,39 @@ def get_qoi(self, i, exact=get_initial_condition, linear=True):
     """
     dtc = Constant(self.time_partition[i].timestep)
 
-    def time_integrated_qoi(sol, t):
-        assert len(list(sol.keys())) == 1
-        field = list(sol.keys())[0]
-        q = sol[field]
-        V = q.function_space()
-        mesh = V.mesh()
-        x = SpatialCoordinate(mesh)
-        W = VectorFunctionSpace(mesh, "CG", 1)
-        angle = -2 * pi * t / full_rotation
-        X = interpolate(rotate(x, angle), W)
-        q_exact = exact(self, X)
-        r0 = 0.15
-        if field in ("tracer_2d", "slot_cyl_2d"):
-            x0, y0 = 0.0, 0.25
-        elif field == "bell_2d":
-            x0, y0 = -0.25, 0.0
-        elif field == "cone_2d":
-            x0, y0 = 0.0, -0.25
-        else:
-            raise ValueError(f"Tracer field {field} not recognised")
-        x0, y0 = interpolate(rotate(as_vector([x0, y0]), angle), W)
-        ball = conditional((x[0] - x0) ** 2 + (x[1] - y0) ** 2 < r0**2, 1.0, 0.0)
-        if linear:
-            return wq * dtc * ball * q * dx
-        else:
-            return wq * dtc * ball * (q - q_exact[field]) ** 2 * dx
+    def get_sub_qoi(field):
+        def qoi(t):
+            q = sol[field]
+            V = q.function_space()
+            mesh = V.mesh()
+            x = SpatialCoordinate(mesh)
+            W = VectorFunctionSpace(mesh, "CG", 1)
+            angle = -2 * pi * t / full_rotation
+            X = interpolate(rotate(x, angle), W)
+            q_exact = exact(self, X)
+            r0 = 0.15
+            if field in ("tracer_2d", "slot_cyl_2d"):
+                x0, y0 = 0.0, 0.25
+            elif field == "bell_2d":
+                x0, y0 = -0.25, 0.0
+            elif field == "cone_2d":
+                x0, y0 = 0.0, -0.25
+            else:
+                raise ValueError(f"Tracer field {field} not recognised")
+            x0, y0 = interpolate(rotate(as_vector([x0, y0]), angle), W)
+            ball = conditional((x[0] - x0) ** 2 + (x[1] - y0) ** 2 < r0**2, 1.0, 0.0)
+            if linear:
+                return wq * dtc * ball * q * dx
+            else:
+                return wq * dtc * ball * (q - q_exact[field]) ** 2 * dx
 
-    def end_time_qoi(sol):
-        return sum(
-            time_integrated_qoi({key: value}, end_time) for key, value in sol.items()
-        )
+        return qoi
+
+    def time_integrated_qoi(t):
+        return sum(get_sub_qoi(key)(t) for key in sol)
+
+    def end_time_qoi():
+        return time_integrated_qoi(end_time)
 
     if self.qoi_type == "end_time":
         dtc.assign(1.0)

@@ -34,6 +34,7 @@ def get_form(self):
     """
     Burgers equation weak form.
     """
+
     def form(i, sols):
         u, u_ = sols["uv_2d"]
         dt = self.time_partition[i].timestep
@@ -47,6 +48,7 @@ def get_form(self):
             + nu * inner(grad(u), grad(v)) * dx
         )
         return F
+
     return form
 
 
@@ -61,25 +63,26 @@ def get_solver(self):
         t_start, t_end = self.time_partition[i].subinterval
         dt = self.time_partition[i].timestep
         fs = self.function_spaces["uv_2d"][i]
+        u = Function(fs, name="uv_2d")
+        solution_map = {"uv_2d": u}
 
         # Set initial condition
         u_ = Function(fs, name="uv_2d_old")
         u_.assign(ic["uv_2d"])
 
         # Setup variational problem
-        u = Function(fs, name="uv_2d")
         F = self.form(i, {"uv_2d": (u, u_)})
 
         # Time integrate from t_start to t_end
         t = t_start
-        qoi = self.get_qoi(i)
+        qoi = self.get_qoi(solution_map, i)
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="uv_2d")
             if self.qoi_type == "time_integrated":
-                self.J += qoi({"uv_2d": u}, t)
+                self.J += qoi(t)
             u_.assign(u)
             t += dt
-        return {"uv_2d": u}
+        return solution_map
 
     return solver
 
@@ -94,7 +97,7 @@ def get_initial_condition(self):
     return {"uv_2d": interpolate(as_vector([sin(pi * x), 0]), init_fs)}
 
 
-def get_qoi(self, i):
+def get_qoi(self, sol, i):
     """
     Quantity of interest which
     computes the square L2
@@ -103,12 +106,12 @@ def get_qoi(self, i):
     """
     dtc = Constant(self.time_partition[i].timestep)
 
-    def time_integrated_qoi(sol, t):
+    def time_integrated_qoi(t):
         u = sol["uv_2d"]
         return dtc * inner(u, u) * ds(2)
 
-    def end_time_qoi(sol):
-        return time_integrated_qoi(sol, end_time)
+    def end_time_qoi():
+        return time_integrated_qoi(end_time)
 
     if self.qoi_type == "end_time":
         dtc.assign(1.0)

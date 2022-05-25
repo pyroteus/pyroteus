@@ -39,8 +39,8 @@ from burgers import (
 # hand boundary. ::
 
 
-def get_qoi(mesh_seq, i):
-    def end_time_qoi(solutions):
+def get_qoi(mesh_seq, solutions, i):
+    def end_time_qoi():
         u = solutions["u"]
         return inner(u, u) * ds(2)
 
@@ -60,7 +60,7 @@ dt = 1 / n
 # single mesh, so the partition is trivial and we can use the
 # :class:`TimeInterval` constructor. ::
 
-P = TimeInterval(end_time, dt, fields, timesteps_per_export=2)
+time_partition = TimeInterval(end_time, dt, fields, timesteps_per_export=2)
 
 # Finally, we are able to construct an :class:`AdjointMeshSeq` and
 # thereby call its :attr:`solve_adjoint` method. This computes the QoI
@@ -73,13 +73,13 @@ P = TimeInterval(end_time, dt, fields, timesteps_per_export=2)
 # the adjoint solution at the next timestep, respectively. ::
 
 mesh_seq = AdjointMeshSeq(
-    P,
+    time_partition,
     mesh,
-    get_function_spaces,
-    get_initial_condition,
-    get_form,
-    get_solver,
-    get_qoi,
+    get_function_spaces=get_function_spaces,
+    get_initial_condition=get_initial_condition,
+    get_form=get_form,
+    get_solver=get_solver,
+    get_qoi=get_qoi,
     qoi_type="end_time",
 )
 solutions = mesh_seq.solve_adjoint()
@@ -88,7 +88,9 @@ solutions = mesh_seq.solve_adjoint()
 # looping over ``solutions['adjoint']``. This can also be achieved using
 # the plotting driver function ``plot_snapshots``.
 
-fig, axes = plot_snapshots(solutions, P, "u", "adjoint", levels=np.linspace(0, 0.8, 9))
+fig, axes = plot_snapshots(
+    solutions, time_partition, "u", "adjoint", levels=np.linspace(0, 0.8, 9)
+)
 fig.savefig("burgers1-end_time.jpg")
 
 # .. figure:: burgers1-end_time.jpg

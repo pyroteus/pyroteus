@@ -12,6 +12,7 @@ pyroteus.egg-info/
 docs/source/pyroteus.rst
 
 # File extensions
+*.ipynb*
 *.jpg
 *.msh
 *.pdf

@@ -26,6 +26,7 @@ def get_solver(mesh_seq):
     def solver(index, ic):
         function_space = mesh_seq.function_spaces["u"][index]
         u = Function(function_space, name="u")
+        solution_map = {"u": u}
 
         # Initialise 'lagged' solution
         u_ = Function(function_space, name="u_old")
@@ -38,13 +39,13 @@ def get_solver(mesh_seq):
         t_start, t_end = mesh_seq.subintervals[index]
         dt = mesh_seq.time_partition.timesteps[index]
         t = t_start
-        qoi = mesh_seq.get_qoi(index)
+        qoi = mesh_seq.get_qoi(solution_map, index)
         while t < t_end - 1.0e-05:
             solve(F == 0, u, ad_block_tag="u")
-            mesh_seq.J += qoi({"u": u}, t)
+            mesh_seq.J += qoi(t)
             u_.assign(u)
             t += dt
-        return {"u": u}
+        return solution_map
 
     return solver
 
@@ -62,11 +63,11 @@ def get_solver(mesh_seq):
 # recompilation if the value is changed. ::
 
 
-def get_qoi(mesh_seq, i):
+def get_qoi(mesh_seq, solutions, i):
     dtc = Constant(mesh_seq.time_partition[i].timestep)
 
-    def time_integrated_qoi(sol, t):
-        u = sol["u"]
+    def time_integrated_qoi(t):
+        u = solutions["u"]
         return dtc * inner(u, u) * ds(2)
 
     return time_integrated_qoi
@@ -82,22 +83,24 @@ end_time = 0.5
 dt = 1 / n
 
 num_subintervals = 2
-P = TimePartition(end_time, num_subintervals, dt, fields, timesteps_per_export=2)
+time_partition = TimePartition(
+    end_time, num_subintervals, dt, fields, timesteps_per_export=2
+)
 mesh_seq = AdjointMeshSeq(
-    P,
+    time_partition,
     meshes,
-    get_function_spaces,
-    get_initial_condition,
-    get_form,
-    get_solver,
-    get_qoi,
+    get_function_spaces=get_function_spaces,
+    get_initial_condition=get_initial_condition,
+    get_form=get_form,
+    get_solver=get_solver,
+    get_qoi=get_qoi,
     qoi_type="time_integrated",
 )
 solutions = mesh_seq.solve_adjoint()
 
 # Finally, plot snapshots of the adjoint solution. ::
 
-fig, axes = plot_snapshots(solutions, P, "u", "adjoint")
+fig, axes = plot_snapshots(solutions, time_partition, "u", "adjoint")
 fig.savefig("burgers-time_integrated.jpg")
 
 # .. figure:: burgers-time_integrated.jpg
@@ -107,5 +110,9 @@ fig.savefig("burgers-time_integrated.jpg")
 # With a time-integrated QoI, the adjoint problem
 # has a source term at the right hand boundary, rather
 # than a instantaneous pulse at the terminal time.
+#
+# In the `next demo <./burgers-oo.py.html>`__, we solve
+# the Burgers problem one last time, but using an
+# object-oriented approach.
 #
 # This demo can also be accessed as a `Python script <burgers-time_integrated.py>`__.

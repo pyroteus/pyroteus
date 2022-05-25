@@ -36,24 +36,26 @@ dt = 1 / n
 # associated with the two function spaces. ::
 
 num_subintervals = 2
-P = TimePartition(
+time_partition = TimePartition(
     end_time, num_subintervals, dt, fields, timesteps_per_export=2, debug=True
 )
 mesh_seq = AdjointMeshSeq(
-    P,
+    time_partition,
     meshes,
-    get_function_spaces,
-    get_initial_condition,
-    get_form,
-    get_solver,
-    get_qoi,
+    get_function_spaces=get_function_spaces,
+    get_initial_condition=get_initial_condition,
+    get_form=get_form,
+    get_solver=get_solver,
+    get_qoi=get_qoi,
     qoi_type="end_time",
 )
 solutions = mesh_seq.solve_adjoint()
 
 # Finally, plot snapshots of the adjoint solution. ::
 
-fig, axes = plot_snapshots(solutions, P, "u", "adjoint", levels=np.linspace(0, 0.8, 9))
+fig, axes = plot_snapshots(
+    solutions, time_partition, "u", "adjoint", levels=np.linspace(0, 0.8, 9)
+)
 fig.savefig("burgers2-end_time.jpg")
 
 # .. figure:: burgers2-end_time.jpg

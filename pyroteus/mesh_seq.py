@@ -26,10 +26,10 @@ class MeshSeq(object):
         self,
         time_partition,
         initial_meshes,
-        get_function_spaces,
-        get_initial_condition,
-        get_form,
-        get_solver,
+        get_function_spaces=None,
+        get_initial_condition=None,
+        get_form=None,
+        get_solver=None,
         get_bcs=None,
         warnings=True,
         **kwargs,
@@ -40,17 +40,17 @@ class MeshSeq(object):
         :arg initial_meshes: list of meshes corresponding to
             the subintervals of the :class:`TimePartition`,
             or a single mesh to use for all subintervals
-        :arg get_function_spaces: a function, whose only
+        :kwarg get_function_spaces: a function, whose only
             argument is a :class:`MeshSeq`, which constructs
             prognostic :class:`FunctionSpace` s for each
             subinterval
-        :arg get_initial_condition: a function, whose only
+        :kwarg get_initial_condition: a function, whose only
             argument is a :class:`MeshSeq`, which specifies
             initial conditions on the first mesh
-        :arg get_form: a function, whose only argument is a
+        :kwarg get_form: a function, whose only argument is a
             :class:`MeshSeq`, which returns a function that
             generates the PDE weak form
-        :arg get_solver: a function, whose only argument is
+        :kwarg get_solver: a function, whose only argument is
             a :class:`MeshSeq`, which returns a function
             that integrates initial data over a subinterval
         :kwarg get_bcs: a function, whose only argument is a
@@ -66,14 +66,10 @@ class MeshSeq(object):
         if not isinstance(self.meshes, Iterable):
             self.meshes = [Mesh(initial_meshes) for subinterval in self.subintervals]
         self._fs = None
-        if get_function_spaces is not None:
-            self._get_function_spaces = get_function_spaces
-        if get_initial_condition is not None:
-            self._get_initial_condition = get_initial_condition
-        if get_form is not None:
-            self._get_form = get_form
-        if get_solver is not None:
-            self._get_solver = get_solver
+        self._get_function_spaces = get_function_spaces
+        self._get_initial_condition = get_initial_condition
+        self._get_form = get_form
+        self._get_solver = get_solver
         self._get_bcs = get_bcs
         self.warn = warnings
         self._lagged_dep_idx = {}
@@ -95,18 +91,28 @@ class MeshSeq(object):
         self.meshes[i] = mesh
 
     def get_function_spaces(self, mesh):
+        if self._get_function_spaces is None:
+            raise NotImplementedError("get_function_spaces needs implementing")
         return self._get_function_spaces(mesh)
 
     def get_initial_condition(self):
+        if self._get_initial_condition is None:
+            raise NotImplementedError("get_initial_condition needs implementing")
         return self._get_initial_condition(self)
 
     def get_form(self):
+        if self._get_form is None:
+            raise NotImplementedError("get_form needs implementing")
         return self._get_form(self)
 
     def get_solver(self):
+        if self._get_solver is None:
+            raise NotImplementedError("get_solver needs implementing")
         return self._get_solver(self)
 
     def get_bcs(self):
+        if self._get_bcs is None:
+            raise NotImplementedError("get_bcs needs implementing")
         return self._get_bcs(self)
 
     @property
