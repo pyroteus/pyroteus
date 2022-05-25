@@ -54,7 +54,6 @@ all_problems = [
     "solid_body_rotation",
     "solid_body_rotation_split",
     "rossby_wave",
-    "migrating_trench",
 ]
 
 
