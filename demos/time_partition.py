@@ -8,28 +8,45 @@
 # Suppose we have a time interval
 #
 # .. math::
-#    \mathcal T := (0, T],
+#    \mathcal T := (t_{\mathrm{start}}, t_{\mathrm{end}}],
 #
-# for some simulation end time :math:`T > 0`.
+# for simulation start and end times
+# :math:`0 \leq t_{\mathrm{start}} < t_{\mathrm{end}}`.
 # One of the fundamental objects in
 # Pyroteus is the :class:`TimePartition`,
 # which subdivides :math:`\mathcal T` into
-# subintervals.
+# :math:`n\in\mathbb N` subintervals,
 #
-# We always begin by importing Firedrake
-# and Pyroteus. ::
+# .. math::
+#    \mathcal T = \cap_{k=1}^n (t^{(k-1)}, t^{(k)}],
+#
+# where :math:`t^{(0)}=t_{\mathrm{start}}`
+# and :math:`t^{(n)}=t_{\mathrm{end}}`. In
+# a time-dependent mesh adaptive simulation,
+# each subinterval will be associated with a
+# single mesh.
+#
+# We begin by importing Pyroteus. ::
 
-from firedrake import *
 from pyroteus import *
 
 # To create a :class:`TimePartition`, we
 # need at least four ingredients:
+#
 # * the end time;
 # * the number of subintervals;
 # * the timestep on each subinterval;
 # * a list of field names for the solution components.
+#
+# If the start time is not set then it is
+# assumed to be zero.
+#
 # The simplest possible partition is to
-# consider a single subinterval. ::
+# consider a single subinterval. Suppose
+# the interval is :math:`(0,1]`, the timestep
+# is :math:`\Delta t=\frac18` and the field
+# name is `"solution"`. This is written in
+# code as ::
 
 end_time = 1.0
 num_subintervals = 1
@@ -37,7 +54,7 @@ dt = 0.125
 fields = ["solution"]
 
 # With these definitions, we should get
-# a subinterval of :math:`(0,1]` containing
+# one subinterval of :math:`(0,1]` containing
 # eight timesteps. When constructing a
 # :class:`TimePartition` (or any other object),
 # it is often useful to use Pyroteus' debugging
@@ -84,8 +101,8 @@ P = TimePartition(end_time, num_subintervals, dt, fields, timesteps_per_export=[
 
 # So far, we have assumed that the subintervals
 # are of uniform length. This need not be the case.
-# However, to set up a :class:`TimePartition` with
-# non-uniform subintervals, they need to be passed
+# To set up a :class:`TimePartition` with non-uniform
+# subintervals, the subintervals need to be passed
 # to the constructor as a list of tuples. ::
 
 subintervals = [(0.0, 0.75), (0.75, 1.0)]
@@ -98,8 +115,7 @@ P = TimePartition(
     subintervals=subintervals,
 )
 
-#
-# In the `next demo <./burgers.py.html>`__, we
+# In the `next demo <./mesh_seq.py.html>`__, we
 # learn how to build a :class:`MeshSeq` object
 # on top of a partitioned time interval, so that
 # we can solve PDEs on multiple meshes.

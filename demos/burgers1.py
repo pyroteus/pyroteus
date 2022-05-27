@@ -2,20 +2,20 @@
 # ===========================
 #
 # This demo solves the same problem as `the previous one
-# <./burgers.py.html>`__, but also making use of
-# dolfin-adjoint's automatic differentiation functionality
-# in order to automatically form and solve discrete adjoint
-# problems.
+# <./burgers.py.html>`__, but making use of `dolfin-adjoint's
+# automatic differentiation functionality in order to
+# automatically form and solve discrete adjoint problems.
 #
 # We always begin by importing Pyroteus. Adjoint mode is used
-# so that we have access to the discrete adjoint functionality
-# due to `dolfin-adjoint`. ::
+# so that we have access to the :class:`AdjointMeshSeq` class.
+# ::
 
 from firedrake import *
 from pyroteus_adjoint import *
 
-# The solver, initial condition and function spaces may be
-# imported from the previous demo. ::
+# For ease, the field list and functions for obtaining the
+# function spaces, forms, solvers, and initial conditions
+# are imported from the previous demo. ::
 
 from burgers import (
     fields,
@@ -31,8 +31,8 @@ from burgers import (
 # we choose the QoI
 #
 # .. math::
-#    J(u) = \int_0^1 \mathbf u(1,y,T_{\mathrm{end}})
-#    \cdot \mathbf u(1,y,T_{\mathrm{end}})\;\mathrm dy,
+#    J(u) = \int_0^1 \mathbf u(1,y,t_{\mathrm{end}})
+#    \cdot \mathbf u(1,y,t_{\mathrm{end}})\;\mathrm dy,
 #
 # which integrates the square of the solution
 # :math:`\mathbf u(x,y,t)` at the final time over the right
@@ -63,14 +63,9 @@ dt = 1 / n
 time_partition = TimeInterval(end_time, dt, fields, timesteps_per_export=2)
 
 # Finally, we are able to construct an :class:`AdjointMeshSeq` and
-# thereby call its :attr:`solve_adjoint` method. This computes the QoI
+# thereby call its :meth:`solve_adjoint` method. This computes the QoI
 # value and returns a dictionary of solutions for the forward and adjoint
-# problems. The solution dictionary has keys ``'forward'``, ``'forward_old'``,
-# ``'adjoint'`` and ``'adjoint_next'`` and arrays as values. When passed
-# an index corresponding to a particular exported timestep, the array
-# entries correspond to the current forward solution, the forward
-# solution at the previous timestep, the current adjoint solution and
-# the adjoint solution at the next timestep, respectively. ::
+# problems. ::
 
 mesh_seq = AdjointMeshSeq(
     time_partition,
@@ -84,6 +79,17 @@ mesh_seq = AdjointMeshSeq(
 )
 solutions = mesh_seq.solve_adjoint()
 
+# The solution dictionary is similar to :meth:`solve_forward`,
+# except there are keys ``"adjoint"`` and ``"adjoint_next"``, in addition
+# to ``"forward"``, ``"forward_old"``. For a given subinterval ``i`` and
+# timestep index ``j``, ``solutions["adjoint"]["u"][i][j]`` contains
+# the adjoint solution associated with field ``"u"`` at that timestep,
+# whilst ``solutions["adjoint_next"]["u"][i][j]`` contains the adjoint
+# solution from the *next* timestep (with the arrow of time going forwards,
+# as usual). Adjoint equations are solved backwards in time, so this is
+# effectively the "lagged" adjoint solution, in the same way that
+# ``"forward_old"`` corresponds to the "lagged" forward solution.
+#
 # Finally, we plot the adjoint solution at each exported timestep by
 # looping over ``solutions['adjoint']``. This can also be achieved using
 # the plotting driver function ``plot_snapshots``.
@@ -97,11 +103,10 @@ fig.savefig("burgers1-end_time.jpg")
 #    :figwidth: 50%
 #    :align: center
 #
-# Where the arrow of time progresses forwards for Burgers equation,
-# it reverses for its adjoint. As such, the plots should be read from
-# bottom to top. The QoI acts as an impulse at the final time, which
-# propagates in the opposite direction than information flows in the
-# forward problem.
+# Since the arrow of time reverses for the adjoint problem, the plots
+# should be read from bottom to top. The QoI acts as an impulse at the
+# final time, which propagates in the opposite direction than information
+# flows in the forward problem.
 #
 # In the `next demo <./burgers2.py.html>`__, we solve the same problem
 # on two subintervals and check that the results match.
