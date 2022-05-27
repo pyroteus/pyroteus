@@ -5,6 +5,7 @@ Code mostly copied from [the Thetis project](https://thetisproject.org).
 """
 import firedrake
 import logging
+from logging import DEBUG, WARNING, ERROR
 
 
 __all__ = [
@@ -17,6 +18,9 @@ __all__ = [
     "critical",
     "pyrint",
     "set_log_level",
+    "DEBUG",
+    "WARNING",
+    "ERROR",
 ]
 
 
