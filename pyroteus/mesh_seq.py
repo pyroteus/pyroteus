@@ -4,7 +4,8 @@ Sequences of meshes corresponding to a :class:`TimePartition`.
 import firedrake
 from firedrake.petsc import PETSc
 from .interpolation import project
-from .log import debug, warning
+from .log import debug, warning, logger, DEBUG
+from .quality import get_aspect_ratios2d, get_aspect_ratios3d
 from .utility import AttrDict, Mesh
 from collections import OrderedDict
 from collections.abc import Iterable
@@ -65,6 +66,21 @@ class MeshSeq(object):
         self.meshes = initial_meshes
         if not isinstance(self.meshes, Iterable):
             self.meshes = [Mesh(initial_meshes) for subinterval in self.subintervals]
+        dim = np.array([mesh.topological_dimension() for mesh in self.meshes])
+        if dim.min() != dim.max():
+            raise ValueError("Meshes must all have the same topological dimension")
+        self.dim = dim.min()
+        if logger.level == DEBUG:
+            for i, mesh in enumerate(self.meshes):
+                nc = mesh.num_cells()
+                nv = mesh.num_vertices()
+                if self.dim == 2:
+                    ar = get_aspect_ratios2d(mesh)
+                else:
+                    ar = get_aspect_ratios3d(mesh)
+                mar = ar.vector().gather().max()
+                self.debug(f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}")
+            debug(100 * "-")
         self._fs = None
         self._get_function_spaces = get_function_spaces
         self._get_initial_condition = get_initial_condition
