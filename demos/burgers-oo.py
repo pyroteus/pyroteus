@@ -1,20 +1,20 @@
 # Object-oriented Burgers equation
 # ================================
 
-# You may have noticed that the functions `get_form`, `get_solver`,
-# `get_initial_condition` and `get_qoi` all take a :class:`MeshSeq`
-# as input and return a function. If this all feels a lot like
-# writing methods for a :class:`MeshSeq` subclass, that's because
-# this is exactly what we are doing. The constructors for
-# :class:`MeshSeq` and :class:`AdjointMeshSeq` simply take these
-# functions and adopt them as methods. A more natural way to write
-# the subclass yourself.
+# You may have noticed that the functions :func:`get_form`,
+# :func:`get_solver`, :func:`get_initial_condition` and
+# :func:`get_qoi` all take a :class:`MeshSeq` as input and return
+# a function. If this all feels a lot like writing methods for a
+# :class:`MeshSeq` subclass, that's because this is exactly what
+# we are doing. The constructors for :class:`MeshSeq` and
+# :class:`AdjointMeshSeq` simply take these functions and adopt
+# them as methods. A more natural way to write the subclass yourself.
 #
 # In the following, we mostly copy the contents from the previous
 # demos and combine the methods into a subclass called
 # :class:`BurgersMeshSeq`. The main difference to note is that
-# `get_qoi` should named as :meth:`get_qoi_function`. This is
-# because it gets modified internally to account for annotation.
+# :meth:`get_qoi` should get the :func:`annotate_qoi` decorator
+# so that it gets modified internally to account for annotation.
 # ::
 
 from firedrake import *
@@ -22,7 +22,9 @@ from pyroteus_adjoint import *
 
 
 class BurgersMeshSeq(AdjointMeshSeq):
-    def get_function_spaces(self, mesh):
+
+    @staticmethod
+    def get_function_spaces(mesh):
         return {"u": VectorFunctionSpace(mesh, "CG", 2)}
 
     def get_form(self):
@@ -48,7 +50,8 @@ class BurgersMeshSeq(AdjointMeshSeq):
     def get_solver(self):
         def solver(index, ic):
             function_space = self.function_spaces["u"][index]
-            u = Function(function_space)
+            u = Function(function_space, name="u")
+            solution_map = {"u": u}
 
             # Initialise 'lagged' solution
             u_ = Function(function_space, name="u_old")
@@ -58,15 +61,17 @@ class BurgersMeshSeq(AdjointMeshSeq):
             F = self.form(index, {"u": (u, u_)})
 
             # Time integrate from t_start to t_end
-            P = self.time_partition
-            t_start, t_end = P.subintervals[index]
-            dt = P.timesteps[index]
+            t_start, t_end = self.subintervals[index]
+            dt = self.time_partition.timesteps[index]
             t = t_start
+            qoi = self.get_qoi(solution_map, index)
             while t < t_end - 1.0e-05:
                 solve(F == 0, u, ad_block_tag="u")
+                if self.qoi_type == "time_integrated":
+                    self.J += qoi(t)
                 u_.assign(u)
                 t += dt
-            return {"u": u}
+            return solution_map
 
         return solver
 
@@ -75,24 +80,38 @@ class BurgersMeshSeq(AdjointMeshSeq):
         x, y = SpatialCoordinate(self[0])
         return {"u": interpolate(as_vector([sin(pi * x), 0]), fs)}
 
-    def get_qoi_function(self, solutions, i):
+    @annotate_qoi
+    def get_qoi(self, solutions, i):
+        dt = Constant(self.time_partition[i].timestep)
+
         def end_time_qoi():
             u = solutions["u"]
             return inner(u, u) * ds(2)
 
-        return end_time_qoi
+        def time_integrated_qoi(t):
+            u = solutions["u"]
+            return dt * inner(u, u) * ds(2)
+
+        if self.qoi_type == "end_time":
+            return end_time_qoi
+        else:
+            return time_integrated_qoi
 
 
-# We apply exactly the same setup as before, except that the :class:`BurgersMeshSeq`
-# class is used. ::
+# Notice that the :meth:`get_solver` and :meth:`get_qoi_function`
+# methods have been modified to account for both ``"end_time"`` and
+# ``"time_integrated"`` QoIs.
+#
+# We apply exactly the same setup as before, except that the
+# :class:`BurgersMeshSeq` class is used. ::
 
 n = 32
 meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
 end_time = 0.5
 dt = 1 / n
-num_subintervals = 2
+num_subintervals = len(meshes)
 P = TimePartition(
-    end_time, num_subintervals, dt, "u", timesteps_per_export=2, debug=True
+    end_time, num_subintervals, dt, ["u"], timesteps_per_export=2, debug=True
 )
 mesh_seq = BurgersMeshSeq(P, meshes, qoi_type="end_time")
 solutions = mesh_seq.solve_adjoint()

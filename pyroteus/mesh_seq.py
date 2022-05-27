@@ -4,7 +4,8 @@ Sequences of meshes corresponding to a :class:`TimePartition`.
 import firedrake
 from firedrake.petsc import PETSc
 from .interpolation import project
-from .log import debug, warning
+from .log import debug, warning, logger, DEBUG
+from .quality import get_aspect_ratios2d, get_aspect_ratios3d
 from .utility import AttrDict, Mesh
 from collections import OrderedDict
 from collections.abc import Iterable
@@ -65,6 +66,21 @@ class MeshSeq(object):
         self.meshes = initial_meshes
         if not isinstance(self.meshes, Iterable):
             self.meshes = [Mesh(initial_meshes) for subinterval in self.subintervals]
+        dim = np.array([mesh.topological_dimension() for mesh in self.meshes])
+        if dim.min() != dim.max():
+            raise ValueError("Meshes must all have the same topological dimension")
+        self.dim = dim.min()
+        if logger.level == DEBUG:
+            for i, mesh in enumerate(self.meshes):
+                nc = mesh.num_cells()
+                nv = mesh.num_vertices()
+                if self.dim == 2:
+                    ar = get_aspect_ratios2d(mesh)
+                else:
+                    ar = get_aspect_ratios3d(mesh)
+                mar = ar.vector().gather().max()
+                self.debug(f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}")
+            debug(100 * "-")
         self._fs = None
         self._get_function_spaces = get_function_spaces
         self._get_initial_condition = get_initial_condition
@@ -89,6 +105,37 @@ class MeshSeq(object):
 
     def __setitem__(self, i, mesh):
         self.meshes[i] = mesh
+
+    def plot(self, fig=None, axes=None, **kwargs):
+        """
+        Plot the meshes comprising a 2D :class:`MeshSeq`.
+
+        :kwarg fig: matplotlib figure
+        :kwarg axes: matplotlib axes
+        :kwargs: parameters to pass to Firedrake's :func:`triplot`
+            function
+        :return: matplotlib figure and axes for the plots
+        """
+        if self.dim != 2:
+            raise ValueError("MeshSeq plotting only supported in 2D")
+        kwargs.setdefault("interior_kw", {"edgecolor": "k"})
+        kwargs.setdefault("boundary_kw", {"edgecolor": "k"})
+        if (fig is None and axes is None):
+            from matplotlib.pyplot import subplots
+
+            n = len(self)
+            size = (5 * n, 5)
+            fig, axes = subplots(ncols=n, nrows=1, figsize=size)
+        i = 0
+        for axis in axes:
+            if not isinstance(axis, Iterable):
+                axis = [axis]
+            for ax in axis:
+                ax.set_title(f"MeshSeq[{i}]")
+                firedrake.triplot(self.meshes[i], axes=ax, **kwargs)
+                ax.axis(False)
+                i += 1
+        return fig, axes
 
     def get_function_spaces(self, mesh):
         if self._get_function_spaces is None:

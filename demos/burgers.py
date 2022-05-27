@@ -19,8 +19,6 @@
 # :math:`\Omega = [0, 1]^2`. The forward solution is initialised
 # as a sine wave and is nonlinearly advected to the right hand
 # side. See the Firedrake demo for details on the discretisation used.
-#
-# First, import Firedrake and Pyroteus. ::
 
 from firedrake import *
 from pyroteus import *
@@ -31,12 +29,10 @@ from pyroteus import *
 
 fields = ["u"]
 
-# First, we specify how to build a :class:`FunctionSpace`,
-# given some mesh. Function spaces are given as a dictionary,
-# labelled by the prognostic solution field names. The
-# function spaces will be built upon the meshes contained
-# inside an :class:`MeshSeq` object, which facilitates
-# solving PDEs on a sequence of meshes.
+# For each such field, we need to be able to specify how to
+# build a :class:`FunctionSpace`, given some mesh. Since there
+# could be more than one field, function spaces are given as a
+# dictionary, indexed by the prognostic solution field names. ::
 
 
 def get_function_spaces(mesh):
@@ -50,9 +46,9 @@ def get_function_spaces(mesh):
 # should provide a tuple containing the solution :class:`Function`\s
 # from the current timestep and the previous one.
 #
-# Timestepping information associated with the mesh within
-# the sequence can be accessed via the :attr:`TimePartition`
-# attribute of the :class:`MeshSeq`. ::
+# Timestepping information associated with a given subinterval
+# can be accessed via the :attr:`TimePartition` attribute of
+# the :class:`MeshSeq`. ::
 
 
 def get_form(mesh_seq):
@@ -76,10 +72,6 @@ def get_form(mesh_seq):
     return form
 
 
-# The dictionary usage may seem cumbersome when applied to such a
-# simple problem, but it comes in handy when solving adjoint
-# problems associated with coupled systems of equations.
-#
 # We have a weak form. In order to solve the PDE, we need to choose
 # a time integration routine and solver parameters for the underlying
 # linear and nonlinear systems. This is achieved using a function
@@ -91,7 +83,7 @@ def get_form(mesh_seq):
 # Note that it is important that the PDE solve is labelled
 # with an ``ad_block_tag`` which matches the corresponding
 # prognostic variable name. It is also important that the
-# lagged solution field be given a name which is the field name,
+# lagged solution field be given a particular name: the field name,
 # appended by ``'_old'``. ::
 
 
@@ -121,6 +113,10 @@ def get_solver(mesh_seq):
     return solver
 
 
+# The dictionary usage may seem cumbersome when applied to such a
+# simple problem, but it comes in handy when solving adjoint
+# problems associated with coupled systems of equations.
+#
 # Pyroteus also requires a function for generating an initial
 # condition from the function space defined on the
 # :math:`0^{th}` mesh. ::
@@ -133,7 +129,8 @@ def get_initial_condition(mesh_seq):
 
 
 # Now that we have the above functions defined, we move onto the
-# concrete parts of the solver, which mimic the original demo. ::
+# concrete parts of the solver. To begin with, we require a
+# sequence of meshes, simulation end time and a timestep. ::
 
 n = 32
 meshes = [
@@ -143,10 +140,10 @@ meshes = [
 end_time = 0.5
 dt = 1 / n
 
-# Create a :class:`TimePartition` for the problem with two
-# subintervals. ::
+# These can be used to create a :class:`TimePartition` for the
+# problem with two subintervals. ::
 
-num_subintervals = 2
+num_subintervals = len(meshes)
 time_partition = TimePartition(
     end_time,
     num_subintervals,
@@ -168,9 +165,27 @@ mesh_seq = MeshSeq(
 )
 solutions = mesh_seq.solve_forward()
 
-# Finally, we plot the solution at each exported timestep by
-# looping over ``solutions['forward']``. This can be achieved using
-# the plotting driver function ``plot_snapshots``.
+# During the :func:`solve_forward` call, the solver that was provided
+# is applied on the first subinterval. The forward solution at the end
+# of that subinterval is transferred to the mesh associated with the
+# second subinterval and used as an initial condition for the same solver
+# applied again there. Pyroteus uses a conservative interpolation
+# operator to transfer solution data between the two meshes. In this
+# example, the meshes (and hence function spaces) are identical so the
+# projection operation will in fact be the identity.
+#
+# The output is a nested dictionary of solution data, indexed by
+# solution type (``"forward"`` or ``"forward_old"``) and then field name
+# (here ``"u"``). The contents of the inner dictionaries are lists
+# containing lists of solution :class:`Function`\s, indexed first by
+# subinterval and then by timestep. That is,
+# ``solutions["forward"]["u"][i][j]`` contains the forward solution
+# associated with field ``"u"`` at the ``j``-th timestep of
+# subinterval ``i``. Similarly, ``solutions["forward_old"]["u"][i][j]``
+# contains the forward solution from the timestep prior.
+#
+# For the purposes of this demo, we plot the solution at each exported
+# timestep using the plotting driver function :func:`plot_snapshots`. :: 
 
 fig, axes = plot_snapshots(
     solutions, time_partition, "u", "forward", levels=np.linspace(0, 1, 9)
@@ -181,7 +196,7 @@ fig.savefig("burgers.jpg")
 #    :figwidth: 90%
 #    :align: center
 #
-# An initial sinusoid is nonlinearly advected Eastwards.
+# We see that the initial sinusoid is nonlinearly advected Eastwards.
 #
 # In the `next demo <./burgers1.py.html>`__, we use Pyroteus to
 # automatically solve the adjoint problem associated with Burgers

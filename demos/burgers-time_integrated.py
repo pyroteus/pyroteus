@@ -1,4 +1,4 @@
-# Adjoint of Burgers equation with a time integrated QoI
+# Adjoint Burgers equation with a time integrated QoI
 # ======================================================
 #
 # So far, we only considered a quantity of interest
@@ -19,7 +19,8 @@ from burgers import get_initial_condition, get_function_spaces, get_form
 # quadrature routine is like the midpoint rule, but takes
 # the value from the next timestep, rather than the average
 # between that and the current value. As such, the QoI may
-# be computed by simply incrementing as follows. ::
+# be computed by simply incrementing the :attr:`J` attribute
+# of the :class:`AdjointMeshSeq` as follows. ::
 
 
 def get_solver(mesh_seq):
@@ -64,11 +65,11 @@ def get_solver(mesh_seq):
 
 
 def get_qoi(mesh_seq, solutions, i):
-    dtc = Constant(mesh_seq.time_partition[i].timestep)
+    dt = Constant(mesh_seq.time_partition[i].timestep)
 
     def time_integrated_qoi(t):
         u = solutions["u"]
-        return dtc * inner(u, u) * ds(2)
+        return dt * inner(u, u) * ds(2)
 
     return time_integrated_qoi
 
@@ -76,16 +77,19 @@ def get_qoi(mesh_seq, solutions, i):
 # We use the same mesh setup as in `the previous demo
 # <./burgers2.py.html>`__ and the same time partitioning. ::
 
-fields = ["u"]
 n = 32
 meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
 end_time = 0.5
 dt = 1 / n
-
-num_subintervals = 2
+num_subintervals = len(meshes)
 time_partition = TimePartition(
-    end_time, num_subintervals, dt, fields, timesteps_per_export=2
+    end_time, num_subintervals, dt, ["u"], timesteps_per_export=2
 )
+
+# The only difference when defining the :class:`AdjointMeshSeq`
+# is that we specify ``qoi_type="time_integrated"``, rather than
+# ``qoi_type="end_time"``. ::
+
 mesh_seq = AdjointMeshSeq(
     time_partition,
     meshes,
@@ -98,8 +102,6 @@ mesh_seq = AdjointMeshSeq(
 )
 solutions = mesh_seq.solve_adjoint()
 
-# Finally, plot snapshots of the adjoint solution. ::
-
 fig, axes = plot_snapshots(solutions, time_partition, "u", "adjoint")
 fig.savefig("burgers-time_integrated.jpg")
 
@@ -108,8 +110,10 @@ fig.savefig("burgers-time_integrated.jpg")
 #    :align: center
 #
 # With a time-integrated QoI, the adjoint problem
-# has a source term at the right hand boundary, rather
-# than a instantaneous pulse at the terminal time.
+# has a source term at the right-hand boundary, rather
+# than a instantaneous pulse at the terminal time. As such,
+# the adjoint solution field accumulates at the right-hand
+# boundary, as well as propagating westwards.
 #
 # In the `next demo <./burgers-oo.py.html>`__, we solve
 # the Burgers problem one last time, but using an

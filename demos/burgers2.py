@@ -1,10 +1,10 @@
-# Adjoint of Burgers equation on two meshes
+# Adjoint Burgers equation on two meshes
 # =========================================
 #
-# This demo solves the same problem as the previous two,
-# but now using two subintervals. There is still no mesh
-# adaptation; the same mesh is used in each case to verify
-# that the framework works.
+# This demo solves the same adjoint problem as `the previous one
+# <./burgers1.py.html>`__, but now using two subintervals. There
+# is still no error estimation or mesh adaptation; the same mesh
+# is used in each case to verify that the framework works.
 #
 # Again, begin by importing Pyroteus with adjoint mode
 # activated. ::
@@ -14,9 +14,7 @@ from pyroteus_adjoint import *
 
 # The solver, initial condition and QoI may be imported from the
 # previous demo. The same basic setup is used. The only difference
-# is that there are **two** function spaces associated with the
-# velocity space (which actually coincide). They are represented
-# in a list. ::
+# is that the :class:`MeshSeq` contains two meshes. ::
 
 from burgers1 import (
     fields,
@@ -32,10 +30,9 @@ meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="
 end_time = 0.5
 dt = 1 / n
 
-# This time, the ``TimePartition`` is defined on **two** subintervals,
-# associated with the two function spaces. ::
+# This time, the ``TimePartition`` is defined on **two** subintervals. ::
 
-num_subintervals = 2
+num_subintervals = len(meshes)
 time_partition = TimePartition(
     end_time, num_subintervals, dt, fields, timesteps_per_export=2, debug=True
 )
@@ -51,7 +48,18 @@ mesh_seq = AdjointMeshSeq(
 )
 solutions = mesh_seq.solve_adjoint()
 
-# Finally, plot snapshots of the adjoint solution. ::
+# Recall that :func:`solve_forward` runs the solver on each subinterval and
+# uses conservative projection to transfer inbetween. This also happens in
+# the forward pass of :func:`solve_adjoint`, but is followed by running the
+# *adjoint* of the solver on each subinterval *in reverse*. The adjoint of
+# the conservative projection operator is applied to transfer adjoint solution
+# data between meshes in this case. If you think about the matrix
+# representation of a projection operator then this effectively means taking
+# the transpose. Again, the meshes (and hence function spaces) are identical,
+# so the transfer is just the identity.
+#
+# Snapshots of the adjoint solution are again plotted using the
+# :func:`plot_snapshots` utility function. ::
 
 fig, axes = plot_snapshots(
     solutions, time_partition, "u", "adjoint", levels=np.linspace(0, 0.8, 9)
@@ -68,14 +76,15 @@ fig.savefig("burgers2-end_time.jpg")
 #
 # .. rubric:: Exercise
 #
-# Note that the keyword argument ``diagonal='left'`` was passed to the
+# Note that the keyword argument ``diagonal="left"`` was passed to the
 # ``UnitSquareMesh`` constructor in this example, defining which way
 # the diagonal lines in the uniform mesh should go. Instead of having
 # both function spaces defined on this mesh, try defining the second
 # one in a :math:`\mathbb P2` space defined on a **different** mesh
-# which is constructed with ``diagonal='right'``. How does the adjoint
+# which is constructed with ``diagonal="right"``. How does the adjoint
 # solution change when the solution is trasferred between different
-# meshes?
+# meshes? In this case, the mesh-to-mesh transfer operations will no
+# longer simply be identities.
 #
 # In the `next demo <./burgers-time_integrated.py.html>`__, we solve
 # the same problem but with a QoI involving an integral in time, as

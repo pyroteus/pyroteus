@@ -52,8 +52,9 @@ earlier ones.
     :maxdepth: 1
 
     Partitioning a time interval <demos/time_partition.py>
+    Creating a mesh sequence <demos/mesh_seq.py>
     Burgers equation on a sequence of meshes <demos/burgers.py>
-    Adjoint of Burgers equation <demos/burgers1.py>
-    Adjoint of Burgers equation on two meshes <demos/burgers2.py>
-    Adjoint of Burgers equation with a time-integrated QoI <demos/burgers-time_integrated.py>
-    Object-oriented approach to the adjoint of Burgers equation <demos/burgers-oo.py>
+    Adjoint Burgers equation <demos/burgers1.py>
+    Adjoint Burgers equation on two meshes <demos/burgers2.py>
+    Adjoint Burgers equation with a time-integrated QoI <demos/burgers-time_integrated.py>
+    Adjoint Burgers equation (object-oriented approach) <demos/burgers-oo.py>
