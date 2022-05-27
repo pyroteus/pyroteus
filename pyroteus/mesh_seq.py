@@ -106,6 +106,37 @@ class MeshSeq(object):
     def __setitem__(self, i, mesh):
         self.meshes[i] = mesh
 
+    def plot(self, fig=None, axes=None, **kwargs):
+        """
+        Plot the meshes comprising a 2D :class:`MeshSeq`.
+
+        :kwarg fig: matplotlib figure
+        :kwarg axes: matplotlib axes
+        :kwargs: parameters to pass to Firedrake's :func:`triplot`
+            function
+        :return: matplotlib figure and axes for the plots
+        """
+        if self.dim != 2:
+            raise ValueError("MeshSeq plotting only supported in 2D")
+        kwargs.setdefault("interior_kw", {"edgecolor": "k"})
+        kwargs.setdefault("boundary_kw", {"edgecolor": "k"})
+        if (fig is None and axes is None):
+            from matplotlib.pyplot import subplots
+
+            n = len(self)
+            size = (5 * n, 5)
+            fig, axes = subplots(ncols=n, nrows=1, figsize=size)
+        i = 0
+        for axis in axes:
+            if not isinstance(axis, Iterable):
+                axis = [axis]
+            for ax in axis:
+                ax.set_title(f"MeshSeq[{i}]")
+                firedrake.triplot(self.meshes[i], axes=ax, **kwargs)
+                ax.axis(False)
+                i += 1
+        return fig, axes
+
     def get_function_spaces(self, mesh):
         if self._get_function_spaces is None:
             raise NotImplementedError("get_function_spaces needs implementing")
