@@ -11,7 +11,44 @@ from functools import wraps
 import numpy as np
 
 
-__all__ = ["AdjointMeshSeq"]
+__all__ = ["AdjointMeshSeq", "annotate_qoi"]
+
+
+def annotate_qoi(get_qoi):
+    """
+    Decorator that ensures QoIs are annotated
+    properly.
+
+    Should be applied to the :meth:`get_qoi`
+    method of an :class:`AdjointMeshSeq`.
+    """
+
+    @wraps(get_qoi)
+    def wrap_get_qoi(mesh_seq, solution_map, i):
+        qoi = get_qoi(mesh_seq, solution_map, i)
+
+        # Count number of arguments
+        num_kwargs = 0 if qoi.__defaults__ is None else len(qoi.__defaults__)
+        num_args = qoi.__code__.co_argcount - num_kwargs
+        if num_args == 0:
+            mesh_seq.qoi_type = "end_time"
+        elif num_args == 1:
+            mesh_seq.qoi_type = "time_integrated"
+        else:
+            raise ValueError(f"QoI should have 0 or 1 args, not {num_args}")
+
+        @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.evaluate_qoi")
+        @wraps(qoi)
+        def wrap_qoi(*args, **kwargs):
+            j = firedrake.assemble(qoi(*args, **kwargs))
+            if pyadjoint.tape.annotate_tape():
+                j.block_variable.adj_value = 1.0
+            return j
+
+        mesh_seq.qoi = wrap_qoi
+        return wrap_qoi
+
+    return wrap_get_qoi
 
 
 class AdjointMeshSeq(MeshSeq):
@@ -45,34 +82,11 @@ class AdjointMeshSeq(MeshSeq):
     def initial_condition(self):
         return super().initial_condition
 
-    def get_qoi_function(self, solution_map, i):
+    @annotate_qoi
+    def get_qoi(self, solution_map, i):
         if self._get_qoi is None:
             raise NotImplementedError("get_qoi needs implementing")
         return self._get_qoi(self, solution_map, i)
-
-    def get_qoi(self, solution_map, i):
-        qoi = self.get_qoi_function(solution_map, i)
-
-        # Count number of arguments
-        num_kwargs = 0 if qoi.__defaults__ is None else len(qoi.__defaults__)
-        num_args = qoi.__code__.co_argcount - num_kwargs
-        if num_args == 0:
-            self.qoi_type = "end_time"
-        elif num_args == 1:
-            self.qoi_type = "time_integrated"
-        else:
-            raise ValueError(f"QoI should have 0 or 1 args, not {num_args}")
-
-        @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.evaluate_qoi")
-        @wraps(qoi)
-        def wrapper(*args, **kwargs):
-            j = firedrake.assemble(qoi(*args, **kwargs))
-            if pyadjoint.tape.annotate_tape():
-                j.block_variable.adj_value = 1.0
-            return j
-
-        self.qoi = wrapper
-        return self.qoi
 
     @pyadjoint.no_annotations
     @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.get_checkpoints")
