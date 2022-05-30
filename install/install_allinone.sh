@@ -5,7 +5,7 @@
 # which uses Mmg and ParMmg.                                             #
 #                                                                        #
 # Note that we use custom PETSc and Firedrake branches                   #
-# jwallwork23/firedrake and jwallwork23/metric-based.                    #
+# ksagiyam/dmplex_reorder_1d_options and jwallwork23/metric-based.       #
 #                                                                        #
 # Joe Wallwork, 2022.                                                    #
 # ====================================================================== #
@@ -44,13 +44,13 @@ echo "Are these settings okay? Press enter to continue."
 read chk
 
 # Set PETSc options
-export PETSC_CONFIGURE_OPTIONS="--with-debugging=yes --with-fortran-bindings=0 --download-zlib --download-metis --download-parmetis --download-ptscotch --download-hdf5 --download-scalapack --download-mumps --download-superlu_dist --download-chaco --download-hypre --download-eigen --download-mmg --download-parmmg --with-mpiexec=$MPIEXEC --CC=$MPICC --CXX=$MPICXX --FC=$MPIF90"
+export PETSC_CONFIGURE_OPTIONS="--with-debugging=no --with-fortran-bindings=0 --download-zlib --download-metis --download-parmetis --download-ptscotch --download-hdf5 --download-scalapack --download-mumps --download-superlu_dist --download-chaco --download-hypre --download-eigen --download-mmg --download-parmmg --with-mpiexec=$MPIEXEC --CC=$MPICC --CXX=$MPICXX --FC=$MPIF90"
 
 # Install Firedrake
 curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
 python3 firedrake-install --venv-name $FIREDRAKE_ENV \
     --mpicc $MPICC --mpicxx $MPICXX --mpif90 $MPIF90 --mpiexec $MPIEXEC \
-    --package-branch petsc jwallwork23/firedrake \
+    --package-branch petsc ksagiyam/dmplex_reorder_1d_options \
     --package-branch firedrake jwallwork23/metric-based
 source $FIREDRAKE_DIR/bin/activate
 
