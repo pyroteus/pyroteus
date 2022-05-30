@@ -2,7 +2,7 @@
 # ===========================
 #
 # This demo solves the same problem as `the previous one
-# <./burgers.py.html>`__, but making use of `dolfin-adjoint's
+# <./burgers.py.html>`__, but making use of *dolfin-adjoint*'s
 # automatic differentiation functionality in order to
 # automatically form and solve discrete adjoint problems.
 #
