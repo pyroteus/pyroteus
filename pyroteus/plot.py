@@ -31,7 +31,7 @@ def plot_snapshots(solutions, time_partition, field, label, **kwargs):
     fig, axes = plt.subplots(rows, cols, sharex="col", figsize=(6 * cols, 24 // cols))
     for i, sols_step in enumerate(solutions[field][label]):
         ax = axes[0] if cols == 1 else axes[0, i]
-        ax.set_title(f"Mesh {i+1}")
+        ax.set_title(f"Mesh[{i}]")
         for j, sol in enumerate(sols_step):
             ax = axes[j] if cols == 1 else axes[j, i]
             tricontourf(sol, axes=ax, **kwargs)
