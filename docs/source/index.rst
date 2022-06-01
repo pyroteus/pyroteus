@@ -56,5 +56,6 @@ earlier ones.
     Burgers equation on a sequence of meshes <demos/burgers.py>
     Adjoint Burgers equation <demos/burgers1.py>
     Adjoint Burgers equation on two meshes <demos/burgers2.py>
-    Adjoint Burgers equation with a time-integrated QoI <demos/burgers-time_integrated.py>
-    Adjoint Burgers equation (object-oriented approach) <demos/burgers-oo.py>
+    Adjoint Burgers equation with a time-integrated QoI <demos/burgers_time_integrated.py>
+    Adjoint Burgers equation (object-oriented approach) <demos/burgers_oo.py>
+    Error estimation for Burgers equation <demos/burgers_ee.py>

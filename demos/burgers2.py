@@ -86,7 +86,7 @@ fig.savefig("burgers2-end_time.jpg")
 # meshes? In this case, the mesh-to-mesh transfer operations will no
 # longer simply be identities.
 #
-# In the `next demo <./burgers-time_integrated.py.html>`__, we solve
+# In the `next demo <./burgers_time_integrated.py.html>`__, we solve
 # the same problem but with a QoI involving an integral in time, as
 # well as space.
 #
