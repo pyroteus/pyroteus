@@ -111,7 +111,7 @@ def bessk0(x):
             )
         )
     )
-    return ufl.conditional(x < 2, expr2, expr1)
+    return ufl.conditional(x > 2, expr2, expr1)
 
 
 def gram_schmidt(*v, normalise=False):
