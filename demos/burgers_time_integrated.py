@@ -115,8 +115,8 @@ fig.savefig("burgers-time_integrated.jpg")
 # the adjoint solution field accumulates at the right-hand
 # boundary, as well as propagating westwards.
 #
-# In the `next demo <./burgers-oo.py.html>`__, we solve
+# In the `next demo <./burgers_oo.py.html>`__, we solve
 # the Burgers problem one last time, but using an
 # object-oriented approach.
 #
-# This demo can also be accessed as a `Python script <burgers-time_integrated.py>`__.
+# This demo can also be accessed as a `Python script <burgers_time_integrated.py>`__.

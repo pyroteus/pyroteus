@@ -58,7 +58,7 @@ fields = ["solution"]
 # eight timesteps. When constructing a
 # :class:`TimePartition` (or any other object),
 # it is often useful to use Pyroteus' debugging
-# mode. This is specified using ``set_log_level``. ::
+# mode. This is specified using :func:`set_log_level`. ::
 
 set_log_level(DEBUG)
 P = TimePartition(end_time, num_subintervals, dt, fields)
