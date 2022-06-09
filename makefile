@@ -26,10 +26,13 @@ test: lint
 demo:
 	@echo "Running all demos..."
 	@cd demos && python3 time_partition.py
+	@cd demos && python3 mesh_seq.py
 	@cd demos && python3 burgers.py
 	@cd demos && python3 burgers1.py
 	@cd demos && python3 burgers2.py
-	@cd demos && python3 burgers-time_integrated.py
+	@cd demos && python3 burgers_time_integrated.py
+	@cd demos && python3 burgers_oo.py
+	@cd demos && python3 burgers_ee.py
 	@echo "Done."
 
 doc: demo
