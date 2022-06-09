@@ -96,7 +96,7 @@ def get_solver(self):
         q_.assign(ic[field])
 
         # Setup variational problem
-        a, L = self.form(i, {"tracer_2d": (q, q_)})
+        a, L = self.form(i, {field: (q, q_)}, field=field)
         bc = self.bcs(i)
 
         # Setup Crank-Nicolson time integrator
