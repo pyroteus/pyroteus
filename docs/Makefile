@@ -25,10 +25,12 @@ copy_demos:
 	install -d source/demos
 	cp ../demos/*.py source/demos
 	cp ../demos/*.jpg source/demos
+	cp ../demos/demo_references.bib source/demos
 	for file in source/demos/*.py; do ${VIRTUAL_ENV}/src/firedrake/pylit/pylit.py -c $$file; mv $$file.txt $$file.rst; done
 	install -d $(BUILDDIR)/html/demos
 	cp source/demos/*.py $(BUILDDIR)/html/demos
 	cp source/demos/*.jpg $(BUILDDIR)/html/demos
+	cp source/demos/*.bib $(BUILDDIR)/html/demos
 
 SPHINX_TARGETS = html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub \
 	latex latexpdf latexpdfja text man texinfo info gettext changes \
@@ -44,7 +46,6 @@ html: apidoc $(GENERATED_FILES)
 .PHONY: apidoc
 apidoc:
 	$(SPHINXAPIDOC) $$($(PYTHON) -c 'import pyroteus; import os; print(os.path.dirname(pyroteus.__file__))') -o source -f -T
-	# TODO: link references.bib
 
 
 clean:

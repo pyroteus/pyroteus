@@ -59,3 +59,5 @@ earlier ones.
     Adjoint Burgers equation with a time-integrated QoI <demos/burgers_time_integrated.py>
     Adjoint Burgers equation (object-oriented approach) <demos/burgers_oo.py>
     Error estimation for Burgers equation <demos/burgers_ee.py>
+    Solid body rotation <demos/solid_body_rotation.py>
+    Solid body rotation with multiple prognostic variables <demos/solid_body_rotation_split.py>
