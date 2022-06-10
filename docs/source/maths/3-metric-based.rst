@@ -368,4 +368,4 @@ details.
 References
 ----------
 
-.. bibliography:: references.bib
+.. bibliography:: 3-references.bib
