@@ -12,6 +12,7 @@ silent, so its pronunciation is identical to 'Proteus' - the
 ancient Greek god of the constantly changing surface of the
 sea.
 
+
 .. rubric:: Mathematical background
 
 Goal-oriented mesh adaptation presents one of the clearest
@@ -19,37 +20,51 @@ examples of the intersection between adjoint methods and mesh
 adaptation. It is an advanced topic, so it is highly
 recommended that users are familiar with adjoint methods,
 mesh adaptation and the goal-oriented framework before
-starting with Pyroteus. The `dolfin-adjoint` package (which
-Pyroteus uses to solve adjoint problems) contains some
-`excellent documentation
-<http://www.dolfin-adjoint.org/en/latest/documentation/maths/index.html>`__
-on the mathematical background of adjoint problems. The metric
-based mesh adaptation framework used by Pyroteus is described
-in the :doc:`maths/index`, in addition to the background on
-goal-oriented error estimation and adaptation. We refer to the
-`Firedrake documentation
+starting with Pyroteus.
+
+We refer to the `Firedrake documentation
 <https://firedrakeproject.org/documentation.html>`__
 for an introduction to the finite element method - the
-discretisation approach assumed throughout.
+discretisation approach assumed throughout. The
+`dolfin-adjoint` package (which Pyroteus uses to solve adjoint
+problems) contains some `excellent documentation
+<http://www.dolfin-adjoint.org/en/latest/documentation/maths/index.html>`__
+on the mathematical background of adjoint problems. The
+goal-oriented error estimation and metric-based mesh adaptation
+functionalities provided by Pyroteus are described in the manual.
+
+.. toctree::
+    :maxdepth: 2
+
+    Pyroteus manual <maths/index>
+
 
 .. rubric:: API documentation
 
 The classes and functions which comprise Pyroteus may be found
-on the :doc:`pyroteus` page. They are also listed alphabetically
-on the :ref:`index <genindex>` page. The index may be searched
-using the inbuilt :ref:`search engine <search>`. Pyroteus source
-code is hosted on  `GitHub
-<https://github.com/pyroteus/pyroteus/>`__.
+in the API documentation.
+
+.. toctree::
+    :maxdepth: 1
+
+    Pyroteus API documentation <pyroteus>
+
+They are also listed alphabetically on the :ref:`index <genindex>`
+page. The index may be searched using the inbuilt
+:ref:`search engine <search>`. Pyroteus source code is hosted on
+`GitHub <https://github.com/pyroteus/pyroteus/>`__.
+
+
+.. rubric:: Demos
 
 Pyroteus contains a number of demos to illustrate the correct
 usage of its different functionalities. It is highly recommended
 that these are read in order, as many of the demos build upon
 earlier ones.
 
-.. rubric:: Demos
-
 .. toctree::
     :maxdepth: 1
+    :numbered:
 
     Partitioning a time interval <demos/time_partition.py>
     Creating a mesh sequence <demos/mesh_seq.py>

@@ -184,4 +184,9 @@ intersphinx_mapping = {
 autoclass_content = "both"
 
 #  -- Options for sphinxcontrib.bibtex ------------------------------------
-bibtex_bibfiles = ["references.bib", "demos/demo_references.bib"]
+bibtex_bibfiles = [
+    "references.bib",
+    "demos/demo_references.bib",
+    "maths/1-references.bib",
+    "maths/3-references.bib",
+]
