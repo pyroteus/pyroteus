@@ -15,6 +15,7 @@ docs/source/pyroteus.rst
 *.ipynb*
 *.jpg
 *.msh
+*.patch
 *.pdf
 *.png
 *.pvd
