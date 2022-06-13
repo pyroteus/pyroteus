@@ -76,3 +76,4 @@ earlier ones.
     Error estimation for Burgers equation <demos/burgers_ee.py>
     Solid body rotation <demos/solid_body_rotation.py>
     Solid body rotation with multiple prognostic variables <demos/solid_body_rotation_split.py>
+    Point discharge with diffusion <demos/point_discharge.py>
