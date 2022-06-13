@@ -174,7 +174,7 @@ mesh_seq = GoalOrientedMeshSeq(
     qoi_type="steady",
 )
 solutions, indicators = mesh_seq.indicate_errors(
-    enrichment_kwargs={"enrichment_method": "h"}
+    enrichment_kwargs={"enrichment_method": "p"}
 )
 
 # We can plot the solution fields and error indicators as follows. ::
