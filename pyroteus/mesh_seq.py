@@ -80,7 +80,9 @@ class MeshSeq(object):
                 else:
                     ar = get_aspect_ratios3d(mesh)
                 mar = ar.vector().gather().max()
-                self.debug(f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}")
+                self.debug(
+                    f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}"
+                )
             debug(100 * "-")
         self._fs = None
         self._get_function_spaces = get_function_spaces
@@ -123,7 +125,7 @@ class MeshSeq(object):
             raise ValueError("MeshSeq plotting only supported in 2D")
         kwargs.setdefault("interior_kw", {"edgecolor": "k"})
         kwargs.setdefault("boundary_kw", {"edgecolor": "k"})
-        if (fig is None and axes is None):
+        if fig is None and axes is None:
             from matplotlib.pyplot import subplots
 
             n = len(self)

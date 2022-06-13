@@ -40,7 +40,10 @@ def plot_snapshots(solutions, time_partition, field, label, **kwargs):
             ax = axes if steady else axes[j] if cols == 1 else axes[j, i]
             tc.append(tricontourf(sol, axes=ax, **kwargs))
             if not steady:
-                time = i * P.end_time/cols + j * P.timesteps_per_export[i] * P.timesteps[i]
+                time = (
+                    i * P.end_time / cols
+                    + j * P.timesteps_per_export[i] * P.timesteps[i]
+                )
                 ax.annotate(f"t={time:.2f}", (0.05, 0.05), color="white")
         tcs.append(tc)
     plt.tight_layout()
@@ -75,7 +78,10 @@ def plot_indicator_snapshots(indicators, time_partition, **kwargs):
             ax = axes if steady else axes[j] if cols == 1 else axes[j, i]
             tc.append(tricontourf(indi, axes=ax, **kwargs))
             if not steady:
-                time = i * P.end_time/cols + j * P.timesteps_per_export[i] * P.timesteps[i]
+                time = (
+                    i * P.end_time / cols
+                    + j * P.timesteps_per_export[i] * P.timesteps[i]
+                )
                 ax.annotate(f"t={time:.2f}", (0.05, 0.05), color="white")
         tcs.append(tc)
     plt.tight_layout()

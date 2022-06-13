@@ -94,7 +94,9 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
     if isinstance(adjoint_error, firedrake.Function):
         fs = test_space or adjoint_error.function_space()
         if F.ufl_domain() != fs.mesh():
-            raise ValueError("Meshes underlying the form and adjoint error do not match.")
+            raise ValueError(
+                "Meshes underlying the form and adjoint error do not match."
+            )
         mapping[firedrake.TestFunction(fs)] = adjoint_error
     else:
         if test_space is None:
@@ -104,6 +106,8 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
             }
         for key, err in adjoint_error.items():
             if F.ufl_domain() != test_space[key].mesh():
-                raise ValueError("Meshes underlying the form and adjoint error do not match.")
+                raise ValueError(
+                    "Meshes underlying the form and adjoint error do not match."
+                )
             mapping[firedrake.TestFunction(test_space[key])] = err
     return form2indicator(ufl.replace(F, mapping))
