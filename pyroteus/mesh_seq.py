@@ -145,9 +145,12 @@ class MeshSeq(object):
         return self._get_function_spaces(mesh)
 
     def get_initial_condition(self):
-        if self._get_initial_condition is None:
-            raise NotImplementedError("get_initial_condition needs implementing")
-        return self._get_initial_condition(self)
+        if self._get_initial_condition is not None:
+            return self._get_initial_condition(self)
+        return {
+            field: firedrake.Function(fs[0])
+            for field, fs in self.function_spaces.items()
+        }
 
     def get_form(self):
         if self._get_form is None:
@@ -160,9 +163,8 @@ class MeshSeq(object):
         return self._get_solver(self)
 
     def get_bcs(self):
-        if self._get_bcs is None:
-            raise NotImplementedError("get_bcs needs implementing")
-        return self._get_bcs(self)
+        if self._get_bcs is not None:
+            return self._get_bcs(self)
 
     @property
     def _function_spaces_consistent(self):
