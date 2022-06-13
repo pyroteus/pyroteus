@@ -223,7 +223,7 @@ class AdjointMeshSeq(MeshSeq):
                     {
                         label: [
                             [
-                                firedrake.Function(fs, name="_".join([field, label]))
+                                firedrake.Function(fs, name=f"{field}_{label}")
                                 for j in range(P.exports_per_subinterval[i] - 1)
                             ]
                             for i, fs in enumerate(function_spaces[field])
@@ -254,6 +254,8 @@ class AdjointMeshSeq(MeshSeq):
         # Loop over subintervals in reverse
         seeds = None
         for i in reversed(range(num_subintervals)):
+            stride = P.timesteps_per_export[i]
+            num_exports = P.exports_per_subinterval[i]
 
             # Annotate tape on current subinterval
             sols = wrapped_solver(i, checkpoints[i], **solver_kwargs)
@@ -285,7 +287,6 @@ class AdjointMeshSeq(MeshSeq):
                 with pyadjoint.stop_annotating():
                     with tape.marked_nodes(m):
                         tape.evaluate_adj(markings=True)
-            # FIXME: Using mixed Functions as Controls not correct
 
             # Loop over prognostic variables
             for field, fs in function_spaces.items():
@@ -321,16 +322,12 @@ class AdjointMeshSeq(MeshSeq):
 
                 # Extract solution data
                 sols = solutions[field]
-                stride = P.timesteps_per_export[i]
-                if len(solve_blocks[::stride]) >= P.exports_per_subinterval[i]:
+                if len(solve_blocks[::stride]) >= num_exports:
                     self.warning(
                         "More solve blocks than expected"
-                        f" ({len(solve_blocks[::stride])}"
-                        f" > {P.exports_per_subinterval[i]-1})"
+                        f" ({len(solve_blocks[::stride])} > {num_exports-1})"
                     )
-                for j, block in zip(
-                    range(P.exports_per_subinterval[i] - 1), solve_blocks[::stride]
-                ):
+                for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
 
                     # Lagged forward solution and adjoint values
                     if fwd_old_idx is not None:
