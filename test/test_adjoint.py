@@ -93,13 +93,14 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     test_case = importlib.import_module(problem)
     end_time = test_case.end_time
     steady = test_case.steady
-    if steady:
-        assert test_case.dt_per_export == 1
-        assert np.isclose(end_time / test_case.dt, 1.0)
     if "solid_body_rotation" in problem:
         end_time /= 4  # Reduce testing time
     elif steady and qoi_type == "time_integrated":
         pytest.skip("n/a for steady case")
+    if steady:
+        assert test_case.dt_per_export == 1
+        assert np.isclose(end_time / test_case.dt, 1.0)
+        qoi_type = "steady"
 
     # Partition time interval and create MeshSeq
     time_partition = TimePartition(
@@ -119,7 +120,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         get_qoi=test_case.get_qoi,
         get_bcs=test_case.get_bcs,
         qoi_type=qoi_type,
-        steady=steady,
     )
 
     # Solve forward and adjoint without solve_adjoint
@@ -246,7 +246,6 @@ def plot_solutions(problem, qoi_type, debug=True):
         get_qoi=test_case.get_qoi,
         get_bcs=test_case.get_bcs,
         qoi_type=qoi_type,
-        steady=steady,
     ).solve_adjoint(get_adj_values=not steady, test_checkpoint_qoi=True)
     output_dir = os.path.join(os.path.dirname(__file__), "outputs", problem)
     outfiles = AttrDict(
@@ -276,7 +275,7 @@ if __name__ == "__main__":
     parser.add_argument("qoi_type")
     parser.add_argument("-plot")
     args = parser.parse_args()
-    assert args.qoi_type in ("end_time", "time_integrated")
+    assert args.qoi_type in ("end_time", "time_integrated", "steady")
     assert args.problem in all_problems
     plot = bool(args.plot or False)
     if plot:
