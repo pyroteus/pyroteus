@@ -7,7 +7,7 @@ from collections.abc import Iterable
 import numpy as np
 
 
-__all__ = ["TimePartition", "TimeInterval"]
+__all__ = ["TimePartition", "TimeInterval", "TimeInstant"]
 
 
 class TimePartition(object):
@@ -192,3 +192,16 @@ class TimeInterval(TimePartition):
     @property
     def timestep(self):
         return self.timesteps[0]
+
+
+class TimeInstant(TimeInterval):
+    """
+    A :class:`TimePartition` for steady-state problems.
+
+    Under the hood this means dividing :math:`[0,1)` into
+    a single timestep.
+    """
+
+    def __init__(self, fields, end_time=1.0):
+        timestep = end_time
+        super().__init__(end_time, timestep, fields)
