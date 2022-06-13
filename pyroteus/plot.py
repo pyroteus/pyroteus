@@ -31,17 +31,20 @@ def plot_snapshots(solutions, time_partition, field, label, **kwargs):
     steady = rows == cols == 1
     figsize = kwargs.pop("figsize", (6 * cols, 24 // cols))
     fig, axes = plt.subplots(rows, cols, sharex="col", figsize=figsize)
+    tcs = []
     for i, sols_step in enumerate(solutions[field][label]):
         ax = axes if steady else axes[0] if cols == 1 else axes[0, i]
         ax.set_title(f"Mesh[{i}]")
+        tc = []
         for j, sol in enumerate(sols_step):
             ax = axes if steady else axes[j] if cols == 1 else axes[j, i]
-            tricontourf(sol, axes=ax, **kwargs)
+            tc.append(tricontourf(sol, axes=ax, **kwargs))
             if not steady:
                 time = i * P.end_time/cols + j * P.timesteps_per_export[i] * P.timesteps[i]
                 ax.annotate(f"t={time:.2f}", (0.05, 0.05), color="white")
+        tcs.append(tc)
     plt.tight_layout()
-    return fig, axes
+    return fig, axes, tcs
 
 
 def plot_indicator_snapshots(indicators, time_partition, **kwargs):
@@ -63,14 +66,17 @@ def plot_indicator_snapshots(indicators, time_partition, **kwargs):
     steady = rows == cols == 1
     figsize = kwargs.pop("figsize", (6 * cols, 24 // cols))
     fig, axes = plt.subplots(rows, cols, sharex="col", figsize=figsize)
+    tcs = []
     for i, indi_step in enumerate(indicators):
         ax = axes if steady else axes[0] if cols == 1 else axes[0, i]
         ax.set_title(f"Mesh[{i}]")
+        tc = []
         for j, indi in enumerate(indi_step):
             ax = axes if steady else axes[j] if cols == 1 else axes[j, i]
-            tricontourf(indi, axes=ax, **kwargs)
+            tc.append(tricontourf(indi, axes=ax, **kwargs))
             if not steady:
                 time = i * P.end_time/cols + j * P.timesteps_per_export[i] * P.timesteps[i]
                 ax.annotate(f"t={time:.2f}", (0.05, 0.05), color="white")
+        tcs.append(tc)
     plt.tight_layout()
-    return fig, axes
+    return fig, axes, tcs
