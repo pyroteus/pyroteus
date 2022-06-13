@@ -32,11 +32,11 @@ steady = False
 wq = Constant(1.0)
 
 
-def get_function_spaces(mesh):
+def get_function_spaces(mesh, field="tracer_2d"):
     r"""
     :math:`\mathbb P1` space.
     """
-    return {"tracer_2d": FunctionSpace(mesh, "CG", 1)}
+    return {field: FunctionSpace(mesh, "CG", 1)}
 
 
 def get_form(self):
@@ -46,8 +46,8 @@ def get_form(self):
     one half.
     """
 
-    def form(i, sols):
-        q, q_ = sols["tracer_2d"]
+    def form(i, sols, field="tracer_2d"):
+        q, q_ = sols[field]
         dt = self.time_partition[i].timestep
         V = q_.function_space()
         mesh = V.mesh()
@@ -70,10 +70,9 @@ def get_bcs(self):
     Zero Dirichlet condition on all boundaries.
     """
 
-    def bcs(i):
-        return [
-            DirichletBC(fs[i], 0, "on_boundary") for fs in self.function_spaces.values()
-        ]
+    def bcs(i, field="tracer_2d"):
+        fs = self.function_spaces[field][i]
+        return [DirichletBC(fs, 0, "on_boundary")]
 
     return bcs
 
@@ -97,7 +96,7 @@ def get_solver(self):
 
         # Setup variational problem
         a, L = self.form(i, {field: (q, q_)}, field=field)
-        bc = self.bcs(i)
+        bc = self.bcs(i, field=field)
 
         # Setup Crank-Nicolson time integrator
         sp = {
@@ -147,13 +146,13 @@ def slot_cyl_initial_condition(x, y, fs):
     )
 
 
-def get_initial_condition(self, coordinates=None):
+def get_initial_condition(self, coordinates=None, field="tracer_2d"):
     """
     Initial condition consisting of
     the sum of a bell, cone and
     slotted cylinder.
     """
-    init_fs = self.function_spaces["tracer_2d"][0]
+    init_fs = self.function_spaces[field][0]
     if coordinates is not None:
         assert init_fs.mesh() == coordinates.function_space().mesh()
         x, y = coordinates
@@ -162,7 +161,7 @@ def get_initial_condition(self, coordinates=None):
     bell = bell_initial_condition(x, y, init_fs)
     cone = cone_initial_condition(x, y, init_fs)
     slot_cyl = slot_cyl_initial_condition(x, y, init_fs)
-    return {"tracer_2d": interpolate(bell + cone + slot_cyl, init_fs)}
+    return {field: interpolate(bell + cone + slot_cyl, init_fs)}
 
 
 def get_qoi(self, sol, i, exact=get_initial_condition, linear=True):
