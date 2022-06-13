@@ -120,6 +120,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         sols_e = mesh_seq_e.solve_adjoint(**adj_kwargs)
         tm = TransferManager()
         indicators = []
+        FWD, ADJ = "forward", "adjoint"
+        FWD_OLD = "forward" if self.steady else "forward_old"
+        ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
         for i, mesh in enumerate(self):
             P0 = FunctionSpace(self[i], "DG", 0)
             indicator = []
@@ -140,12 +143,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 u_star_next[f] = Function(fs_e)
                 u_star_e[f] = Function(fs_e)
                 solutions[f] = [
-                    sols[f]["forward"][i],
-                    sols[f]["forward_old"][i],
-                    sols[f]["adjoint"][i],
-                    sols[f]["adjoint_next"][i],
-                    sols_e[f]["adjoint"][i],
-                    sols_e[f]["adjoint_next"][i],
+                    sols[f][FWD][i],
+                    sols[f][FWD_OLD][i],
+                    sols[f][ADJ][i],
+                    sols[f][ADJ_NEXT][i],
+                    sols_e[f][ADJ][i],
+                    sols_e[f][ADJ_NEXT][i],
                 ]
 
             # Get form in enriched space
@@ -155,14 +158,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 for f in self.fields:
 
                     # Update fields
-                    tm.prolong(sols[f]["forward"][i][j], u[f])
-                    tm.prolong(sols[f]["forward_old"][i][j], u_[f])
-                    tm.prolong(sols[f]["adjoint"][i][j], u_star[f])
-                    tm.prolong(sols[f]["adjoint_next"][i][j], u_star_next[f])
+                    tm.prolong(sols[f][FWD][i][j], u[f])
+                    tm.prolong(sols[f][FWD_OLD][i][j], u_[f])
+                    tm.prolong(sols[f][ADJ][i][j], u_star[f])
+                    tm.prolong(sols[f][ADJ_NEXT][i][j], u_star_next[f])
 
                     # Combine adjoint solutions as appropriate
                     u_star[f].assign(0.5 * (u_star[f] + u_star_next[f]))
-                    u_star_e[f].assign(0.5 * (sols_e[f]["adjoint"][i][j] + sols_e[f]["adjoint_next"][i][j]))
+                    u_star_e[f].assign(0.5 * (sols_e[f][ADJ][i][j] + sols_e[f][ADJ_NEXT][i][j]))
                     u_star_e[f] -= u_star[f]
 
                 # Evaluate error indicator
