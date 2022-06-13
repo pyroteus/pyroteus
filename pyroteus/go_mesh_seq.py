@@ -17,7 +17,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     """
 
     @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.get_enriched_mesh_seq")
-    def get_enriched_mesh_seq(self, enrichment_method="p", num_h_enrichments=1, num_p_enrichments=1):
+    def get_enriched_mesh_seq(self, enrichment_method="p", num_enrichments=1):
         """
         Solve the forward and adjoint problems
         associated with :attr:`solver` in a
@@ -26,23 +26,19 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         Currently, global enrichment may be
         achieved using one of:
         * h-refinement (``enrichment_method = 'h'``);
-        * p-refinement (``enrichment_method = 'p'``);
-        * hp-refinement (``enrichment_method = 'hp'``).
+        * p-refinement (``enrichment_method = 'p'``).
 
-        The number of refinements in each direction
-        may be controlled by the keyword arguments
-        ``num_h_enrichments`` and ``num_p_enrichments``.
+        The number of refinements may be controlled by
+        the keyword argument ``num_enrichments``.
         """
-        assert enrichment_method in ("h", "p", "hp")
-        assert num_h_enrichments >= 0
-        assert num_p_enrichments >= 0
-        assert num_h_enrichments > 0 or num_p_enrichments > 0
+        if enrichment_method not in ("h", "p"):
+            raise ValueError(f"Enrichment method {enrichment_method} not supported")
+        if num_enrichments <= 0:
+            raise ValueError("A positive number of enrichments is required")
 
         # Apply h-refinement
-        if "h" in enrichment_method and num_h_enrichments > 0:
-            meshes = [
-                MeshHierarchy(mesh, num_h_enrichments)[-1] for mesh in self.meshes
-            ]
+        if enrichment_method == "h":
+            meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in self.meshes]
         else:
             meshes = self.meshes
 
@@ -50,15 +46,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             """
             Apply p-refinement, if requested.
             """
-            if num_p_enrichments == 0:
+            if enrichment_method == "h":
                 return self._get_function_spaces(mesh)
             enriched_spaces = {}
             for label, fs in self.function_spaces.items():
                 element = fs[0].ufl_element()
-                if "p" in enrichment_method:
-                    element = element.reconstruct(
-                        degree=element.degree() + num_p_enrichments
-                    )
+                element = element.reconstruct(degree=element.degree() + num_enrichments)
                 enriched_spaces[label] = FunctionSpace(mesh, element)
             return enriched_spaces
 
@@ -76,7 +69,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         )
 
     @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.global_enrichment")
-    def global_enrichment(self, enrichment_method="p", num_h_enrichments=1, num_p_enrichments=1, **kwargs):
+    def global_enrichment(self, enrichment_method="p", num_enrichments=1, **kwargs):
         """
         Solve the forward and adjoint problems
         associated with :attr:`solver` in a
@@ -85,12 +78,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         Currently, global enrichment may be
         achieved using one of:
         * h-refinement (``enrichment_method = 'h'``);
-        * p-refinement (``enrichment_method = 'p'``);
-        * hp-refinement (``enrichment_method = 'hp'``).
+        * p-refinement (``enrichment_method = 'p'``).
 
-        The number of refinements in each direction
-        may be controlled by the keyword arguments
-        ``num_h_enrichments`` and ``num_p_enrichments``.
+        The number of refinements may be controlled by
+        the keyword argument ``num_enrichments``.
 
         :kwarg kwargs: keyword arguments to pass to the
             :attr:`solve_adjoint` method of the
@@ -98,8 +89,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         """
         mesh_seq = self.get_enriched_mesh_seq(
             enrichment_method=enrichment_method,
-            num_h_enrichments=num_h_enrichments,
-            num_p_enrichments=num_p_enrichments,
+            num_enrichments=num_enrichments,
         )
         return mesh_seq.solve_adjoint(**kwargs)
 
@@ -115,10 +105,18 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         :kwarg adj_kwargs: keyword arguments to pass to the
             adjoint solver
         """
+        enrichment_method = enrichment_kwargs.get("enrichment_method", "p")
+        if enrichment_method == "h":
+            tm = TransferManager()
+            transfer = tm.prolong
+        else:
+
+            def transfer(source, target):
+                target.interpolate(source)
+
         mesh_seq_e = self.get_enriched_mesh_seq(**enrichment_kwargs)
         sols = self.solve_adjoint(**adj_kwargs)
         sols_e = mesh_seq_e.solve_adjoint(**adj_kwargs)
-        tm = TransferManager()
         indicators = []
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
@@ -130,10 +128,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
             solutions = {}
-            enriched_spaces = {
-                f: mesh_seq_e.function_spaces[f][i]
-                for f in self.fields
-            }
+            enriched_spaces = {f: mesh_seq_e.function_spaces[f][i] for f in self.fields}
             mapping = {}
             for f, fs_e in enriched_spaces.items():
                 u[f] = Function(fs_e)
@@ -158,14 +153,16 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 for f in self.fields:
 
                     # Update fields
-                    tm.prolong(sols[f][FWD][i][j], u[f])
-                    tm.prolong(sols[f][FWD_OLD][i][j], u_[f])
-                    tm.prolong(sols[f][ADJ][i][j], u_star[f])
-                    tm.prolong(sols[f][ADJ_NEXT][i][j], u_star_next[f])
+                    transfer(sols[f][FWD][i][j], u[f])
+                    transfer(sols[f][FWD_OLD][i][j], u_[f])
+                    transfer(sols[f][ADJ][i][j], u_star[f])
+                    transfer(sols[f][ADJ_NEXT][i][j], u_star_next[f])
 
                     # Combine adjoint solutions as appropriate
                     u_star[f].assign(0.5 * (u_star[f] + u_star_next[f]))
-                    u_star_e[f].assign(0.5 * (sols_e[f][ADJ][i][j] + sols_e[f][ADJ_NEXT][i][j]))
+                    u_star_e[f].assign(
+                        0.5 * (sols_e[f][ADJ][i][j] + sols_e[f][ADJ_NEXT][i][j])
+                    )
                     u_star_e[f] -= u_star[f]
 
                 # Evaluate error indicator
