@@ -14,6 +14,21 @@ import numpy as np
 __all__ = ["AdjointMeshSeq", "annotate_qoi"]
 
 
+def th(num):
+    """
+    Convert from cardinal to ordinal.
+    """
+    end = int(str(num)[-1])
+    if end == 1:
+        return f"{num}st"
+    elif end == 2:
+        return f"{num}nd"
+    elif end == 3:
+        return f"{num}rd"
+    else:
+        return f"{num}th"
+
+
 def annotate_qoi(get_qoi):
     """
     Decorator that ensures QoIs are annotated
@@ -31,7 +46,7 @@ def annotate_qoi(get_qoi):
         num_kwargs = 0 if qoi.__defaults__ is None else len(qoi.__defaults__)
         num_args = qoi.__code__.co_argcount - num_kwargs
         if num_args == 0:
-            mesh_seq.qoi_type = "end_time"
+            mesh_seq.qoi_type in ["end_time", "steady"]
         elif num_args == 1:
             mesh_seq.qoi_type = "time_integrated"
         else:
@@ -71,7 +86,9 @@ class AdjointMeshSeq(MeshSeq):
             as well as an index for the :class:`MeshSeq`
         """
         self.qoi_type = kwargs.pop("qoi_type")
-        self.steady = kwargs.pop("steady", False)
+        if self.qoi_type not in ["end_time", "time_integrated", "steady"]:
+            raise ValueError(f"QoI type {self.qoi_type} not recognised")
+        self.steady = self.qoi_type == "steady"
         super().__init__(time_partition, initial_meshes, **kwargs)
         self._get_qoi = get_qoi
         self.J = 0
@@ -133,7 +150,7 @@ class AdjointMeshSeq(MeshSeq):
                 )
 
         # Account for end time QoI
-        if self.qoi_type == "end_time":
+        if self.qoi_type in ["end_time", "steady"]:
             qoi = self.get_qoi(sols, N - 1)
             self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
         return checkpoints
@@ -243,7 +260,7 @@ class AdjointMeshSeq(MeshSeq):
 
             # Get seed vector for reverse propagation
             if i == num_subintervals - 1:
-                if self.qoi_type == "end_time":
+                if self.qoi_type in ["end_time", "steady"]:
                     qoi = self.get_qoi(sols, i)
                     self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
                     if self.warn and np.isclose(float(self.J), 0.0):
@@ -349,7 +366,7 @@ class AdjointMeshSeq(MeshSeq):
                 # Check non-zero adjoint solution/value
                 if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
                     self.warning(
-                        f"Adjoint solution for field {field} on subinterval {i} is zero."
+                        f"Adjoint solution for field {field} on {th(i)} subinterval is zero."
                     )
                 if (
                     self.warn
@@ -357,7 +374,7 @@ class AdjointMeshSeq(MeshSeq):
                     and np.isclose(norm(sols.adj_value[i][0]), 0.0)
                 ):
                     self.warning(
-                        f"Adjoint action for field {field} on subinterval {i} is zero."
+                        f"Adjoint action for field {field} on {th(i)} subinterval is zero."
                     )
 
             # Get adjoint action
@@ -370,12 +387,8 @@ class AdjointMeshSeq(MeshSeq):
             for field, seed in seeds.items():
                 if self.warn and np.isclose(norm(seed), 0.0):
                     self.warning(
-                        f"Adjoint action for field {field} on subinterval {i} is zero."
+                        f"Adjoint action for field {field} on {th(i)} subinterval is zero."
                     )
-                    if steady:
-                        self.warning(
-                            "  You seem to have a steady-state problem. Presumably it is linear?"
-                        )
             tape.clear_tape()
 
         # Check the QoI value agrees with that due to the checkpointing run

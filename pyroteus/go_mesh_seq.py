@@ -73,7 +73,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             get_qoi=self._get_qoi,
             get_bcs=self._get_bcs,
             qoi_type=self.qoi_type,
-            steady=self.steady,
         )
 
     @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.global_enrichment")
