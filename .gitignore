@@ -2,7 +2,6 @@
 bench/
 build/
 data/
-demos/*.py
 docs/source/demos/
 outputs/
 plots/
