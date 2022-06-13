@@ -135,18 +135,13 @@ def get_solver(mesh_seq):
 # programatic dependence on the initial condition so that it is possible to
 # automatically differentiate the QoI with respect to this as an input.
 #
-# In the same way, :func:`get_initial_condition` is required, but fairly artificial.
-# ::
-
-def get_initial_condition(mesh_seq):
-    return {"c": Function(mesh_seq.function_spaces["c"][0])}
-
-
-# As in the motivation for the manual, we consider a quantity of interest that
-# integrates the tracer concentration over a circular "receiver" region.
+# For steady-state problems, we do not need to specify :func:`get_initial_condition`
+# if the equation is linear. If the equation is nonlinear then this would provide
+# an initial guess. By default, all components are initialised to zero.
 #
-# Since there is no time dependence, the QoI looks just like an ``"end_time"``
-# type QoI. ::
+# As in the motivation for the manual, we consider a quantity of interest that
+# integrates the tracer concentration over a circular "receiver" region. Since
+# there is no time dependence, the QoI looks just like an ``"end_time"`` type QoI. ::
 
 def get_qoi(mesh_seq, sol, index):
     def qoi():
@@ -172,7 +167,6 @@ mesh_seq = GoalOrientedMeshSeq(
     time_partition,
     mesh,
     get_function_spaces=get_function_spaces,
-    get_initial_condition=get_initial_condition,
     get_form=get_form,
     get_bcs=get_bcs,
     get_solver=get_solver,
