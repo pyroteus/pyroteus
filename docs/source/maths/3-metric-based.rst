@@ -144,7 +144,7 @@ represented by a unit circle.
    :align: center
 
    Representation of a 2D Riemannian metric as an ellipse.
-   Image taken from :cite:`Wal21` with author's permission.
+   Image taken from :cite:`Wallwork:21` with author's permission.
 
 Given a metric field, the eigendecomposition may be
 computed in Pyroteus using the function
@@ -195,7 +195,7 @@ using the function :func:`density_and_quotients`.
 Continuous mesh analogy
 -----------------------
 
-The work of :cite:`LA11` established duality between
+The work of :cite:`LA:11` established duality between
 the (inherently discrete) mesh and a (continuous)
 Riemannian metric field. Having a continuous
 representation for the mesh means that we are able to
@@ -333,7 +333,7 @@ which fits within the ellipses associtated with the
 two input metrics. As such, metric intersection yields
 a new metric whose complexity is greater than (or equal
 to) its parents'. This is not true for the metric
-average in general. See :cite:`PU01` for details.
+average in general. See :cite:`PUDG:01` for details.
 
 .. figure:: images/intersection.jpg
    :figwidth: 80%
@@ -341,7 +341,7 @@ average in general. See :cite:`PU01` for details.
 
    Intersection of two 2D Riemannian metrics, interpreted
    in terms of their elliptical representations.
-   Image taken from :cite:`Wal21` with author's permission.
+   Image taken from :cite:`Wallwork:21` with author's permission.
 
 Metric combination may be achieved in Pyroteus using the
 functions :func:`metric_average`,

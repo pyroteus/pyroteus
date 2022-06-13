@@ -90,6 +90,8 @@ class MeshSeq(object):
         self.warn = warnings
         self._lagged_dep_idx = {}
         self.sections = [{} for mesh in self]
+        if not hasattr(self, "steady"):
+            self.steady = False
 
     def debug(self, msg):
         debug(f"MeshSeq: {msg}")
@@ -342,16 +344,20 @@ class MeshSeq(object):
             and dep.output.name() == field + "_old"
         ]
         if len(fwd_old_idx) == 0:
-            self.warning(
-                f"Solve block for field '{field}' on subinterval {subinterval} has no dependencies"
-            )
+            if not self.steady:
+                self.warning(
+                    f"Solve block for field '{field}' on"
+                    f" subinterval {subinterval} has no dependencies"
+                )
             fwd_old_idx = None
         else:
             if len(fwd_old_idx) > 1:
                 self.warning(
-                    f"Solve block  for field '{field}' on subinterval {subinterval} has dependencies\n"
-                    " in the prognostic space other than the PDE solution at the previous timestep.\n"
-                    f"(Dep indices {fwd_old_idx}). Naively assuming the first to be the right one."
+                    f"Solve block for field '{field}' on subinterval"
+                    f" {subinterval} has dependencies in the prognostic"
+                    " space other than the PDE solution at the previous"
+                    f" timestep (dep. indices {fwd_old_idx}). Naively"
+                    " assuming the first to be the right one."
                 )
             fwd_old_idx = fwd_old_idx[0]
         self._lagged_dep_idx[field] = fwd_old_idx

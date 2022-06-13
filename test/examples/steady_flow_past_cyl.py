@@ -16,7 +16,7 @@ import os
 
 mesh = Mesh(os.path.join(os.path.dirname(__file__), "mesh-with-hole.msh"))
 fields = ["up"]
-dt = 20.0
+dt = 1.0
 end_time = dt
 dt_per_export = 1
 num_subintervals = 1

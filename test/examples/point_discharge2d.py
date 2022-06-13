@@ -24,8 +24,8 @@ import numpy as np
 n = 0
 mesh = RectangleMesh(100 * 2**n, 20 * 2**n, 50, 10)
 fields = ["tracer_2d"]
-end_time = 20.0
-dt = 20.0
+end_time = 1.0
+dt = 1.0
 dt_per_export = 1
 src_x, src_y, src_r = 2.0, 5.0, 0.05606388
 rec_x, rec_y, rec_r = 20.0, 7.5, 0.5

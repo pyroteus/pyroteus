@@ -163,7 +163,7 @@ def get_form(mesh_seq):
 
 def get_bcs(mesh_seq):
     def bcs(index, field="c"):
-        fs = mesh_seq.function_spaces[field][0]
+        fs = mesh_seq.function_spaces[field][index]
         return [DirichletBC(fs, 0, "on_boundary")]
 
     return bcs

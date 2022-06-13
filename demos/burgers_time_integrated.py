@@ -102,7 +102,7 @@ mesh_seq = AdjointMeshSeq(
 )
 solutions = mesh_seq.solve_adjoint()
 
-fig, axes = plot_snapshots(solutions, time_partition, "u", "adjoint")
+fig, axes, tcs = plot_snapshots(solutions, time_partition, "u", "adjoint")
 fig.savefig("burgers-time_integrated.jpg")
 
 # .. figure:: burgers-time_integrated.jpg

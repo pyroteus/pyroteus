@@ -118,7 +118,7 @@ solutions = mesh_seq.solve_adjoint()
 
 # Plotting this, we find that the results are identical to those generated previously. ::
 
-fig, axes = plot_snapshots(solutions, P, "u", "adjoint", levels=np.linspace(0, 0.8, 9))
+fig, axes, tcs = plot_snapshots(solutions, P, "u", "adjoint", levels=np.linspace(0, 0.8, 9))
 fig.savefig("burgers-oo.jpg")
 
 # .. figure:: burgers-oo.jpg
