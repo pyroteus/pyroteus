@@ -33,8 +33,8 @@ import numpy as np
 n = 0
 mesh = BoxMesh(100 * 2**n, 20 * 2**n, 20 * 2**n, 50, 10, 10)
 fields = ["tracer_3d"]
-end_time = 20.0
-dt = 20.0
+end_time = 1.0
+dt = 1.0
 dt_per_export = 1
 src_x, src_y, src_z, src_r = 2.0, 5.0, 5.0, 6.51537538e-02
 rec_x, rec_y, rec_z, rec_r = 20.0, 7.5, 7.5, 0.5

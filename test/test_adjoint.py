@@ -99,13 +99,12 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         pytest.skip("n/a for steady case")
     if steady:
         assert test_case.dt_per_export == 1
-        assert np.isclose(end_time / test_case.dt, 1.0)
+        assert np.isclose(end_time, test_case.dt)
         qoi_type = "steady"
 
     # Partition time interval and create MeshSeq
-    time_partition = TimePartition(
+    time_partition = TimeInterval(
         end_time,
-        1,
         test_case.dt,
         test_case.fields,
         timesteps_per_export=test_case.dt_per_export,
@@ -229,9 +228,8 @@ def plot_solutions(problem, qoi_type, debug=True):
     test_case = importlib.import_module(problem)
     end_time = test_case.end_time
     steady = test_case.steady
-    time_partition = TimePartition(
+    time_partition = TimeInterval(
         end_time,
-        1,
         test_case.dt,
         test_case.fields,
         timesteps_per_export=test_case.dt_per_export,
