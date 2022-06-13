@@ -188,7 +188,7 @@ solutions, indicators = mesh_seq.indicate_errors(
 import matplotlib.colors as mcolors
 from matplotlib import ticker
 
-plot_kwargs = {"levels": 50, "figsize": (10, 2), "cmap": "coolwarm"}
+plot_kwargs = {"levels": 50, "figsize": (10, 3), "cmap": "coolwarm"}
 fig, axes, tcs = plot_snapshots(solutions, time_partition, "c", "forward", **plot_kwargs)
 fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
 axes.set_title("Forward solution")
