@@ -9,6 +9,7 @@ from .quality import get_aspect_ratios2d, get_aspect_ratios3d
 from .utility import AttrDict, Mesh
 from collections import OrderedDict
 from collections.abc import Iterable
+from functools import wraps
 import numpy as np
 
 
@@ -395,6 +396,7 @@ class MeshSeq(object):
 
         num_subintervals = len(self)
         function_spaces = self.function_spaces
+        P = self.time_partition
 
         # Create arrays to hold exported forward solutions
         solutions = AttrDict(
@@ -403,10 +405,8 @@ class MeshSeq(object):
                     {
                         label: [
                             [
-                                firedrake.Function(fs, name="_".join([field, label]))
-                                for j in range(
-                                    self.time_partition.exports_per_subinterval[i] - 1
-                                )
+                                firedrake.Function(fs, name=f"{field}_{label}")
+                                for j in range(P.exports_per_subinterval[i] - 1)
                             ]
                             for i, fs in enumerate(function_spaces[field])
                         ]
@@ -420,15 +420,30 @@ class MeshSeq(object):
         # Wrap solver to extract controls
         solver = self.solver
 
+        @PETSc.Log.EventDecorator("pyroteus.MeshSeq.solve_adjoint.evaluate_fwd")
+        @wraps(solver)
+        def wrapped_solver(i, ic, **kwargs):
+            init = AttrDict(
+                {field: ic[field].copy(deepcopy=True) for field in self.fields}
+            )
+            self.controls = [pyadjoint.Control(init[field]) for field in self.fields]
+            out = solver(i, init, **kwargs)
+            if i < len(self) - 1:
+                for field, fs in function_spaces.items():
+                    out[field] = project(out[field], fs[i + 1])
+            return out
+
         # Clear tape
         tape = pyadjoint.get_working_tape()
         tape.clear_tape()
 
         checkpoint = self.initial_condition
         for i in range(num_subintervals):
+            stride = P.timesteps_per_export[i]
+            num_exports = P.exports_per_subinterval[i]
 
             # Annotate tape on current subinterval
-            checkpoint = solver(i, checkpoint, **solver_kwargs)
+            checkpoint = wrapped_solver(i, checkpoint, **solver_kwargs)
 
             # Loop over prognostic variables
             for field, fs in function_spaces.items():
@@ -453,20 +468,15 @@ class MeshSeq(object):
 
                 # Extract solution data
                 sols = solutions[field]
-                stride = self.time_partition.timesteps_per_export[i]
-                if (
-                    len(solve_blocks[::stride])
-                    >= self.time_partition.exports_per_subinterval[i]
-                ):
+                if len(solve_blocks[::stride]) >= num_exports:
                     raise ValueError(
-                        f"More solve blocks than expected ({len(solve_blocks[::stride])} vs."
-                        f" {self.time_partition.exports_per_subinterval[i]})"
+                        f"More solve blocks than expected"
+                        f" ({len(solve_blocks[::stride])} > {num_exports-1})"
                     )
-                for j, block in enumerate(solve_blocks[::stride]):
+                for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
                     if fwd_old_idx is not None:
-                        sols.forward_old[i][j].assign(
-                            block._dependencies[fwd_old_idx].saved_output
-                        )
+                        dep = block._dependencies[fwd_old_idx]
+                        sols.forward_old[i][j].assign(dep.saved_output)
                     sols.forward[i][j].assign(block._outputs[0].saved_output)
 
             # Clear tape
