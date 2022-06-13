@@ -39,6 +39,7 @@ dt_per_export = 1
 src_x, src_y, src_z, src_r = 2.0, 5.0, 5.0, 6.51537538e-02
 rec_x, rec_y, rec_z, rec_r = 20.0, 7.5, 7.5, 0.5
 steady = True
+get_initial_condition = None
 
 
 def get_function_spaces(mesh):
@@ -134,15 +135,6 @@ def get_solver(self):
         return {"tracer_3d": c}
 
     return solver
-
-
-def get_initial_condition(self):
-    """
-    Dummy initial condition function which
-    acts merely to pass over the
-    :class:`FunctionSpace`.
-    """
-    return {"tracer_3d": Function(self.function_spaces["tracer_3d"][0])}
 
 
 def get_qoi(self, sol, i):
