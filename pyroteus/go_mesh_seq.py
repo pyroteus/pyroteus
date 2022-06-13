@@ -94,7 +94,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         return mesh_seq.solve_adjoint(**kwargs)
 
     @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.indicate_errors")
-    def indicate_errors(self, enrichment_kwargs={}, adj_kwargs={}):
+    def indicate_errors(
+        self, enrichment_kwargs={}, adj_kwargs={}, indicator_fn=get_dwr_indicator
+    ):
         """
         Compute goal-oriented error indicators for each
         subinterval based on solving the adjoint problem
@@ -104,6 +106,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             to the global enrichment method
         :kwarg adj_kwargs: keyword arguments to pass to the
             adjoint solver
+        :kwarg indicator_fn: function for error indication,
+            which takes the form, adjoint error and enriched
+            space(s) as arguments
         """
         enrichment_method = enrichment_kwargs.get("enrichment_method", "p")
         if enrichment_method == "h":
@@ -166,7 +171,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     u_star_e[f] -= u_star[f]
 
                 # Evaluate error indicator
-                indi_e = get_dwr_indicator(F, u_star_e, enriched_spaces)
+                indi_e = indicator_fn(F, u_star_e, enriched_spaces)
 
                 # Project back to the base space
                 indi = project(indi_e, P0)
