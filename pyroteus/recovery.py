@@ -18,18 +18,30 @@ def recover_hessian(f, method="L2", **kwargs):
     """
     if method.upper() == "L2":
         g, H = double_l2_projection(f, **kwargs)
+
     elif method.capitalize() == "Clement":
         mesh = kwargs.get("mesh") or f.function_space().mesh()
-        g = clement_interpolant(
-            firedrake.interpolate(
-                ufl.grad(f), firedrake.VectorFunctionSpace(mesh, "DG", 0)
-            )
-        )
-        H = clement_interpolant(
-            firedrake.interpolate(
-                ufl.grad(g), firedrake.TensorFunctionSpace(mesh, "DG", 0)
-            )
-        )
+        family = f.ufl_element().family()
+        degree = f.ufl_element().degree()
+        msg = "Clement can only be used to compute gradients of "
+        if family not in ("Lagrange", "Discontinuous Lagrange"):
+            raise ValueError(msg + "Lagrange fields")
+        if degree == 0:
+            raise ValueError(msg + "fields of degree > 0")
+
+        # Recover gradient
+        gradf = ufl.grad(f)
+        if degree == 1:
+            V = firedrake.VectorFunctionSpace(mesh, "DG", 0)
+            g = clement_interpolant(firedrake.interpolate(gradf, V))
+        else:
+            V = firedrake.VectorFunctionSpace(mesh, "DG", 1)
+            g = firedrake.project(gradf, V)
+
+        # Recover Hessian
+        W = firedrake.TensorFunctionSpace(mesh, "DG", 0)
+        H = clement_interpolant(firedrake.interpolate(ufl.grad(g), W))
+
     elif method.upper() == "ZZ":
         raise NotImplementedError(
             "Zienkiewicz-Zhu recovery not yet implemented."
