@@ -5,7 +5,7 @@
 # which uses Mmg and ParMmg.                                             #
 #                                                                        #
 # Note that we use custom PETSc and Firedrake branches                   #
-# ksagiyam/dmplex_reorder_1d_options and jwallwork23/metric-based.       #
+# jwallwork23/firedrake and jwallwork23/metric-based.                    #
 #                                                                        #
 # Joe Wallwork, 2022.                                                    #
 # ====================================================================== #
@@ -32,7 +32,7 @@ export PETSC_CONFIGURE_OPTIONS="--with-debugging=no --with-fortran-bindings=0 --
 
 # Install Firedrake
 curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
-python3 firedrake-install --venv-name $FIREDRAKE_ENV --package-branch petsc ksagiyam/dmplex_reorder_1d_options --package-branch firedrake jwallwork23/metric-based
+python3 firedrake-install --venv-name $FIREDRAKE_ENV --package-branch petsc jwallwork23/firedrake --package-branch firedrake jwallwork23/metric-based
 source $FIREDRAKE_DIR/bin/activate
 
 # Reset PYTHONPATH
