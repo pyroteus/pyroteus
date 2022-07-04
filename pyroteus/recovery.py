@@ -52,7 +52,7 @@ def recover_hessian(f, method="L2", **kwargs):
 
 
 @PETSc.Log.EventDecorator("pyroteus.double_l2_projection")
-def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
+def double_l2_projection(f, mesh=None, target_spaces=None):
     r"""
     Recover the gradient and Hessian of a scalar field using a
     double :math:`L^2` projection.
@@ -62,7 +62,6 @@ def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
     :kwarg target_spaces: the :class:`VectorFunctionSpace` and
         :class:`TensorFunctionSpace` the recovered gradient and
         Hessian should live in
-    :kwarg mixed: solve as a mixed system, or separately?
     """
     mesh = mesh or f.function_space().mesh()
     if target_spaces is None:
@@ -70,66 +69,27 @@ def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
         P1_ten = firedrake.TensorFunctionSpace(mesh, "CG", 1)
     else:
         P1_vec, P1_ten = target_spaces
-    if not mixed:
-        g = firedrake.project(ufl.grad(f), P1_vec)
-        H = firedrake.project(ufl.grad(g), P1_ten)
-        return g, H
     W = P1_vec * P1_ten
-    g, H = firedrake.TrialFunctions(W)
     phi, tau = firedrake.TestFunctions(W)
-    l2_projection = firedrake.Function(W)
+    solution = firedrake.Function(W)
+    g, H = ufl.split(solution)
     n = ufl.FacetNormal(mesh)
 
     # The formulation is chosen such that f does not need to have any
     # finite element derivatives
-    a = (
-        ufl.inner(tau, H) * ufl.dx
+    F = (
+        # LHS
+        ufl.inner(tau, H) * ufl.dx + ufl.inner(phi, g) * ufl.dx
         + ufl.inner(ufl.div(tau), g) * ufl.dx
         - ufl.dot(g, ufl.dot(tau, n)) * ufl.ds
         - ufl.dot(ufl.avg(g), ufl.jump(tau, n)) * ufl.dS
+        # RHS
+        - f * ufl.dot(phi, n) * ufl.ds
+        - ufl.avg(f) * ufl.jump(phi, n) * ufl.dS
+        + f * ufl.div(phi) * ufl.dx
     )
-    a += ufl.inner(phi, g) * ufl.dx
-    L = (
-        f * ufl.dot(phi, n) * ufl.ds
-        + ufl.avg(f) * ufl.jump(phi, n) * ufl.dS
-        - f * ufl.div(phi) * ufl.dx
-    )
-
-    # Apply stationary preconditioners in the Schur complement to get away
-    # with applying GMRES to the whole mixed system
-    sp = {
-        "mat_type": "aij",
-        "ksp_type": "gmres",
-        "ksp_max_it": 20,
-        "pc_type": "fieldsplit",
-        "pc_fieldsplit_type": "schur",
-        "pc_fieldsplit_0_fields": "1",
-        "pc_fieldsplit_1_fields": "0",
-        "pc_fieldsplit_schur_precondition": "selfp",
-        "fieldsplit_0_ksp_type": "preonly",
-        "fieldsplit_1_ksp_type": "preonly",
-        "fieldsplit_1_pc_type": "gamg",
-        "fieldsplit_1_mg_levels_ksp_max_it": 5,
-    }
-    if firedrake.COMM_WORLD.size == 1:
-        sp["fieldsplit_0_pc_type"] = "ilu"
-        sp["fieldsplit_1_mg_levels_pc_type"] = "ilu"
-    else:
-        sp["fieldsplit_0_pc_type"] = "bjacobi"
-        sp["fieldsplit_0_sub_ksp_type"] = "preonly"
-        sp["fieldsplit_0_sub_pc_type"] = "ilu"
-        sp["fieldsplit_1_mg_levels_pc_type"] = "bjacobi"
-        sp["fieldsplit_1_mg_levels_sub_ksp_type"] = "preonly"
-        sp["fieldsplit_1_mg_levels_sub_pc_type"] = "ilu"
-    try:
-        firedrake.solve(a == L, l2_projection, solver_parameters=sp)
-    except firedrake.ConvergenceError:
-        petsc4py.Sys.Print(
-            "L2 projection failed to converge with"
-            " iterative solver parameters, trying direct."
-        )
-        sp = {"pc_mat_factor_solver_type": "mumps"}
-        firedrake.solve(a == L, l2_projection, solver_parameters=sp)
+    sp = {"pc_mat_factor_solver_type": "mumps"}
+    firedrake.solve(F == 0, solution, solver_parameters=sp)
     return l2_projection.split()
 
 
