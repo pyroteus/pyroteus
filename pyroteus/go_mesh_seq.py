@@ -234,8 +234,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.fixed_point_iteration")
     def fixed_point_iteration(
         self,
+        adaptor,
         update_params=None,
-        adaptor=None,
         enrichment_kwargs={},
         adj_kwargs={},
         indicator_fn=get_dwr_indicator,
@@ -244,13 +244,13 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         Apply goal-oriented mesh adaptation using
         a fixed point iteration loop.
 
-        :kwarg update_params: function for updating :attr:`params`
-            at each iteration. Its arguments are the parameter
-            class and the fixed point iteration
-        :kwarg adaptor: function for adapting the mesh sequence.
+        :arg adaptor: function for adapting the mesh sequence.
             Its arguments are the :class:`MeshSeq` instance, the
             dictionary of solution :class:`Function`\s and the
             list of error indicators
+        :kwarg update_params: function for updating :attr:`params`
+            at each iteration. Its arguments are the parameter
+            class and the fixed point iteration
         :kwarg enrichment_kwargs: keyword arguments to pass
             to the global enrichment method
         :kwarg adj_kwargs: keyword arguments to pass to the

@@ -522,17 +522,17 @@ class MeshSeq:
                 self.converged = False
 
     @PETSc.Log.EventDecorator("pyroteus.MeshSeq.fixed_point_iteration")
-    def fixed_point_iteration(self, update_params=None, adaptor=None, solver_kwargs={}):
+    def fixed_point_iteration(self, adaptor, update_params=None, solver_kwargs={}):
         r"""
         Apply goal-oriented mesh adaptation using
         a fixed point iteration loop.
 
+        :arg adaptor: function for adapting the mesh sequence.
+            Its arguments are the :class:`MeshSeq` instance and
+            the dictionary of solution :class:`Function`\s
         :kwarg update_params: function for updating :attr:`params`
             at each iteration. Its arguments are the parameter
             class and the fixed point iteration
-        :kwarg adaptor: function for adapting the mesh sequence.
-            Its arguments are the :class:`MeshSeq` instance and
-            the dictionary of solution :class:`Function`\s
         :kwarg solver_kwargs: a dictionary providing parameters
             to the solver
         """
