@@ -93,6 +93,7 @@ class AdjointMeshSeq(MeshSeq):
         self._get_qoi = get_qoi
         self.J = 0
         self.controls = None
+        self.qoi_values = []
 
     @property
     @pyadjoint.no_annotations
@@ -395,3 +396,21 @@ class AdjointMeshSeq(MeshSeq):
                 f" run do not match ({J_chk} vs. {self.J})"
             )
         return solutions
+
+    def check_qoi_convergence(self):
+        """
+        Check for convergence of the fixed point iteration
+        due to the relative difference in QoI value being
+        smaller than the specified tolerance.
+
+        :return: ``True`` if converged, else ``False``
+        """
+        P = self.params
+        self.converged = False
+        if len(self.qoi_values) < max(2, P.miniter):
+            return
+        self.converged = True
+        qoi_ = self.qoi_values[-2]
+        qoi = self.qoi_values[-1]
+        if abs(qoi - qoi_) < P.qoi_rtol * abs(qoi_):
+            self.converged = True

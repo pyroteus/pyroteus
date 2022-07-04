@@ -55,8 +55,45 @@ def form2indicator(F):
     return indicator
 
 
+@PETSc.Log.EventDecorator("pyroteus.indicator2estimator")
+def indicator2estimator(indicator, absolute_value=False):
+    """
+    Deduce the error estimator value
+    associated with a single error
+    indicator field.
+
+    :arg indicator: the error indicator
+        :class:`Function`
+    :kwarg absolute_value: toggle
+        whether to take the modulus
+        on each element
+    """
+    if absolute_value:
+        indicator.interpolate(abs(indicator))
+    return indicator.vector().gather().sum()
+
+
+def indicators2estimator(indicators, time_partition, **kwargs):
+    r"""
+    Deduce the error estimator value
+    associated with error indicator
+    fields defined over a :class:`MeshSeq`.
+
+    :arg indicators: the list of list of
+        error indicator :class:`Function`\s
+    :arg time_partition: the
+        :class:`TimePartition` instance for
+        the problem being solved
+    """
+    estimator = 0
+    for by_mesh, dt in zip(indicators, time_partition.timesteps):
+        time_integrated = sum([indicator2estimator(indi, **kwargs) for indi in by_mesh])
+        estimator += dt * time_integrated
+    return estimator
+
+
 @PETSc.Log.EventDecorator("pyroteus.form2estimator")
-def form2estimator(F, absolute_value=False):
+def form2estimator(F, **kwargs):
     """
     Multiply throughout in a form,
     assemble as a cellwise error
@@ -69,9 +106,7 @@ def form2estimator(F, absolute_value=False):
         on each element
     """
     indicator = form2indicator(F)
-    if absolute_value:
-        indicator.interpolate(abs(indicator))
-    return indicator.vector().gather().sum()
+    return indicator2estimator(indicator, **kwargs)
 
 
 @PETSc.Log.EventDecorator("pyroteus.get_dwr_indicator")
@@ -94,7 +129,9 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
     if isinstance(adjoint_error, firedrake.Function):
         fs = test_space or adjoint_error.function_space()
         if F.ufl_domain() != fs.mesh():
-            raise ValueError("Meshes underlying the form and adjoint error do not match.")
+            raise ValueError(
+                "Meshes underlying the form and adjoint error do not match."
+            )
         mapping[firedrake.TestFunction(fs)] = adjoint_error
     else:
         if test_space is None:
@@ -104,6 +141,8 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
             }
         for key, err in adjoint_error.items():
             if F.ufl_domain() != test_space[key].mesh():
-                raise ValueError("Meshes underlying the form and adjoint error do not match.")
+                raise ValueError(
+                    "Meshes underlying the form and adjoint error do not match."
+                )
             mapping[firedrake.TestFunction(test_space[key])] = err
     return form2indicator(ufl.replace(F, mapping))

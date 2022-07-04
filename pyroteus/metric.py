@@ -8,9 +8,11 @@ Driver functions for metric-based mesh adaptation.
 """
 from .utility import *
 from .interpolation import clement_interpolant
+from .mesh_seq import AdaptParameters
 
 
 __all__ = [
+    "MetricParameters",
     "compute_eigendecomposition",
     "assemble_eigendecomposition",
     "metric_complexity",
@@ -31,6 +33,27 @@ __all__ = [
     "metric_logarithm",
     "ramp_complexity",
 ]
+
+
+class MetricParameters(AdaptParameters):
+    """
+    A class for holding parameters associated with
+    metric-based adaptive mesh fixed point iteration loops.
+    """
+
+    def __init__(self, parameters={}):
+        """
+        :arg parameters: dictionary of parameters to set
+        """
+        self["h_min"] = 1.0e-30  # Minimum metric magnitude
+        self["h_max"] = 1.0e30  # Maximum metric magnitude
+        self["a_max"] = 1.0e30  # Maximum anisotropy
+        self["p"] = 1.0  # Metric normalisation order
+        self["base_complexity"] = 200.0  # Base metric complexity
+        self["target_complexity"] = 4000.0  # Target metric complexity
+        self["num_ramp_iterations"] = 3  # Number of iterations to ramp over
+
+        super().__init__(parameters=parameters)
 
 
 def get_metric_kernel(func, dim):

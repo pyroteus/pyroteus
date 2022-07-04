@@ -2,14 +2,7 @@ all: run
 
 run:
 	@echo "Running all demos..."
-	@python3 time_partition.py
-	@python3 mesh_seq.py
-	@python3 burgers.py
-	@python3 burgers1.py
-	@python3 burgers2.py
-	@python3 burgers_time_integrated.py
-	@python3 burgers_oo.py
-	@python3 burgers_ee.py
+	@for file in ./*.py; do python3 $$file; done
 	@echo "Done."
 
 clean:

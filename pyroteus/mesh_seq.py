@@ -4,7 +4,7 @@ Sequences of meshes corresponding to a :class:`TimePartition`.
 import firedrake
 from firedrake.petsc import PETSc
 from .interpolation import project
-from .log import debug, warning, logger, DEBUG
+from .log import pyrint, debug, warning, logger, DEBUG
 from .quality import get_aspect_ratios2d, get_aspect_ratios3d
 from .utility import AttrDict, Mesh
 from collections import OrderedDict
@@ -13,10 +13,30 @@ from functools import wraps
 import numpy as np
 
 
-__all__ = ["MeshSeq"]
+__all__ = ["AdaptParameters", "MeshSeq"]
 
 
-class MeshSeq(object):
+class AdaptParameters(AttrDict):
+    """
+    A class for holding parameters associated with
+    adaptive mesh fixed point iteration loops.
+    """
+
+    def __init__(self, parameters={}):
+        """
+        :arg parameters: dictionary of parameters to set
+        """
+        self["miniter"] = 3  # Minimum iteration count
+        self["maxiter"] = 35  # Maximum iteration count
+        self["element_rtol"] = 0.001  # Relative tolerance for element count
+
+        for key, value in parameters.items():
+            if key not in self:
+                raise AttributeError(f"{self} does not have {key} attribute")
+            self[key] = value
+
+
+class MeshSeq:
     """
     A sequence of meshes for solving a PDE associated
     with a particular :class:`TimePartition` of the
@@ -24,18 +44,7 @@ class MeshSeq(object):
     """
 
     @PETSc.Log.EventDecorator("pyroteus.MeshSeq.__init__")
-    def __init__(
-        self,
-        time_partition,
-        initial_meshes,
-        get_function_spaces=None,
-        get_initial_condition=None,
-        get_form=None,
-        get_solver=None,
-        get_bcs=None,
-        warnings=True,
-        **kwargs,
-    ):
+    def __init__(self, time_partition, initial_meshes, **kwargs):
         """
         :arg time_partition: the :class:`TimePartition` which
             partitions the temporal domain
@@ -58,6 +67,7 @@ class MeshSeq(object):
         :kwarg get_bcs: a function, whose only argument is a
             :class:`MeshSeq`, which returns a function that
             determines any Dirichlet boundary conditions
+        :kwarg parameters: :class:`AdaptParameters` instance
         :kwarg warnings: print warnings?
         """
         self.time_partition = time_partition
@@ -67,6 +77,7 @@ class MeshSeq(object):
         self.meshes = initial_meshes
         if not isinstance(self.meshes, Iterable):
             self.meshes = [Mesh(initial_meshes) for subinterval in self.subintervals]
+        self.element_counts = [self.count_elements()]
         dim = np.array([mesh.topological_dimension() for mesh in self.meshes])
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension")
@@ -80,15 +91,18 @@ class MeshSeq(object):
                 else:
                     ar = get_aspect_ratios3d(mesh)
                 mar = ar.vector().gather().max()
-                self.debug(f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}")
+                self.debug(
+                    f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}"
+                )
             debug(100 * "-")
         self._fs = None
-        self._get_function_spaces = get_function_spaces
-        self._get_initial_condition = get_initial_condition
-        self._get_form = get_form
-        self._get_solver = get_solver
-        self._get_bcs = get_bcs
-        self.warn = warnings
+        self._get_function_spaces = kwargs.get("get_function_spaces")
+        self._get_initial_condition = kwargs.get("get_initial_condition")
+        self._get_form = kwargs.get("get_form")
+        self._get_solver = kwargs.get("get_solver")
+        self._get_bcs = kwargs.get("get_bcs")
+        self.params = kwargs.get("parameters", AdaptParameters())
+        self.warn = kwargs.get("warnings", True)
         self._lagged_dep_idx = {}
         self.sections = [{} for mesh in self]
         if not hasattr(self, "steady"):
@@ -109,6 +123,9 @@ class MeshSeq(object):
     def __setitem__(self, i, mesh):
         self.meshes[i] = mesh
 
+    def count_elements(self):
+        return [mesh.num_cells() for mesh in self]  # TODO: make parallel safe
+
     def plot(self, fig=None, axes=None, **kwargs):
         """
         Plot the meshes comprising a 2D :class:`MeshSeq`.
@@ -123,7 +140,7 @@ class MeshSeq(object):
             raise ValueError("MeshSeq plotting only supported in 2D")
         kwargs.setdefault("interior_kw", {"edgecolor": "k"})
         kwargs.setdefault("boundary_kw", {"edgecolor": "k"})
-        if (fig is None and axes is None):
+        if fig is None and axes is None:
             from matplotlib.pyplot import subplots
 
             n = len(self)
@@ -484,3 +501,62 @@ class MeshSeq(object):
                 tape.clear_tape()
 
         return solutions
+
+    def check_element_count_convergence(self):
+        """
+        Check for convergence of the fixed point iteration
+        due to the relative difference in element count being
+        smaller than the specified tolerance.
+
+        :return: ``True`` if converged, else ``False``
+        """
+        P = self.params
+        self.converged = False
+        if len(self.element_counts) < max(2, P.miniter + 1):
+            return
+        self.converged = True
+        elems_ = self.element_counts[-2]
+        elems = self.element_counts[-1]
+        for ne_, ne in zip(elems_, elems):
+            if abs(ne - ne_) > P.element_rtol * ne_:
+                self.converged = False
+
+    @PETSc.Log.EventDecorator("pyroteus.MeshSeq.fixed_point_iteration")
+    def fixed_point_iteration(self, update_params=None, adaptor=None, solver_kwargs={}):
+        r"""
+        Apply goal-oriented mesh adaptation using
+        a fixed point iteration loop.
+
+        :kwarg update_params: function for updating :attr:`params`
+            at each iteration. Its arguments are the parameter
+            class and the fixed point iteration
+        :kwarg adaptor: function for adapting the mesh sequence.
+            Its arguments are the :class:`MeshSeq` instance and
+            the dictionary of solution :class:`Function`\s
+        :kwarg solver_kwargs: a dictionary providing parameters
+            to the solver
+        """
+        P = self.params
+        self.element_counts = [self.count_elements()]
+        self.converged = False
+        for fp_iteration in range(P.maxiter):
+            if update_params is not None:
+                update_params(P, fp_iteration)
+
+            # Solve the forward problem over all meshes
+            sols = self.solve_forward(solver_kwargs=solver_kwargs)
+
+            # Adapt meshes and log element counts
+            adaptor(self, sols)
+            self.element_counts.append(self.count_elements())
+
+            # Check for element count convergence
+            self.check_element_count_convergence()
+            if self.converged:
+                pyrint(
+                    "Terminated due to element count convergence"
+                    f" after {fp_iteration+1} iterations"
+                )
+                break
+        if not self.converged:
+            pyrint(f"Failed to converge in {P.maxiter} iterations")
