@@ -13,10 +13,30 @@ from functools import wraps
 import numpy as np
 
 
-__all__ = ["MeshSeq"]
+__all__ = ["AdaptParameters", "MeshSeq"]
 
 
-class MeshSeq(object):
+class AdaptParameters(AttrDict):
+    """
+    A class for holding parameters associated with
+    adaptive mesh fixed point iteration loops.
+    """
+
+    def __init__(self, parameters={}):
+        """
+        :arg parameters: dictionary of parameters to set
+        """
+        self["miniter"] = 3  # Minimum iteration count
+        self["maxiter"] = 35  # Maximum iteration count
+        self["element_rtol"] = 0.001  # Relative tolerance for element count
+
+        for key, value in parameters.items():
+            if key not in self:
+                raise AttributeError(f"{self} does not have {key} attribute")
+            self[key] = value
+
+
+class MeshSeq:
     """
     A sequence of meshes for solving a PDE associated
     with a particular :class:`TimePartition` of the
@@ -24,18 +44,7 @@ class MeshSeq(object):
     """
 
     @PETSc.Log.EventDecorator("pyroteus.MeshSeq.__init__")
-    def __init__(
-        self,
-        time_partition,
-        initial_meshes,
-        get_function_spaces=None,
-        get_initial_condition=None,
-        get_form=None,
-        get_solver=None,
-        get_bcs=None,
-        warnings=True,
-        **kwargs,
-    ):
+    def __init__(self, time_partition, initial_meshes, **kwargs):
         """
         :arg time_partition: the :class:`TimePartition` which
             partitions the temporal domain
@@ -58,6 +67,7 @@ class MeshSeq(object):
         :kwarg get_bcs: a function, whose only argument is a
             :class:`MeshSeq`, which returns a function that
             determines any Dirichlet boundary conditions
+        :kwarg parameters: :class:`AdaptParameters` instance
         :kwarg warnings: print warnings?
         """
         self.time_partition = time_partition
@@ -85,12 +95,13 @@ class MeshSeq(object):
                 )
             debug(100 * "-")
         self._fs = None
-        self._get_function_spaces = get_function_spaces
-        self._get_initial_condition = get_initial_condition
-        self._get_form = get_form
-        self._get_solver = get_solver
-        self._get_bcs = get_bcs
-        self.warn = warnings
+        self._get_function_spaces = kwargs.get("get_function_spaces")
+        self._get_initial_condition = kwargs.get("get_initial_condition")
+        self._get_form = kwargs.get("get_form")
+        self._get_solver = kwargs.get("get_solver")
+        self._get_bcs = kwargs.get("get_bcs")
+        self.params = kwargs.get("parameters", AdaptParameters())
+        self.warn = kwargs.get("warnings", True)
         self._lagged_dep_idx = {}
         self.sections = [{} for mesh in self]
         if not hasattr(self, "steady"):

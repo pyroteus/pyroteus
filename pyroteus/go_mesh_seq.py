@@ -3,11 +3,39 @@ Drivers for goal-oriented error estimation on sequences of meshes.
 """
 from .adjoint import AdjointMeshSeq
 from .error_estimation import get_dwr_indicator
+from .mesh_seq import AdaptParameters
+from .metric import MetricParameters
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager, project
 from firedrake.petsc import PETSc
 
 
 __all__ = ["GoalOrientedMeshSeq"]
+
+
+class GoalOrientedParameters(AdaptParameters):
+    """
+    A class for holding parameters associated with
+    goal-oriented adaptive mesh fixed point iteration
+    loops.
+    """
+
+    def __init__(self, parameters={}):
+        self["qoi_rtol"] = 0.001  # Relative tolerance for QoI
+        self["estimator_rtol"] = 0.001  # Relative tolerance for estimator
+
+        super().__init__(parameters=parameters)
+
+
+class GoalOrientedMetricParameters(GoalOrientedParameters):
+    """
+    A class for holding parameters associated with
+    metric-based, goal-oriented adaptive mesh fixed
+    point iteration loops.
+    """
+
+    def __init__(self, parameters={}):
+        MetricParameters.__init__(self)
+        super().__init__(parameters=parameters)
 
 
 class GoalOrientedMeshSeq(AdjointMeshSeq):
