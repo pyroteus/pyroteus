@@ -189,4 +189,5 @@ bibtex_bibfiles = [
     "maths/1-references.bib",
     "maths/2-references.bib",
     "maths/3-references.bib",
+    "maths/4-references.bib",
 ]

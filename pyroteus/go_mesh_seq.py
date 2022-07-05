@@ -10,7 +10,7 @@ from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager, p
 from firedrake.petsc import PETSc
 
 
-__all__ = ["GoalOrientedMeshSeq"]
+__all__ = ["GoalOrientedParameters", "GoalOrientedMetricParameters", "GoalOrientedMeshSeq"]
 
 
 class GoalOrientedParameters(AdaptParameters):
