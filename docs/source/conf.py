@@ -54,11 +54,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "Pyroteus"
-year = datetime.datetime.now().year
-if year == 2021:
-    copyright = f"{year}, Joseph G. Wallwork et al."
-else:
-    copyright = f"2021-{year}, Joseph G. Wallwork et al."
+copyright = f"2021-{datetime.datetime.now().year}, Joseph G. Wallwork et al."
 author = "Joseph G. Wallwork et al."
 
 # The version info for the project you're documenting, acts as replacement for
@@ -77,7 +73,7 @@ release = pyroteus.__version__
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -188,5 +184,6 @@ bibtex_bibfiles = [
     "references.bib",
     "demos/demo_references.bib",
     "maths/1-references.bib",
+    "maths/2-references.bib",
     "maths/3-references.bib",
 ]

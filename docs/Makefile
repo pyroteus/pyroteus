@@ -32,7 +32,8 @@ copy_demos:
 	cp source/demos/*.py $(BUILDDIR)/html/demos
 	cp source/demos/*.jpg $(BUILDDIR)/html/demos
 	cp source/demos/*.bib $(BUILDDIR)/html/demos
-	cp source/maths/images/* $(BUILDDIR)/html/_images
+	install -d $(BUILDDIR)/html/maths
+	cp source/maths/images/*.jpg $(BUILDDIR)/html/_images
 
 SPHINX_TARGETS = html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub \
 	latex latexpdf latexpdfja text man texinfo info gettext changes \
