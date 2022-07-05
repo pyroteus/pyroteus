@@ -27,6 +27,8 @@ This gives rise to the well-known :math:`\ell_2`
 distance function,
 
 .. math::
+    :label: l2_distance
+
     d_2(\mathbf u,\mathbf v)
     :=\sqrt{\sum_{i=1}^n(v_i-u_i)^2}
     =\sqrt{(\mathbf{v}-\mathbf{u})^T\:\underline{\mathbf I}\:(\mathbf{v}-\mathbf{u})}
@@ -72,12 +74,16 @@ parametrises the curve from :math:`\mathbf u\in\Omega` to
 using the parametric integral
 
 .. math::
+    :label: metric_distance
+
     d_{\mathcal M}(\mathbf u,\mathbf v)
     :=\int_0^1\sqrt{\vec{\mathbf{uv}}\:\underline{\mathbf M}(\boldsymbol\gamma(\xi))\:\vec{\mathbf{uv}}}\;\mathrm d\xi.
 
 We define length in the metric space by
 
 .. math::
+    :label: metric_length
+
     \ell_{\mathcal M}(\vec{\mathbf{uv}})
     :=d_{\mathcal M}(\mathbf u,\mathbf v).
 
@@ -86,8 +92,10 @@ volume in Riemannian space. Given a subset
 :math:`K\subseteq\Omega`, its volume is given by
 
 .. math::
-   \left|K\right|_{\mathcal M}
-   :=\int_K\sqrt{\underline{\mathbf M}(\mathbf x)}\;\mathrm dx.
+    :label: metric_volume
+
+    \left|K\right|_{\mathcal M}
+    :=\int_K\sqrt{\underline{\mathbf M}(\mathbf x)}\;\mathrm dx.
 
 The concept of angle also carries over, amongst other things.
 
@@ -120,10 +128,12 @@ space, :math:`\mathbf x\in\Omega`. Since it is symmetric,
 this matrix has an orthogonal eigendecomposition,
 
 .. math::
-   \underline{\mathbf M}(\mathbf x)
-   =\underline{\mathbf V}(\mathbf x)\:
-   \underline{\boldsymbol\Lambda}(\mathbf x)\:
-   \underline{\mathbf V}(\mathbf x)^T,
+    :label: orthogonal_eigendecomposition
+
+    \underline{\mathbf M}(\mathbf x)
+    =\underline{\mathbf V}(\mathbf x)\:
+    \underline{\boldsymbol\Lambda}(\mathbf x)\:
+    \underline{\mathbf V}(\mathbf x)^T,
 
 where
 :math:`\underline{\mathbf V}(\mathbf x)=\begin{bmatrix}\mathbf v_1,\dots,\mathbf v_n\end{bmatrix}`
@@ -159,22 +169,28 @@ metric-based mesh adaptation. If we define `metric density`
 as the square root of the sum of the eigenvalues,
 
 .. math::
-   \rho:=\sqrt{\prod_{i=1}^n\lambda_i},
+    :label: metric_density
+
+    \rho:=\sqrt{\prod_{i=1}^n\lambda_i},
 
 and the :math:`i^{th}` anisotropy quotient in terms of
 the metric magnitudes by
 
 .. math::
-   r_i:=h_i^n\prod_{j=1}^n\frac1{h_j},\quad i=1,\dots,n,
+    :label: anisotropy_quotient
+
+    r_i:=h_i^n\prod_{j=1}^n\frac1{h_j},\quad i=1,\dots,n,
 
 then we arrive at the decomposition
 
 .. math::
-   \underline{\mathbf M}
-   =\rho^{\frac2n}\:
-   \underline{\mathbf V}\:
-   \mathrm{diag}\left(r_1^{-\frac2n},\dots,r_n^{-\frac2n}\right)\:
-   \underline{\mathbf V}^T.
+    :label: alternative_decomposition
+
+    \underline{\mathbf M}
+    =\rho^{\frac2n}\:
+    \underline{\mathbf V}\:
+    \mathrm{diag}\left(r_1^{-\frac2n},\dots,r_n^{-\frac2n}\right)\:
+    \underline{\mathbf V}^T.
 
 The reason that this formulation is useful is because
 it separates out information contained within the metric
@@ -207,6 +223,8 @@ An example of one of the correspondences is between
 complexity is expressed using the formula
 
 .. math::
+    :label: metric_complexity
+
     \mathcal C(\mathcal M)=\int_\Omega\sqrt{\mathrm{det}(\mathcal M(\mathbf x)})\;\mathrm dx.
 
 and can be interpreted as the volume of the spatial
@@ -217,6 +235,8 @@ be computed in Pyroteus using the function
 The time-dependent extension of metric complexity,
 
 .. math::
+    :label: space_time_complexity
+
     \mathcal C(\mathcal M)=\int_{\mathcal T}\int_\Omega\sqrt{\mathrm{det}(\mathcal M(\mathbf x,t)})\;\mathrm dx\;\mathrm dt
 
 over a time interval :math:`\mathcal T` is analogous
@@ -252,8 +272,11 @@ that this is quantified in practice is using a
 quality function
 
 .. math::
+    :label: metric_quality
+
     Q_{\mathcal M}
-    =\frac{\sqrt3}{12}\frac{\sum_{\boldsymbol\gamma\in\partial K}\ell_{\mathcal M}(\boldsymbol\gamma)^2}{|K|_{\mathcal M}},
+    =\frac{\sqrt3}{12}\frac{\sum_{\boldsymbol\gamma\in\partial K}\ell_{\mathcal M}(\boldsymbol\gamma)^2}{|
+    K|_{\mathcal M}},
 
 where :math:`\boldsymbol\gamma\in\partial K` indicates
 an edge from the edge set of element :math:`K`. It
@@ -277,6 +300,8 @@ function :func:`space_normalise` in the
 :math:`L^p` sense:
 
 .. math::
+    :label: lp_metric
+
     \mathcal M_{L^p}:=
     \mathcal C_T^{\frac2n}
     \:\left(\int_\Omega\mathrm{det}(\underline{\mathbf M})^{\frac p{2p+n}}\;\mathrm dx\right)^{-\frac2n}
@@ -293,6 +318,8 @@ higher orders. In the limit :math:`p\rightarrow\infty`
 we obtain
 
 .. math::
+    :label: linf_metric
+
     \mathcal M_{L^\infty}:=
     \left(\frac{\mathcal C_T}{\mathcal C(\mathcal M)}\right)^{\frac2n}
     \:\mathcal M.
@@ -306,6 +333,8 @@ complexity. Then the function :func:`space_time_normalise`
 computes
 
 .. math::
+    :label: space_time_lp_metric
+
     \mathcal M_{L^p}:=
     \mathcal C_T^{\frac2n}
     \:\left(\int_{\mathcal T}\frac1{\Delta t}\int_\Omega\mathrm{det}(\underline{\mathbf M})^{\frac p{2p+n}}\;\mathrm dx\;\mathrm dt\right)^{-\frac2n}
@@ -320,6 +349,8 @@ method from an algebraic perspective is the metric
 average:
 
 .. math::
+    :label: metric_average
+
     \tfrac12(\mathcal M_1 + \mathcal M_2),
 
 for two metrics :math:`\mathcal M_1` and

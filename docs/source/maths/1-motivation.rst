@@ -48,6 +48,8 @@ Let :math:`c(\mathbf x)` denote the tracer concentration at point
 governed by the PDE
 
 .. math::
+    :label: tracer_eq
+
     \mathbf u\cdot\nabla c
     -\nabla\cdot(D\nabla c)
     =S,
@@ -82,6 +84,8 @@ outlet pipe and the receiver region is the plant's inlet. As such,
 we would like to accurately measure the functional
 
 .. math::
+    :label: tracer_qoi
+
     J(c)=\int_R c\;\mathrm dx,
 
 where :math:`R` denotes the receiver region. Taking this as QoI,
