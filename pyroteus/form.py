@@ -1,3 +1,6 @@
+"""
+Tools for form manipulation.
+"""
 import firedrake
 import ufl
 

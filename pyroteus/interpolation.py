@@ -18,7 +18,7 @@ def clement_interpolant(source, target_space=None, boundary_tag=None):
     r"""
     Compute the Clement interpolant of a :math:`\mathbb P0`
     source field, i.e. take the volume average over
-    neighbouring cells at each vertex.
+    neighbouring cells at each vertex. See :cite:`Cle:75`.
 
     :arg source: the :math:`\mathbb P0` source field
     :kwarg target_space: the :math:`\mathbb P1` space to
@@ -127,17 +127,19 @@ def clement_interpolant(source, target_space=None, boundary_tag=None):
 
 def project(source, target_space, adjoint=False, **kwargs):
     """
-    Overload Firedrake's ``project`` function to account
+    Overload :func:`firedrake.projection.project` to account
     for the case of two mixed function spaces defined on
     different meshes and for the adjoint projection
     operator.
 
-    Extra keyword arguments are passed to Firedrake's
-    ``project`` function.
+    Extra keyword arguments are passed to
+    :func:`firedrake.projection.project`.
 
-    :arg source: the :class:`Function` to be projected
-    :arg target_space: the :class:`FunctionSpace` which
-        we seek to project into
+    :arg source: the :class:`firedrake.function.Function`
+        to be projected
+    :arg target_space: the
+        :class:`firedrake.functionspaceimpl.FunctionSpace`
+        which we seek to project into
     :kwarg adjoint: apply the transposed projection
         operator?
     """
@@ -170,9 +172,10 @@ def mesh2mesh_project(source, target, adjoint=False, **kwargs):
     Extra keyword arguments are passed to Firedrake's
     ``project`` function.
 
-    :arg source: the :class:`Function` to be projected
-    :arg target: the :class:`Function` which we
-        seek to project onto
+    :arg source: the :class:`firedrake.function.Function`
+        to be projected
+    :arg target: the :class:`firedrake.function.Function`
+        which we seek to project onto
     :kwarg adjoint: apply the transposed projection
         operator?
     """
@@ -205,13 +208,13 @@ def mesh2mesh_project_adjoint(target_b, source_b, **kwargs):
     be interpreted as a projector in its own right,
     mapping ``target_b`` to ``source_b``.
 
-    Extra keyword arguments are passed to Firedrake's
-    ``project`` function.
+    Extra keyword arguments are passed to
+    :func:`firedrake.projection.project`.
 
-    :arg target_b: seed :class:`Function` from the target
-        space of the forward projection
-    :arg source_b: the :class:`Function` from the source
-        space of the forward projection
+    :arg target_b: seed :class:`firedrake.function.Function`
+        from the target space of the forward projection
+    :arg source_b: the :class:`firedrake.function.Function`
+        from the source space of the forward projection
     """
     from firedrake.supermeshing import assemble_mixed_mass_matrix
 

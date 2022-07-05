@@ -41,7 +41,7 @@ class GoalOrientedMetricParameters(GoalOrientedParameters):
 
 class GoalOrientedMeshSeq(AdjointMeshSeq):
     """
-    An extension of :class:`AdjointMeshSeq` to account for
+    An extension of :class:`~.AdjointMeshSeq` to account for
     goal-oriented problems.
     """
 
@@ -53,8 +53,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     def get_enriched_mesh_seq(self, enrichment_method="p", num_enrichments=1):
         """
         Solve the forward and adjoint problems
-        associated with :attr:`solver` in a
-        sequence of globally enriched spaces.
+        associated with
+        :meth:`~.GoalOrientedMeshSeq.solver`
+        in a sequence of globally enriched spaces.
 
         Currently, global enrichment may be
         achieved using one of:
@@ -105,7 +106,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     def global_enrichment(self, enrichment_method="p", num_enrichments=1, **kwargs):
         """
         Solve the forward and adjoint problems
-        associated with :attr:`solver` in a
+        associated with
+        :meth:`~.GoalOrientedMeshSeq.solver` in a
         sequence of globally enriched spaces.
 
         Currently, global enrichment may be
@@ -117,8 +119,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         the keyword argument ``num_enrichments``.
 
         :kwarg kwargs: keyword arguments to pass to the
-            :attr:`solve_adjoint` method of the
-            enriched :class:`AdjointMeshSeq`.
+            :meth:`~.AdjointMeshSeq.solve_adjoint` method
         """
         mesh_seq = self.get_enriched_mesh_seq(
             enrichment_method=enrichment_method,
@@ -245,12 +246,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         a fixed point iteration loop.
 
         :arg adaptor: function for adapting the mesh sequence.
-            Its arguments are the :class:`MeshSeq` instance, the
-            dictionary of solution :class:`Function`\s and the
+            Its arguments are the :class:`~.MeshSeq` instance, the
+            dictionary of solution
+            :class:`firedrake.function.Function`\s and the
             list of error indicators
-        :kwarg update_params: function for updating :attr:`params`
-            at each iteration. Its arguments are the parameter
-            class and the fixed point iteration
+        :kwarg update_params: function for updating
+            :attr:`~.GoalOrientedMeshSeq.params` at each
+            iteration. Its arguments are the parameter class and
+            the fixed point iteration
         :kwarg enrichment_kwargs: keyword arguments to pass
             to the global enrichment method
         :kwarg adj_kwargs: keyword arguments to pass to the

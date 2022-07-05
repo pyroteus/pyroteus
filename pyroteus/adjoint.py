@@ -34,8 +34,8 @@ def annotate_qoi(get_qoi):
     Decorator that ensures QoIs are annotated
     properly.
 
-    Should be applied to the :meth:`get_qoi`
-    method of an :class:`AdjointMeshSeq`.
+    Should be applied to the
+    :meth:`~.AdjointMeshSeq.get_qoi` method.
     """
 
     @wraps(get_qoi)
@@ -68,22 +68,22 @@ def annotate_qoi(get_qoi):
 
 class AdjointMeshSeq(MeshSeq):
     """
-    An extension of :class:`MeshSeq` to account for
+    An extension of :class:`~.MeshSeq` to account for
     solving adjoint problems on a sequence of meshes.
 
     For time-dependent quantities of interest, the
-    solver should access and modify :attr:`J`, which
-    holds the QoI value.
+    solver should access and modify
+    :attr:`~AdjointMeshSeq.J`, which holds the QoI value.
     """
 
     def __init__(self, time_partition, initial_meshes, get_qoi=None, **kwargs):
         """
         :kwarg get_qoi: a function, with two arguments,
-            a :class:`AdjointMeshSeq`, which returns
+            a :class:`~.AdjointMeshSeq`, which returns
             a function of either one or two variables,
             corresponding to either an end time or time
             integrated quantity of interest, respectively,
-            as well as an index for the :class:`MeshSeq`
+            as well as an index for the :class:`~.MeshSeq`
         """
         self.qoi_type = kwargs.pop("qoi_type")
         if self.qoi_type not in ["end_time", "time_integrated", "steady"]:
@@ -195,7 +195,7 @@ class AdjointMeshSeq(MeshSeq):
             subinterval when checkpointing so that the QoI
             value can be checked across runs
 
-        :return solution: an :class:`AttrDict` containing
+        :return solution: an :class:`~.AttrDict` containing
             solution fields and their lagged versions.
         """
         num_subintervals = len(self)

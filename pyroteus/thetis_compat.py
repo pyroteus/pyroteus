@@ -1,3 +1,7 @@
+"""
+Code for making Pyroteus compatible with `Thetis
+<https://thetisproject.org>`__.
+"""
 try:
     from thetis import *
 except ImportError:
@@ -7,7 +11,8 @@ from numpy import isclose
 
 class FlowSolver2d(thetis.solver2d.FlowSolver2d):
     """
-    Augmented version of Thetis' ``FlowSolver2d``
+    Augmented version of
+    :class:`thetis.solver2d.FlowSolver2d`
     class which accounts for restarting the
     simulation on a new mesh and modifying
     options prefixes.
@@ -58,7 +63,7 @@ class FlowSolver2d(thetis.solver2d.FlowSolver2d):
     def correct_counters(self, ts_data):
         """
         Adjust Thetis' 2D solver internal counters
-        so that they agree with the :class:`MeshSeq`.
+        so that they agree with the :class:`~.MeshSeq`.
         """
         i_export = int(
             ts_data.start_time / ts_data.timestep / ts_data.timesteps_per_export

@@ -59,9 +59,10 @@ def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
 
     :arg f: the scalar field whose derivatives we seek to recover
     :kwarg mesh: the underlying mesh
-    :kwarg target_spaces: the :class:`VectorFunctionSpace` and
-        :class:`TensorFunctionSpace` the recovered gradient and
-        Hessian should live in
+    :kwarg target_spaces: the
+        :func:`firedrake.functionspace.VectorFunctionSpace` and
+        :func:`firedrake.functionspace.TensorFunctionSpace` the
+        recovered gradient and Hessian should live in
     :kwarg mixed: solve as a mixed system, or separately?
     """
     mesh = mesh or f.function_space().mesh()
@@ -144,8 +145,9 @@ def recover_boundary_hessian(f, mesh, method="Clement", target_space=None, **kwa
         'interior' entry for the domain interior
     :arg mesh: the mesh
     :kwarg method: choose from 'L2' and 'Clement'
-    :kwarg target_space: :class:`TensorFunctionSpace` in
-        which the metric will exist
+    :kwarg target_space: the
+        :func:`firedrake.functionspace.TensorFunctionSpace`
+        in which the metric will exist
     """
     from pyroteus.math import construct_orthonormal_basis
     from pyroteus.metric import hessian_metric

@@ -1,10 +1,5 @@
 """
 Driver functions for metric-based mesh adaptation.
-
-.. rubric:: References
-
-.. bibliography:: references.bib
-    :filter: docname in docnames
 """
 from .utility import *
 from .interpolation import clement_interpolant
@@ -74,13 +69,13 @@ def compute_eigendecomposition(metric, reorder=False):
     Compute the eigenvectors and eigenvalues of
     a matrix-valued function.
 
-    :arg M: a :class:`Function` from a
-        :class:`TensorFunctionSpace`
+    :arg M: a :class:`firedrake.function.Function` from a
+        :func:`firedrake.functionspace.TensorFunctionSpace`
     :kwarg reorder: should the eigendecomposition
         be reordered in order of *descending*
         eigenvalue magnitude?
-    :return: eigenvector :class:`Function`,
-        eigenvalue :class:`Function`
+    :return: eigenvector :class:`firedrake.function.Function`,
+        eigenvalue :class:`firedrake.function.Function`
     """
     V_ten = metric.function_space()
     if len(V_ten.ufl_element().value_shape()) != 2:
@@ -112,9 +107,12 @@ def assemble_eigendecomposition(evectors, evalues):
     Assemble a matrix from its eigenvectors and
     eigenvalues.
 
-    :arg evectors: eigenvector :class:`Function`
-    :arg evalues: eigenvalue :class:`Function`
-    :return: the assembled matrix :class:`Function`
+    :arg evectors: eigenvector
+        :class:`firedrake.function.Function`
+    :arg evalues: eigenvalue
+        :class:`firedrake.function.Function`
+    :return: the assembled matrix
+        :class:`firedrake.function.Function`
     """
     V_ten = evectors.function_space()
     fe_ten = V_ten.ufl_element()
@@ -168,8 +166,9 @@ def isotropic_metric(error_indicator, target_space=None, interpolant="Clement"):
     indicator in modulus.
 
     :arg error_indicator: the error indicator
-    :kwarg target_space: :class:`TensorFunctionSpace` in
-        which the metric will exist
+    :kwarg target_space:
+        :func:`firedrake.functionspace.TensorFunctionSpace`
+        in which the metric will exist
     :kwarg interpolant: choose from 'Clement', 'L2',
         'interpolate', 'project'
     """
@@ -242,17 +241,18 @@ def anisotropic_metric(error_indicator, hessian, **kwargs):
 
     Two formulations are currently available:
       * the element-wise formulation presented
-        in :cite:`CP13`; and
+        in :cite:`CPB:13`; and
       * the vertex-wise formulation presented in
-        :cite:`PP06`.
+        :cite:`PPP+:06`.
 
     In both cases, a :math:`\mathbb P1` metric is
     returned by default.
 
     :arg error_indicator: (list of) error indicator(s)
     :arg hessian: (list of) Hessian(s)
-    :kwarg target_space: :class:`TensorFunctionSpace` in
-        which the metric will exist
+    :kwarg target_space:
+        :func:`firedrake.functionspace.TensorFunctionSpace`
+        in which the metric will exist
     :kwarg interpolant: choose from 'Clement', 'L2',
         'interpolate', 'project'
     """
@@ -274,7 +274,7 @@ def anisotropic_dwr_metric(
     indicator, given a Hessian field.
 
     The formulation used is based on that presented
-    in :cite:`CP13`.
+    in :cite:`CPB:13`.
 
     Whilst an element-based formulation is used to
     derive the metric, the result is projected into
@@ -282,15 +282,16 @@ def anisotropic_dwr_metric(
 
     Note that normalisation is implicit in the metric
     construction and involves the `convergence_rate`
-    parameter, named :math:`alpha` in :cite:`CP13`.
+    parameter, named :math:`alpha` in :cite:`CPB:13`.
 
     If a Hessian is not provided then an isotropic
     formulation is used.
 
     :arg error_indicator: the error indicator
     :kwarg hessian: the Hessian
-    :kwarg target_space: :class:`TensorFunctionSpace` in
-        which the metric will exist
+    :kwarg target_space:
+        :func:`firedrake.functionspace.TensorFunctionSpace`
+        in which the metric will exist
     :kwarg target_complexity: target metric complexity
     :kwarg convergence rate: normalisation parameter
     :kwarg interpolant: choose from 'Clement', 'L2',
@@ -363,12 +364,13 @@ def weighted_hessian_metric(
     field(s).
 
     The formulation used is based on that presented
-    in :cite:`PP06`.
+    in :cite:`PPP+:06`.
 
     :arg error_indicators: (list of) error indicator(s)
     :arg hessians: (list of) Hessian(s)
-    :kwarg target_space: :class:`TensorFunctionSpace` in
-        which the metric will exist
+    :kwarg target_space:
+        :func:`firedrake.functionspace.TensorFunctionSpace`
+        in which the metric will exist
     :kwarg average: should metric components be averaged
         or intersected?
     :kwarg interpolant: choose from 'Clement', 'L2',
@@ -414,11 +416,14 @@ def enforce_element_constraints(
 
     :arg metrics: the metrics
     :arg h_min: minimum tolerated element size,
-        which could be a :class:`Function` or a number.
+        which could be a :class:`firedrake.function.Function`
+        or a number.
     :arg h_max: maximum tolerated element size,
-        which could be a :class:`Function` or a number.
+        which could be a :class:`firedrake.function.Function`
+        or a number.
     :arg a_max: maximum tolerated element anisotropy,
-        which could be a :class:`Function` or a number.
+        which could be a :class:`firedrake.function.Function`
+        or a number.
     :kwarg boundary_tag: optional tag to enforce sizes on.
     :kwarg optimise: is this a timed run?
     """
@@ -482,11 +487,11 @@ def enforce_element_constraints(
 
 @PETSc.Log.EventDecorator("pyroteus.space_normalise")
 def space_normalise(metric, target, p, global_factor=None, boundary=False):
-    """
+    r"""
     Apply :math:`L^p` normalisation in space alone.
 
-    :arg metric: :class:`Function` s corresponding to the
-        metric to be normalised.
+    :arg metric: :class:`firedrake.function.Function`\s
+        corresponding to the metric to be normalised.
     :arg target: target metric complexity *in space alone*.
     :arg p: normalisation order.
     :kwarg global_factor: optional pre-computed global
@@ -516,10 +521,10 @@ def space_normalise(metric, target, p, global_factor=None, boundary=False):
 
 @PETSc.Log.EventDecorator("pyroteus.space_time_normalise")
 def space_time_normalise(metrics, end_time, timesteps, target, p):
-    """
+    r"""
     Apply :math:`L^p` normalisation in both space and time.
 
-    :arg metrics: list of :class:`Function` s
+    :arg metrics: list of :class:`firedrake.function.Function`\s
         corresponding to the metric associated with
         each subinterval
     :arg end_time: end time of simulation
@@ -565,7 +570,7 @@ def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
     for the interior and boundary metrics to obtain a
     given metric complexity.
 
-    See :cite:`LD10` for details. Note that we use a
+    See :cite:`LDA:10` for details. Note that we use a
     slightly different formulation here.
 
     :arg H_interior: Hessian component from domain interior
@@ -616,7 +621,8 @@ def metric_relaxation(*metrics, weights=None, function_space=None):
 
     :arg metrics: the metrics to be combined
     :kwarg weights: a list of weights
-    :kwarg function_space: the :class:`FunctionSpace`
+    :kwarg function_space: the
+        :class:`firedrake.functionspaceimpl.FunctionSpace`
         the relaxed metric should live in
     """
     n = len(metrics)
@@ -641,7 +647,8 @@ def metric_average(*metrics, function_space=None):
     Combine a list of metrics by averaging.
 
     :arg metrics: the metrics to be combined
-    :kwarg function_space: the :class:`FunctionSpace`
+    :kwarg function_space: the
+        :class:`firedrake.functionspaceimpl.FunctionSpace`
         the averaged metric should live in
     """
     return metric_relaxation(*metrics, function_space=function_space)
@@ -653,7 +660,8 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     Combine a list of metrics by intersection.
 
     :arg metrics: the metrics to be combined
-    :kwarg function_space: the :class:`FunctionSpace`
+    :kwarg function_space: the
+        :class:`firedrake.functionspaceimpl.FunctionSpace`
         the intersected metric should live in
     :kwarg boundary_tag: optional boundary segment physical
         ID for boundary intersection. Otherwise, the
@@ -824,7 +832,8 @@ def metric_exponential(M):
     r"""
     Compute the matrix exponential of a metric.
 
-    :arg M: a :math:`\mathbb P1` metric :class:`Function`
+    :arg M: a :math:`\mathbb P1` metric
+        :class:`firedrake.function.Function`
     :return: its matrix exponential
     """
     V, Lambda = compute_eigendecomposition(M)
@@ -851,7 +860,8 @@ def metric_logarithm(M):
     r"""
     Compute the matrix logarithm of a metric.
 
-    :arg M: a :math:`\mathbb P1` metric :class:`Function`
+    :arg M: a :math:`\mathbb P1` metric
+        :class:`firedrake.function.Function`
     :return: its matrix logarithm
     """
     V, Lambda = compute_eigendecomposition(M)

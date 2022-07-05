@@ -9,13 +9,7 @@ def bessi0(x):
     """
     Modified Bessel function of the first kind.
 
-    Code taken from
-
-    [Flannery et al. 1992] B.P. Flannery,
-    W.H. Press, S.A. Teukolsky, W. Vetterling,
-    "Numerical recipes in C", Press Syndicate
-    of the University of Cambridge, New York
-    (1992).
+    Code taken from :cite:`VVP+:92`.
     """
     ax = abs(x)
     y1 = x / 3.75
@@ -68,13 +62,7 @@ def bessk0(x):
     """
     Modified Bessel function of the second kind.
 
-    Code taken from
-
-    [Flannery et al. 1992] B.P. Flannery,
-    W.H. Press, S.A. Teukolsky, W. Vetterling,
-    "Numerical recipes in C", Press Syndicate
-    of the University of Cambridge, New York
-    (1992).
+    Code taken from :cite:`VVP+:92`.
     """
     y1 = x * x / 4.0
     expr1 = -ufl.ln(x / 2.0) * bessi0(x) + (
