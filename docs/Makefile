@@ -49,6 +49,15 @@ html: apidoc $(GENERATED_FILES)
 .PHONY: apidoc
 apidoc:
 	$(SPHINXAPIDOC) $$($(PYTHON) -c 'import pyroteus; import os; print(os.path.dirname(pyroteus.__file__))') -o source -f -T
+	# TODO: Do this in a less hacky way
+	echo "" >> source/pyroteus.rst
+	echo "References" >> source/pyroteus.rst
+	echo "----------" >> source/pyroteus.rst
+	echo "" >> source/pyroteus.rst
+	echo ".. rubric:: References" >> source/pyroteus.rst
+	echo "" >> source/pyroteus.rst
+	echo ".. bibliography:: references.bib" >> source/pyroteus.rst
+	echo "    :all:" >> source/pyroteus.rst
 
 
 clean:
