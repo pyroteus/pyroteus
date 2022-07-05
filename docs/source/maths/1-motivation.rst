@@ -146,6 +146,10 @@ mesh resolution in bands between the source and receiver. In addition,
 they tend to use less mesh resolution downstream (where the adjoint
 solution is near zero) than upstream of the receiver region.
 
+The `next section <2-goal-oriented-error-estimation.html>`__ gives a
+general overview of goal-oriented error estimation, including the main
+ideas and fundamental mathematical results.
+
 References
 ----------
 

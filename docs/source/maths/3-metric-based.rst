@@ -2,6 +2,13 @@
 The metric-based framework
 ==========================
 
+The goal-oriented mesh adaptation functionality in Pyroteus
+is designed such that it is agnostic of the specific method
+used to modify the mesh. However, to give a concrete example,
+this section describes the *metric-based* mesh adaptation
+framework. Integration of this adaptation approach into the
+Firedrake finite element library is currently underway.
+
 Metric spaces
 -------------
 
@@ -100,10 +107,11 @@ volume in Riemannian space. Given a subset
 The concept of angle also carries over, amongst other things.
 
 Metric fields should be defined in Firedrake using
-:class:`Function`\s from instances of a Lagrange
-:class:`TensorFunctionSpace` of degree 1, i.e. a tensor space
-that is piecewise linear and continuous. The following example
-code snippet defines a uniform metric and checks that it is SPD:
+:class:`firedrake.function.Function`\s from instances of a Lagrange
+:func:`firedrake.functionspace.TensorFunctionSpace` of degree 1,
+i.e. a tensor space that is piecewise linear and continuous. The
+following example code snippet defines a uniform metric and checks
+that it is SPD:
 
 .. code-block:: python
 
@@ -158,10 +166,10 @@ represented by a unit circle.
 
 Given a metric field, the eigendecomposition may be
 computed in Pyroteus using the function
-:func:`compute_eigendecomposition`. Similarly, given
-:class:`Function`\s representing the eigenvectors and
+:func:`~.compute_eigendecomposition`. Similarly, given
+:class:`firedrake.function.Function`\s representing the eigenvectors and
 eigenvalues of a metric, it may be assembled using the
-function :func:`assemble_eigendecomposition`.
+function :func:`~.assemble_eigendecomposition`.
 
 The orthogonal eigendecomposition gives rise to another
 matrix decomposition, which is useful for understanding
@@ -205,7 +213,7 @@ mesh adaptation is able to control, whereas other mesh
 adaptation methods can only usually control element sizes.
 
 The metric decomposition above can be computed in Pyroteus
-using the function :func:`density_and_quotients`.
+using the function :func:`~.density_and_quotients`.
 
 
 Continuous mesh analogy
@@ -231,7 +239,7 @@ and can be interpreted as the volume of the spatial
 domain in metric space (recall the formula for
 volume in Riemannian space). Metric complexity may
 be computed in Pyroteus using the function
-:func:`metric_complexity`.
+:func:`~.metric_complexity`.
 The time-dependent extension of metric complexity,
 
 .. math::
@@ -296,7 +304,7 @@ of the problem, such as the extent to which it is
 multi-scale.
 
 In Pyroteus, normalisation is performed by the
-function :func:`space_normalise` in the
+function :func:`~.space_normalise` in the
 :math:`L^p` sense:
 
 .. math::
@@ -304,7 +312,7 @@ function :func:`space_normalise` in the
 
     \mathcal M_{L^p}:=
     \mathcal C_T^{\frac2n}
-    \:\left(\int_\Omega\mathrm{det}(\underline{\mathbf M})^{\frac p{2p+n}}\;\mathrm dx\right)^{-\frac2n}
+    \:\left(\int_{\Omega}\mathrm{det}(\underline{\mathbf M})^{\frac p{2p+n}}\;\mathrm dx\right)^{-\frac2n}
     \:\mathrm{det}(\mathcal M)^{-\frac1{2p+n}}
     \:\mathcal M,
 
@@ -329,7 +337,7 @@ formulation also includes integrals in time. Suppose
 :math:`\mathcal T` is the time period of interest,
 :math:`\Delta t>0` is the timestep and
 :math:`\mathcal C_T` is now the target `space-time`
-complexity. Then the function :func:`space_time_normalise`
+complexity. Then the function :func:`~.space_time_normalise`
 computes
 
 .. math::
@@ -375,26 +383,16 @@ average in general. See :cite:`PUDG:01` for details.
    Image taken from :cite:`Wallwork:21` with author's permission.
 
 Metric combination may be achieved in Pyroteus using the
-functions :func:`metric_average`,
-:func:`metric_intersection`, :func:`metric_relaxation`
-(generalised average) and simply :func:`combine_metrics`,
+functions :func:`~.metric_average`,
+:func:`~.metric_intersection`, :func:`~.metric_relaxation`
+(generalised average) and simply :func:`~.combine_metrics`,
 which defaults to the metric average.
 
 
-Metric drivers
---------------
-
-Pyroteus provides a number of different driver functions
-for metric generation. The simplest is :func:`isotropic_metric`,
-which takes an error indicator field and constructs a
-metric which specifies how a mesh should be adapted purely
-in terms of element size (not orientation or shape).
-Alternative anisotropic formulations, which combine error
-indicator information with curvature information from the
-Hessians of solution fields are provided by
-:func:`anisotropic_metric`. See the API documentation for
-details.
-
+Now that a concrete example of a mesh adaptation approach has
+been described, we move on to discuss goal-oriented mesh
+adaptation using Pyroteus in the `following section
+<4-goal-oriented-mesh-adaptation.html>`__.
 
 References
 ----------

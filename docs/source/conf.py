@@ -169,12 +169,15 @@ texinfo_documents = [
     ),
 ]
 
+# FIXME: Avoid full paths, e.g. firedrake.function.Function
+add_module_names = False
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/2.7/", None),
-    "ufl": ("https://fenics.readthedocs.io/projects/ufl/en/latest/", None),
     "firedrake": ("https://firedrakeproject.org/", None),
+    "python": ("https://docs.python.org/3/", None),
+    "thetis": ("https://thetisproject.org/", None),
+    'ufl': ('https://fenics.readthedocs.io/projects/ufl/en/latest/', None),
 }
 
 autoclass_content = "both"
