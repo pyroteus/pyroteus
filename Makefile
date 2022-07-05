@@ -1,10 +1,14 @@
-all: lint test
+all: install
 
 .PHONY: demos test
 
-install: dir
+install:
+	@echo "Installing dependencies..."
+	@python3 -m pip install -r requirements.txt
+	@echo "Done."
 	@echo "Installing Pyroteus..."
 	@python3 -m pip install -e .
+	@echo "Done."
 
 lint:
 	@echo "Checking lint..."
@@ -21,7 +25,7 @@ demo:
 	@cd demos && make
 	@echo "Done."
 
-doc: demos
+doc: demo
 	@echo "Building docs in html format..."
 	@cd docs && make html
 	@echo "Done."
