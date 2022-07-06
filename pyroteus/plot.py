@@ -11,15 +11,16 @@ __all__ = ["plot_snapshots", "plot_indicator_snapshots"]
 def plot_snapshots(solutions, time_partition, field, label, **kwargs):
     """
     Plot a sequence of snapshots associated with
-    ``solutions.field.label`` and :class:`TimePartition`
-    ``time_partition``.
+    ``solutions.field.label`` and a given
+    :class:`~.TimePartition`.
 
-    Any keyword arguments are passed to ``tricontourf``.
+    Any keyword arguments are passed to
+    :func:`firedrake.plot.tricontourf`.
 
-    :arg solutions: :class:`AttrDict` of solutions
+    :arg solutions: :class:`~.AttrDict` of solutions
         computed by solving a forward or adjoint
         problem
-    :arg time_partition: the :class:`TimePartition`
+    :arg time_partition: the :class:`~.TimePartition`
         object used to solve the problem
     :arg field: solution field of choice
     :arg label: choose from ``'forward'``, ``'forward_old'``
@@ -53,14 +54,14 @@ def plot_snapshots(solutions, time_partition, field, label, **kwargs):
 def plot_indicator_snapshots(indicators, time_partition, **kwargs):
     """
     Plot a sequence of snapshots associated with
-    ``indicators`` and :class:`TimePartition`
-    ``time_partition``.
+    ``indicators`` and a given :class:`~.TimePartition`
 
-    Any keyword arguments are passed to ``tricontourf``.
+    Any keyword arguments are passed to
+    :func:`firedrake.plot.tricontourf`.
 
     :arg indicators: list of list of indicators,
         indexed by mesh sequence index, then timestep
-    :arg time_partition: the :class:`TimePartition`
+    :arg time_partition: the :class:`~.TimePartition`
         object used to solve the problem
     """
     P = time_partition

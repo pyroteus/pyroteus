@@ -32,7 +32,8 @@ copy_demos:
 	cp source/demos/*.py $(BUILDDIR)/html/demos
 	cp source/demos/*.jpg $(BUILDDIR)/html/demos
 	cp source/demos/*.bib $(BUILDDIR)/html/demos
-	cp source/maths/images/* $(BUILDDIR)/html/_images
+	install -d $(BUILDDIR)/html/maths
+	cp source/maths/images/*.jpg $(BUILDDIR)/html/_images
 
 SPHINX_TARGETS = html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub \
 	latex latexpdf latexpdfja text man texinfo info gettext changes \
@@ -48,6 +49,15 @@ html: apidoc $(GENERATED_FILES)
 .PHONY: apidoc
 apidoc:
 	$(SPHINXAPIDOC) $$($(PYTHON) -c 'import pyroteus; import os; print(os.path.dirname(pyroteus.__file__))') -o source -f -T
+	# TODO: Do this in a less hacky way
+	echo "" >> source/pyroteus.rst
+	echo "References" >> source/pyroteus.rst
+	echo "----------" >> source/pyroteus.rst
+	echo "" >> source/pyroteus.rst
+	echo ".. rubric:: References" >> source/pyroteus.rst
+	echo "" >> source/pyroteus.rst
+	echo ".. bibliography:: references.bib" >> source/pyroteus.rst
+	echo "    :all:" >> source/pyroteus.rst
 
 
 clean:

@@ -1,3 +1,6 @@
+"""
+Tools to automate goal-oriented error estimation.
+"""
 import firedrake
 from firedrake.petsc import PETSc
 import ufl
@@ -63,7 +66,7 @@ def indicator2estimator(indicator, absolute_value=False):
     indicator field.
 
     :arg indicator: the error indicator
-        :class:`Function`
+        :class:`firedrake.function.Function`
     :kwarg absolute_value: toggle
         whether to take the modulus
         on each element
@@ -77,12 +80,13 @@ def indicators2estimator(indicators, time_partition, **kwargs):
     r"""
     Deduce the error estimator value
     associated with error indicator
-    fields defined over a :class:`MeshSeq`.
+    fields defined over a :class:`~.MeshSeq`.
 
     :arg indicators: the list of list of
-        error indicator :class:`Function`\s
+        error indicator
+        :class:`firedrake.function.Function`\s
     :arg time_partition: the
-        :class:`TimePartition` instance for
+        :class:`~.TimePartition` instance for
         the problem being solved
     """
     estimator = 0
@@ -120,8 +124,10 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
     :arg F: the form
     :arg adjoint_error: the approximation to
         the adjoint error, either as a single
-        :class:`Function`, or in a dictionary
-    :kwarg test_space: the :class:`FunctionSpace`
+        :class:`firedrake.function.Function`,
+        or in a dictionary
+    :kwarg test_space: the
+        :class:`firedrake.functionspaceimpl.FunctionSpace`
         that the test function lives in, or an
         appropriate dictionary
     """

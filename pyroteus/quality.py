@@ -1,3 +1,6 @@
+"""
+Functions for computing mesh quality measures.
+"""
 import os
 import firedrake
 from pyop2 import op2

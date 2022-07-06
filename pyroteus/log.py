@@ -1,7 +1,8 @@
 """
 Loggers for Pyroteus.
 
-Code mostly copied from [the Thetis project](https://thetisproject.org).
+Code mostly copied from `the Thetis project
+<https://thetisproject.org>`__.
 """
 import firedrake
 import logging

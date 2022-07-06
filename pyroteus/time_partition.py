@@ -172,7 +172,7 @@ class TimePartition(object):
 
 class TimeInterval(TimePartition):
     """
-    A trivial :class:`TimePartition`.
+    A trivial :class:`~.TimePartition`.
     """
 
     def __init__(self, *args, **kwargs):
@@ -196,7 +196,7 @@ class TimeInterval(TimePartition):
 
 class TimeInstant(TimeInterval):
     """
-    A :class:`TimePartition` for steady-state problems.
+    A :class:`~.TimePartition` for steady-state problems.
 
     Under the hood this means dividing :math:`[0,1)` into
     a single timestep.

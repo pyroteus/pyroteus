@@ -48,6 +48,8 @@ Let :math:`c(\mathbf x)` denote the tracer concentration at point
 governed by the PDE
 
 .. math::
+    :label: tracer_eq
+
     \mathbf u\cdot\nabla c
     -\nabla\cdot(D\nabla c)
     =S,
@@ -82,6 +84,8 @@ outlet pipe and the receiver region is the plant's inlet. As such,
 we would like to accurately measure the functional
 
 .. math::
+    :label: tracer_qoi
+
     J(c)=\int_R c\;\mathrm dx,
 
 where :math:`R` denotes the receiver region. Taking this as QoI,
@@ -141,6 +145,10 @@ features that they have in common. For example, each of them deploy most
 mesh resolution in bands between the source and receiver. In addition,
 they tend to use less mesh resolution downstream (where the adjoint
 solution is near zero) than upstream of the receiver region.
+
+The `next section <2-goal-oriented-error-estimation.html>`__ gives a
+general overview of goal-oriented error estimation, including the main
+ideas and fundamental mathematical results.
 
 References
 ----------

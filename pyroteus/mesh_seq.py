@@ -1,5 +1,5 @@
 """
-Sequences of meshes corresponding to a :class:`TimePartition`.
+Sequences of meshes corresponding to a :class:`~.TimePartition`.
 """
 import firedrake
 from firedrake.petsc import PETSc
@@ -39,35 +39,36 @@ class AdaptParameters(AttrDict):
 class MeshSeq:
     """
     A sequence of meshes for solving a PDE associated
-    with a particular :class:`TimePartition` of the
+    with a particular :class:`~.TimePartition` of the
     temporal domain.
     """
 
     @PETSc.Log.EventDecorator("pyroteus.MeshSeq.__init__")
     def __init__(self, time_partition, initial_meshes, **kwargs):
-        """
-        :arg time_partition: the :class:`TimePartition` which
+        r"""
+        :arg time_partition: the :class:`~.TimePartition` which
             partitions the temporal domain
         :arg initial_meshes: list of meshes corresponding to
-            the subintervals of the :class:`TimePartition`,
+            the subintervals of the :class:`~.TimePartition`,
             or a single mesh to use for all subintervals
         :kwarg get_function_spaces: a function, whose only
-            argument is a :class:`MeshSeq`, which constructs
-            prognostic :class:`FunctionSpace` s for each
-            subinterval
+            argument is a :class:`~.MeshSeq`, which constructs
+            prognostic
+            :class:`firedrake.functionspaceimpl.FunctionSpace`\s
+            for each subinterval
         :kwarg get_initial_condition: a function, whose only
-            argument is a :class:`MeshSeq`, which specifies
+            argument is a :class:`~.MeshSeq`, which specifies
             initial conditions on the first mesh
         :kwarg get_form: a function, whose only argument is a
-            :class:`MeshSeq`, which returns a function that
+            :class:`~.MeshSeq`, which returns a function that
             generates the PDE weak form
         :kwarg get_solver: a function, whose only argument is
-            a :class:`MeshSeq`, which returns a function
+            a :class:`~.MeshSeq`, which returns a function
             that integrates initial data over a subinterval
         :kwarg get_bcs: a function, whose only argument is a
-            :class:`MeshSeq`, which returns a function that
+            :class:`~.MeshSeq`, which returns a function that
             determines any Dirichlet boundary conditions
-        :kwarg parameters: :class:`AdaptParameters` instance
+        :kwarg parameters: :class:`~.AdaptParameters` instance
         :kwarg warnings: print warnings?
         """
         self.time_partition = time_partition
@@ -128,11 +129,11 @@ class MeshSeq:
 
     def plot(self, fig=None, axes=None, **kwargs):
         """
-        Plot the meshes comprising a 2D :class:`MeshSeq`.
+        Plot the meshes comprising a 2D :class:`~.MeshSeq`.
 
         :kwarg fig: matplotlib figure
         :kwarg axes: matplotlib axes
-        :kwargs: parameters to pass to Firedrake's :func:`triplot`
+        :kwargs: parameters to pass to :func:`firedrake.plot.triplot`
             function
         :return: matplotlib figure and axes for the plots
         """
@@ -350,7 +351,7 @@ class MeshSeq:
         :arg field: field of interest
         :arg subinterval: subinterval index
         :arg solve_blocks: list of taped
-            :class:`GenericSolveBlocks`
+            :class:`firedrake.adjoint.blocks.GenericSolveBlocks`
         """
         if field in self._lagged_dep_idx:
             return self._lagged_dep_idx[field]
@@ -406,7 +407,7 @@ class MeshSeq:
         :kwarg clear_tape: should the tape be cleared at the end
             of an iteration?
 
-        :return solution: an :class:`AttrDict` containing
+        :return solution: an :class:`~.AttrDict` containing
             solution fields and their lagged versions.
         """
         from firedrake_adjoint import pyadjoint
@@ -528,11 +529,13 @@ class MeshSeq:
         a fixed point iteration loop.
 
         :arg adaptor: function for adapting the mesh sequence.
-            Its arguments are the :class:`MeshSeq` instance and
-            the dictionary of solution :class:`Function`\s
-        :kwarg update_params: function for updating :attr:`params`
-            at each iteration. Its arguments are the parameter
-            class and the fixed point iteration
+            Its arguments are the :class:`~.MeshSeq` instance and
+            the dictionary of solution
+            :class:`firedrake.function.Function`\s
+        :kwarg update_params: function for updating
+            :attr:`~.MeshSeq.params` at each iteration. Its
+            arguments are the parameter class and the fixed point
+            iteration
         :kwarg solver_kwargs: a dictionary providing parameters
             to the solver
         """

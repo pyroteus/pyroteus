@@ -54,11 +54,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "Pyroteus"
-year = datetime.datetime.now().year
-if year == 2021:
-    copyright = f"{year}, Joseph G. Wallwork et al."
-else:
-    copyright = f"2021-{year}, Joseph G. Wallwork et al."
+copyright = f"2021-{datetime.datetime.now().year}, Joseph G. Wallwork et al."
 author = "Joseph G. Wallwork et al."
 
 # The version info for the project you're documenting, acts as replacement for
@@ -77,7 +73,7 @@ release = pyroteus.__version__
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -96,7 +92,7 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "classic"
+html_theme = "nature"
 # Add any paths that contain custom themes here, relative to this directory.
 html_theme_path = ["_themes"]
 
@@ -173,12 +169,15 @@ texinfo_documents = [
     ),
 ]
 
+# FIXME: Avoid full paths, e.g. firedrake.function.Function
+add_module_names = False
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/2.7/", None),
-    "ufl": ("https://fenics.readthedocs.io/projects/ufl/en/latest/", None),
     "firedrake": ("https://firedrakeproject.org/", None),
+    "python": ("https://docs.python.org/3/", None),
+    "thetis": ("https://thetisproject.org/", None),
+    'ufl': ('https://fenics.readthedocs.io/projects/ufl/en/latest/', None),
 }
 
 autoclass_content = "both"
@@ -188,5 +187,7 @@ bibtex_bibfiles = [
     "references.bib",
     "demos/demo_references.bib",
     "maths/1-references.bib",
+    "maths/2-references.bib",
     "maths/3-references.bib",
+    "maths/4-references.bib",
 ]

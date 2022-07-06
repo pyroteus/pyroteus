@@ -15,7 +15,7 @@ import numpy as np
 @PETSc.Log.EventDecorator("pyroteus.Mesh")
 def Mesh(arg, **kwargs):
     """
-    Overload Firedrake's ``Mesh`` constructor to
+    Overload :func:`firedrake.mesh.Mesh` to
     endow the output mesh with useful quantities.
 
     The following quantities are computed by default:
@@ -54,7 +54,7 @@ def Mesh(arg, **kwargs):
 
 class File(firedrake.output.File):
     """
-    Overload Firedrake's ``File`` class so that
+    Overload :class:`firedrake.output.File` so that
     it uses ``adaptive`` mode by default. Whilst
     this means that the mesh topology is
     recomputed at every export, it removes any
@@ -105,17 +105,19 @@ def assemble_mass_matrix(space, norm_type="L2"):
 @PETSc.Log.EventDecorator("pyroteus.norm")
 def norm(v, norm_type="L2", mesh=None, condition=None, boundary=False):
     r"""
-    Overload Firedrake's ``norm`` function to
+    Overload :func:`firedrake.norms.norm` to
     allow for :math:`\ell^p` norms.
 
     Note that this version is case sensitive,
     i.e. ``'l2'`` and ``'L2'`` will give
     different results in general.
 
-    :arg v: the :class:`Function` to take the norm of
-    :kwarg norm_type: choose from 'l1', 'l2', 'linf',
-        'L2', 'Linf', 'H1', 'Hdiv', 'Hcurl', or any
-        'Lp' with :math:`p >= 1`.
+    :arg v: the :class:`firedrake.function.Function`
+        to take the norm of
+    :kwarg norm_type: choose from ``'l1'``, ``'l2'``,
+        ``'linf'``, ``'L2'``, ``'Linf'``, ``'H1'``,
+        ``'Hdiv'``, ``'Hcurl'``, or any ``'Lp'`` with
+        :math:`p >= 1`.
     :kwarg mesh: the mesh that `v` is defined upon
     :kwarg condition: a UFL condition for specifying
         a subdomain to compute the norm over
@@ -180,7 +182,7 @@ def norm(v, norm_type="L2", mesh=None, condition=None, boundary=False):
 @PETSc.Log.EventDecorator("pyroteus.errornorm")
 def errornorm(u, uh, norm_type="L2", **kwargs):
     r"""
-    Overload Firedrake's ``errornorm`` function
+    Overload :func:`firedrake.norms.errornorm`
     to allow for :math:`\ell^p` norms.
 
     Note that this version is case sensitive,
@@ -189,9 +191,10 @@ def errornorm(u, uh, norm_type="L2", **kwargs):
 
     :arg u: the 'true' value
     :arg uh: the approximation of the 'truth'
-    :kwarg norm_type: choose from 'l1', 'l2', 'linf',
-        'L2', 'Linf', 'H1', 'Hdiv', 'Hcurl', or any
-        'Lp' with :math:`p >= 1`.
+    :kwarg norm_type: choose from ``'l1'``, ``'l2'``,
+        ``'linf'``, ``'L2'``, ``'Linf'``, ``'H1'``,
+        ``'Hdiv'``, ``'Hcurl'``, or any ``'Lp'`` with
+        :math:`p >= 1`.
     :kwarg boundary: should the norm be computed over
         the domain boundary?
     """
@@ -236,7 +239,9 @@ def errornorm(u, uh, norm_type="L2", **kwargs):
 def rotation_matrix_2d(angle):
     """
     Rotation matrix associated with some
-    ``angle``, as a UFL matrix.
+    angle, as a UFL matrix.
+
+    :arg angle: the angle
     """
     return ufl.as_matrix(
         [[ufl.cos(angle), -ufl.sin(angle)], [ufl.sin(angle), ufl.cos(angle)]]
@@ -245,8 +250,12 @@ def rotation_matrix_2d(angle):
 
 def rotate(v, angle, origin=None):
     """
-    Rotate a UFL :class:`as_vector` ``v``
-    by ``angle`` about an ``origin``.
+    Rotate a UFL :class:`ufl.tensors.as_vector`
+    by some angle.
+
+    :arg v: the vector to rotate
+    :arg angle: the angle to rotate by
+    :kwarg origin: origin of rotation
     """
     dim = len(v)
     origin = origin or ufl.as_vector(np.zeros(dim))
@@ -260,10 +269,11 @@ def rotate(v, angle, origin=None):
 
 class AttrDict(dict):
     """
-    Dictionary that provides both ``self['key']``
+    Dictionary that provides both ``self[key]``
     and ``self.key`` access to members.
 
-    **Disclaimer**: Copied from `stackoverflow <http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python>`__.
+    **Disclaimer**: Copied from `stackoverflow
+    <http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python>`__.
     """
 
     def __init__(self, *args, **kwargs):
@@ -280,9 +290,9 @@ def effectivity_index(error_indicator, Je):
     steady-state problems with analytical solutions.
 
     :arg error_indicator: a :math:`\mathbb P0`
-        :class:`Function` which localises
-        contributions to an error estimator to
-        individual elements
+        :class:`firedrake.function.Function` which
+        localises contributions to an error estimator
+        to individual elements
     :arg Je: error in quantity of interest
     """
     if not isinstance(error_indicator, firedrake.Function):
@@ -297,10 +307,11 @@ def effectivity_index(error_indicator, Je):
 
 def classify_element(element, dim):
     """
-    Classify a :class:`FiniteElement` in terms
-    of a label and a list of entity DOFs.
+    Classify a :class:`ufl.finiteelement.FiniteElement`
+    in terms of a label and a list of entity DOFs.
 
-    :arg element: the :class:`FiniteElement`
+    :arg element: the
+        :class:`ufl.finiteelement.FiniteElement`
     :arg dim: the topological dimension
     """
     p = element.degree()
@@ -323,10 +334,12 @@ def classify_element(element, dim):
 def create_section(mesh, element):
     """
     Create a PETSc section associated with
-    a mesh and some :class:`FiniteElement`.
+    a mesh and some
+    :class:`ufl.finitelement.FiniteElement`.
 
     :arg mesh: the mesh
-    :arg element: the :class:`FiniteElement`
+    :arg element: the
+        :class:`ufl.finiteelement.FiniteElement`
         for which a section is sought, or a
         list of entity DOFs to be passed
         straight through
@@ -342,6 +355,9 @@ def create_section(mesh, element):
 def create_directory(path, comm=firedrake.COMM_WORLD):
     """
     Create a directory on disk.
+
+    Code copied from `Thetis
+    <https://thetisproject.org>`__.
 
     :arg path: path to the directory
     :kwarg comm: MPI communicator
