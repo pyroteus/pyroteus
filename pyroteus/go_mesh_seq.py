@@ -8,9 +8,15 @@ from .mesh_seq import AdaptParameters
 from .metric import MetricParameters
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager, project
 from firedrake.petsc import PETSc
+from collections.abc import Callable
+from typing import Tuple
 
 
-__all__ = ["GoalOrientedParameters", "GoalOrientedMetricParameters", "GoalOrientedMeshSeq"]
+__all__ = [
+    "GoalOrientedParameters",
+    "GoalOrientedMetricParameters",
+    "GoalOrientedMeshSeq",
+]
 
 
 class GoalOrientedParameters(AdaptParameters):
@@ -20,7 +26,7 @@ class GoalOrientedParameters(AdaptParameters):
     loops.
     """
 
-    def __init__(self, parameters={}):
+    def __init__(self, parameters: dict = {}):
         self["qoi_rtol"] = 0.001  # Relative tolerance for QoI
         self["estimator_rtol"] = 0.001  # Relative tolerance for estimator
 
@@ -34,7 +40,7 @@ class GoalOrientedMetricParameters(GoalOrientedParameters):
     point iteration loops.
     """
 
-    def __init__(self, parameters={}):
+    def __init__(self, parameters: dict = {}):
         MetricParameters.__init__(self)
         super().__init__(parameters=parameters)
 
@@ -50,7 +56,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self.estimator_values = []
 
     @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.get_enriched_mesh_seq")
-    def get_enriched_mesh_seq(self, enrichment_method="p", num_enrichments=1):
+    def get_enriched_mesh_seq(
+        self, enrichment_method: str = "p", num_enrichments: int = 1
+    ) -> AdjointMeshSeq:
         """
         Solve the forward and adjoint problems
         associated with
@@ -103,7 +111,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         )
 
     @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.global_enrichment")
-    def global_enrichment(self, enrichment_method="p", num_enrichments=1, **kwargs):
+    def global_enrichment(
+        self, enrichment_method: str = "p", num_enrichments: int = 1, **kwargs
+    ) -> dict:
         """
         Solve the forward and adjoint problems
         associated with
@@ -129,8 +139,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
     @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.indicate_errors")
     def indicate_errors(
-        self, enrichment_kwargs={}, adj_kwargs={}, indicator_fn=get_dwr_indicator
-    ):
+        self,
+        enrichment_kwargs: dict = {},
+        adj_kwargs: dict = {},
+        indicator_fn: Callable = get_dwr_indicator,
+    ) -> Tuple[dict, list]:
         """
         Compute goal-oriented error indicators for each
         subinterval based on solving the adjoint problem
@@ -220,7 +233,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         due to the relative difference in error estimator
         value being smaller than the specified tolerance.
 
-        :return: ``True`` if converged, else ``False``
+        The :attr:`GoalOrientedMeshSeq.converged` attribute
+        is set to ``True`` if convergence is detected.
         """
         P = self.params
         self.converged = False
@@ -235,11 +249,11 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
     @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.fixed_point_iteration")
     def fixed_point_iteration(
         self,
-        adaptor,
-        update_params=None,
-        enrichment_kwargs={},
-        adj_kwargs={},
-        indicator_fn=get_dwr_indicator,
+        adaptor: Callable,
+        enrichment_kwargs: dict = {},
+        adj_kwargs: dict = {},
+        indicator_fn: Callable = get_dwr_indicator,
+        **kwargs,
     ):
         r"""
         Apply goal-oriented mesh adaptation using
@@ -262,6 +276,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             which takes the form, adjoint error and enriched
             space(s) as arguments
         """
+        update_params = kwargs.get("update_params")
         P = self.params
         self.element_counts = [self.count_elements()]
         self.qoi_values = []

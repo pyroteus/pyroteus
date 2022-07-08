@@ -4,6 +4,8 @@ Driver functions for metric-based mesh adaptation.
 from .utility import *
 from .interpolation import clement_interpolant
 from .mesh_seq import AdaptParameters
+from collections.abc import Iterable
+from typing import List, Optional, Tuple, Union
 
 
 __all__ = [
@@ -36,7 +38,7 @@ class MetricParameters(AdaptParameters):
     metric-based adaptive mesh fixed point iteration loops.
     """
 
-    def __init__(self, parameters={}):
+    def __init__(self, parameters: dict = {}):
         """
         :arg parameters: dictionary of parameters to set
         """
@@ -51,7 +53,7 @@ class MetricParameters(AdaptParameters):
         super().__init__(parameters=parameters)
 
 
-def get_metric_kernel(func, dim):
+def get_metric_kernel(func: str, dim: int) -> op2.Kernel:
     """
     Helper function to easily pass Eigen kernels
     for metric utilities to Firedrake via PyOP2.
@@ -64,7 +66,9 @@ def get_metric_kernel(func, dim):
 
 
 @PETSc.Log.EventDecorator("pyroteus.compute_eigendecomposition")
-def compute_eigendecomposition(metric, reorder=False):
+def compute_eigendecomposition(
+    metric: Function, reorder: bool = False
+) -> Tuple[Function, Function]:
     """
     Compute the eigenvectors and eigenvalues of
     a matrix-valued function.
@@ -86,7 +90,7 @@ def compute_eigendecomposition(metric, reorder=False):
     fe = (V_ten.ufl_element().family(), V_ten.ufl_element().degree())
     V_vec = firedrake.VectorFunctionSpace(mesh, *fe)
     dim = mesh.topological_dimension()
-    evectors, evalues = firedrake.Function(V_ten), firedrake.Function(V_vec)
+    evectors, evalues = Function(V_ten), Function(V_vec)
     if reorder:
         kernel = get_metric_kernel("get_reordered_eigendecomposition", dim)
     else:
@@ -102,7 +106,7 @@ def compute_eigendecomposition(metric, reorder=False):
 
 
 @PETSc.Log.EventDecorator("pyroteus.assemble_eigendecomposition")
-def assemble_eigendecomposition(evectors, evalues):
+def assemble_eigendecomposition(evectors: Function, evalues: Function) -> Function:
     """
     Assemble a matrix from its eigenvectors and
     eigenvalues.
@@ -127,7 +131,7 @@ def assemble_eigendecomposition(evectors, evalues):
     if fe_ten.degree() != fe_vec.degree():
         raise ValueError("Mismatching finite element space degrees")
     dim = V_ten.mesh().topological_dimension()
-    M = firedrake.Function(V_ten)
+    M = Function(V_ten)
     op2.par_loop(
         get_metric_kernel("set_eigendecomposition", dim),
         V_ten.node_set,
@@ -142,7 +146,7 @@ def assemble_eigendecomposition(evectors, evalues):
 
 
 @PETSc.Log.EventDecorator("pyroteus.metric_complexity")
-def metric_complexity(metric, boundary=False):
+def metric_complexity(metric: Function, boundary: bool = False) -> float:
     """
     Compute the complexity of a metric.
 
@@ -157,7 +161,9 @@ def metric_complexity(metric, boundary=False):
 
 
 @PETSc.Log.EventDecorator("pyroteus.isotropic_metric")
-def isotropic_metric(error_indicator, target_space=None, interpolant="Clement"):
+def isotropic_metric(
+    error_indicator: Function, interpolant: str = "Clement", **kwargs
+) -> Function:
     r"""
     Compute an isotropic metric from some error indicator.
 
@@ -172,6 +178,7 @@ def isotropic_metric(error_indicator, target_space=None, interpolant="Clement"):
     :kwarg interpolant: choose from 'Clement', 'L2',
         'interpolate', 'project'
     """
+    target_space = kwargs.get("target_space")
     mesh = error_indicator.ufl_domain()
     dim = mesh.topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
@@ -181,7 +188,7 @@ def isotropic_metric(error_indicator, target_space=None, interpolant="Clement"):
 
     # Interpolate P0 indicators into P1 space
     if interpolant == "Clement":
-        if not isinstance(error_indicator, firedrake.Function):
+        if not isinstance(error_indicator, Function):
             raise NotImplementedError("Can only apply Clement interpolant to Functions")
         fs = error_indicator.function_space()
         family = fs.ufl_element().family()
@@ -199,7 +206,7 @@ def isotropic_metric(error_indicator, target_space=None, interpolant="Clement"):
         )
     elif interpolant in ("L2", "project"):
         error_indicator = firedrake.project(
-            error_indicator, firedrake.FunctionSpace(mesh, "CG", 1)
+            error_indicator, FunctionSpace(mesh, "CG", 1)
         )
         return firedrake.interpolate(
             abs(error_indicator) * ufl.Identity(dim), target_space
@@ -209,7 +216,7 @@ def isotropic_metric(error_indicator, target_space=None, interpolant="Clement"):
 
 
 @PETSc.Log.EventDecorator("pyroteus.hessian_metric")
-def hessian_metric(hessian):
+def hessian_metric(hessian: Function) -> Function:
     """
     Modify the eigenvalues of a Hessian matrix so
     that it is positive-definite.
@@ -224,7 +231,7 @@ def hessian_metric(hessian):
         raise ValueError(
             f"Expected a square tensor field, got {fs.ufl_element().value_shape()}."
         )
-    metric = firedrake.Function(fs)
+    metric = Function(fs)
     op2.par_loop(
         get_metric_kernel("metric_from_hessian", shape[0]),
         fs.node_set,
@@ -234,7 +241,9 @@ def hessian_metric(hessian):
     return metric
 
 
-def anisotropic_metric(error_indicator, hessian, **kwargs):
+def anisotropic_metric(
+    error_indicator: Function, hessian: Function, **kwargs
+) -> Function:
     r"""
     Compute an element-wise anisotropic metric from some
     error indicator, given a Hessian field.
@@ -258,17 +267,17 @@ def anisotropic_metric(error_indicator, hessian, **kwargs):
     """
     approach = kwargs.pop("approach", "anisotropic_dwr")
     if approach == "anisotropic_dwr":
-        return anisotropic_dwr_metric(error_indicator, hessian, **kwargs)
+        return anisotropic_dwr_metric(error_indicator, hessian=hessian, **kwargs)
     elif approach == "weighted_hessian":
-        return weighted_hessian_metric(error_indicator, hessian, **kwargs)
+        return weighted_hessian_metric(error_indicator, hessian=hessian, **kwargs)
     else:
         raise ValueError(f"Anisotropic metric approach {approach} not recognised.")
 
 
 @PETSc.Log.EventDecorator("pyroteus.anisotropic_dwr_metric")
 def anisotropic_dwr_metric(
-    error_indicator, hessian=None, target_space=None, interpolant="Clement", **kwargs
-):
+    error_indicator: Function, interpolant: str = "Clement", **kwargs
+) -> Function:
     r"""
     Compute an anisotropic metric from some error
     indicator, given a Hessian field.
@@ -297,6 +306,8 @@ def anisotropic_dwr_metric(
     :kwarg interpolant: choose from 'Clement', 'L2',
         'interpolate', 'project'
     """
+    hessian = kwargs.get("hessian")
+    target_space = kwargs.get("target_space")
     if isinstance(error_indicator, list):  # FIXME: This is hacky
         error_indicator = error_indicator[0]
     if isinstance(hessian, list):  # FIXME: This is hacky
@@ -310,7 +321,7 @@ def anisotropic_dwr_metric(
     convergence_rate = kwargs.get("convergence_rate", 1.0)
     assert convergence_rate >= 1.0, "Convergence rate must be at least one"
     P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
-    P0_metric = firedrake.Function(P0_ten)
+    P0_metric = Function(P0_ten)
 
     # Get reference element volume
     K_hat = 1 / 2 if dim == 2 else 1 / 6
@@ -319,7 +330,7 @@ def anisotropic_dwr_metric(
     K = K_hat * abs(ufl.JacobianDeterminant(mesh))
 
     # Get optimal element volume
-    P0 = firedrake.FunctionSpace(mesh, "DG", 0)
+    P0 = FunctionSpace(mesh, "DG", 0)
     K_opt = firedrake.interpolate(pow(error_indicator, 1 / (convergence_rate + 1)), P0)
     K_opt.interpolate(K / target_complexity * K_opt.vector().gather().sum() / K_opt)
     K_ratio = pow(abs(K_hat / K_opt), 2 / dim)
@@ -356,8 +367,8 @@ def anisotropic_dwr_metric(
 
 @PETSc.Log.EventDecorator("pyroteus.weighted_hessian_metric")
 def weighted_hessian_metric(
-    error_indicators, hessians, target_space=None, interpolant="Clement", **kwargs
-):
+    error_indicators: list, hessians: list, interpolant: str = "Clement", **kwargs
+) -> Function:
     r"""
     Compute a vertex-wise anisotropic metric from a (list
     of) error indicator(s), given a (list of) Hessian
@@ -376,8 +387,7 @@ def weighted_hessian_metric(
     :kwarg interpolant: choose from 'Clement', 'L2',
         'interpolate', 'project'
     """
-    from collections.abc import Iterable
-
+    target_space = kwargs.get("target_space")
     if not isinstance(error_indicators, Iterable):
         error_indicators = [error_indicators]
     if not isinstance(hessians, Iterable):
@@ -388,12 +398,12 @@ def weighted_hessian_metric(
 
     # Project error indicators into P1 space and use them to weight Hessians
     target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
-    metrics = [firedrake.Function(target_space, name="Metric") for hessian in hessians]
+    metrics = [Function(target_space, name="Metric") for hessian in hessians]
     for error_indicator, hessian, metric in zip(error_indicators, hessians, metrics):
         if interpolant == "Clement":
             error_indicator = clement_interpolant(error_indicator)
         else:
-            P1 = firedrake.FunctionSpace(mesh, "CG", 1)
+            P1 = FunctionSpace(mesh, "CG", 1)
             if interpolant == "interpolate":
                 error_indicator = firedrake.interpolate(error_indicator, P1)
             elif interpolant in ("L2", "project"):
@@ -408,8 +418,13 @@ def weighted_hessian_metric(
 
 @PETSc.Log.EventDecorator("pyroteus.enforce_element_constraints")
 def enforce_element_constraints(
-    metrics, h_min, h_max, a_max, boundary_tag=None, optimise=False
-):
+    metrics: List[Function],
+    h_min: List[Function],
+    h_max: List[Function],
+    a_max: List[Function],
+    boundary_tag: Optional[Union[str, int]] = None,
+    optimise: bool = False,
+) -> List[Function]:
     """
     Post-process a list of metrics to enforce minimum and
     maximum element sizes, as well as maximum anisotropy.
@@ -443,7 +458,7 @@ def enforce_element_constraints(
         mesh = fs.mesh()
 
         # Interpolate hmin, hmax and amax into P1
-        P1 = firedrake.FunctionSpace(mesh, "CG", 1)
+        P1 = FunctionSpace(mesh, "CG", 1)
         hmin = (
             clement_interpolant if isinstance(hmin, Function) else Function(P1).assign
         )(hmin)
@@ -486,7 +501,13 @@ def enforce_element_constraints(
 
 
 @PETSc.Log.EventDecorator("pyroteus.space_normalise")
-def space_normalise(metric, target, p, global_factor=None, boundary=False):
+def space_normalise(
+    metric: Function,
+    target: float,
+    p: float,
+    global_factor: Optional[float] = None,
+    boundary: bool = False,
+) -> Function:
     r"""
     Apply :math:`L^p` normalisation in space alone.
 
@@ -520,7 +541,13 @@ def space_normalise(metric, target, p, global_factor=None, boundary=False):
 
 
 @PETSc.Log.EventDecorator("pyroteus.space_time_normalise")
-def space_time_normalise(metrics, end_time, timesteps, target, p):
+def space_time_normalise(
+    metrics: List[Function],
+    end_time: float,
+    timesteps: List[float],
+    target: float,
+    p: float,
+) -> List[Function]:
     r"""
     Apply :math:`L^p` normalisation in both space and time.
 
@@ -564,7 +591,9 @@ def space_time_normalise(metrics, end_time, timesteps, target, p):
 
 
 @PETSc.Log.EventDecorator("pyroteus.determine_metric_complexity")
-def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
+def determine_metric_complexity(
+    H_interior: Function, H_boundary: Function, target: float, p: float, **kwargs
+) -> float:
     """
     Solve an algebraic problem to obtain coefficients
     for the interior and boundary metrics to obtain a
@@ -615,7 +644,11 @@ def determine_metric_complexity(H_interior, H_boundary, target, p, **kwargs):
 
 
 @PETSc.Log.EventDecorator("pyroteus.metric_relaxation")
-def metric_relaxation(*metrics, weights=None, function_space=None):
+def metric_relaxation(
+    *metrics: Tuple[Function],
+    weights: Optional[List[float]] = None,
+    function_space: Optional[FunctionSpace] = None,
+) -> Function:
     """
     Combine a list of metrics with a weighted average.
 
@@ -634,15 +667,17 @@ def metric_relaxation(*metrics, weights=None, function_space=None):
             f"Number of weights do not match number of metrics ({num_weights} != {n})"
         )
     fs = function_space or metrics[0].function_space()
-    relaxed_metric = firedrake.Function(fs)
+    relaxed_metric = Function(fs)
     for weight, metric in zip(weights, metrics):
-        if not isinstance(metric, firedrake.Function) or metric.function_space() != fs:
+        if not isinstance(metric, Function) or metric.function_space() != fs:
             metric = firedrake.interpolate(metric, function_space)
         relaxed_metric += weight * metric
     return relaxed_metric
 
 
-def metric_average(*metrics, function_space=None):
+def metric_average(
+    *metrics: Tuple[Function], function_space: Optional[FunctionSpace] = None
+) -> Function:
     """
     Combine a list of metrics by averaging.
 
@@ -655,7 +690,11 @@ def metric_average(*metrics, function_space=None):
 
 
 @PETSc.Log.EventDecorator("pyroteus.metric_intersection")
-def metric_intersection(*metrics, function_space=None, boundary_tag=None):
+def metric_intersection(
+    *metrics: Tuple[Function],
+    function_space: Optional[FunctionSpace] = None,
+    boundary_tag: Optional[Union[str, int]] = None,
+) -> Function:
     """
     Combine a list of metrics by intersection.
 
@@ -671,9 +710,9 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     assert n > 0, "Nothing to combine"
     fs = function_space or metrics[0].function_space()
     for metric in metrics:
-        if not isinstance(metric, firedrake.Function) or metric.function_space() != fs:
+        if not isinstance(metric, Function) or metric.function_space() != fs:
             metric = firedrake.interpolate(metric, function_space)
-    intersected_metric = firedrake.Function(metrics[0])
+    intersected_metric = Function(metrics[0])
     if boundary_tag is None:
         node_set = fs.node_set
     elif boundary_tag == []:
@@ -686,7 +725,7 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
 
     def intersect_pair(M1, M2):
-        M12 = firedrake.Function(M1)
+        M12 = Function(M1)
         op2.par_loop(
             get_metric_kernel("intersect", dim),
             node_set,
@@ -701,7 +740,9 @@ def metric_intersection(*metrics, function_space=None, boundary_tag=None):
     return intersected_metric
 
 
-def combine_metrics(*metrics, average=True, **kwargs):
+def combine_metrics(
+    *metrics: Tuple[Function], average: bool = True, **kwargs
+) -> Function:
     """
     Combine a list of metrics.
 
@@ -721,7 +762,7 @@ def combine_metrics(*metrics, average=True, **kwargs):
 
 
 @PETSc.Log.EventDecorator("pyroteus.density_and_quotients")
-def density_and_quotients(metric, reorder=False):
+def density_and_quotients(metric: Function, reorder: bool = False) -> List[Function]:
     r"""
     Extract the density and anisotropy quotients from a
     metric.
@@ -771,10 +812,10 @@ def density_and_quotients(metric, reorder=False):
     mesh = fs_ten.mesh()
     fe = (fs_ten.ufl_element().family(), fs_ten.ufl_element().degree())
     fs_vec = firedrake.VectorFunctionSpace(mesh, *fe)
-    fs = firedrake.FunctionSpace(mesh, *fe)
+    fs = FunctionSpace(mesh, *fe)
     dim = mesh.topological_dimension()
-    density = firedrake.Function(fs, name="Metric density")
-    quotients = firedrake.Function(fs_vec, name="Anisotropic quotients")
+    density = Function(fs, name="Metric density")
+    quotients = Function(fs_vec, name="Anisotropic quotients")
 
     # Compute eigendecomposition
     evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
@@ -787,7 +828,7 @@ def density_and_quotients(metric, reorder=False):
 
 
 @PETSc.Log.EventDecorator("pyroteus.is_symmetric")
-def is_symmetric(M, rtol=1.0e-08):
+def is_symmetric(M: Function, rtol: float = 1.0e-08) -> bool:
     """
     Determine whether a tensor field is symmetric.
 
@@ -799,7 +840,7 @@ def is_symmetric(M, rtol=1.0e-08):
 
 
 @PETSc.Log.EventDecorator("pyroteus.is_pos_def")
-def is_pos_def(M):
+def is_pos_def(M: Function) -> bool:
     """
     Determine whether a tensor field is positive-definite.
 
@@ -808,7 +849,7 @@ def is_pos_def(M):
     return compute_eigendecomposition(M)[1].vector().gather().min() > 0.0
 
 
-def is_spd(M):
+def is_spd(M: Function) -> bool:
     """
     Determine whether a tensor field is symmetric positive-definite.
 
@@ -817,7 +858,7 @@ def is_spd(M):
     return is_symmetric(M) and is_pos_def(M)
 
 
-def check_spd(M):
+def check_spd(M: Function):
     """
     Verify that a tensor field is symmetric positive-definite.
 
@@ -828,7 +869,7 @@ def check_spd(M):
 
 
 @PETSc.Log.EventDecorator("pyroteus.metric_exponential")
-def metric_exponential(M):
+def metric_exponential(M: Function) -> Function:
     r"""
     Compute the matrix exponential of a metric.
 
@@ -856,7 +897,7 @@ def metric_exponential(M):
 
 
 @PETSc.Log.EventDecorator("pyroteus.metric_logarithm")
-def metric_logarithm(M):
+def metric_logarithm(M: Function) -> Function:
     r"""
     Compute the matrix logarithm of a metric.
 
@@ -883,7 +924,9 @@ def metric_logarithm(M):
     return assemble_eigendecomposition(V, Lambda)
 
 
-def ramp_complexity(base, target, i, num_iterations=3):
+def ramp_complexity(
+    base: float, target: float, i: int, num_iterations: int = 3
+) -> float:
     """
     Ramp up the target complexity over the first few iterations.
 

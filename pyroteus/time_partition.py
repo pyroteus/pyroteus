@@ -5,12 +5,13 @@ from .log import debug
 from .utility import AttrDict
 from collections.abc import Iterable
 import numpy as np
+from typing import List, Union
 
 
 __all__ = ["TimePartition", "TimeInterval", "TimeInstant"]
 
 
-class TimePartition(object):
+class TimePartition:
     """
     Object describing the partition of the time
     interval of interest into subintervals.
@@ -20,7 +21,14 @@ class TimePartition(object):
     may be used of the timestep on each.
     """
 
-    def __init__(self, end_time, num_subintervals, timesteps, fields, **kwargs):
+    def __init__(
+        self,
+        end_time: float,
+        num_subintervals: int,
+        timesteps: Union[List[float], float],
+        fields: Union[List[str], str],
+        **kwargs,
+    ):
         """
         :arg end_time: end time of the interval
             of interest
@@ -135,7 +143,7 @@ class TimePartition(object):
         self.debug("exports_per_subinterval")
         debug(100 * "-")
 
-    def debug(self, attr):
+    def debug(self, attr: str):
         """
         Print attribute 'msg' for debugging purposes.
         """
@@ -148,10 +156,10 @@ class TimePartition(object):
         label = " ".join(attr.split("_"))
         debug(f"TimePartition: {label:25s} {val}")
 
-    def __len__(self):
+    def __len__(self) -> str:
         return self.num_subintervals
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int) -> dict:
         """
         :arg i: index
         :return: subinterval bounds and timestep
@@ -186,11 +194,11 @@ class TimeInterval(TimePartition):
         fields = args[2]
         super().__init__(end_time, 1, timestep, fields, **kwargs)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self[0])
 
     @property
-    def timestep(self):
+    def timestep(self) -> float:
         return self.timesteps[0]
 
 
@@ -202,6 +210,6 @@ class TimeInstant(TimeInterval):
     a single timestep.
     """
 
-    def __init__(self, fields, end_time=1.0):
+    def __init__(self, fields: Union[List[str], str], end_time: float = 1.0):
         timestep = end_time
         super().__init__(end_time, timestep, fields)

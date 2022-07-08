@@ -1,7 +1,9 @@
 """
 Tools to automate goal-oriented error estimation.
 """
+from .time_partition import TimePartition
 import firedrake
+from firedrake import Function, FunctionSpace
 from firedrake.petsc import PETSc
 import ufl
 
@@ -10,7 +12,7 @@ __all__ = ["get_dwr_indicator"]
 
 
 @PETSc.Log.EventDecorator("pyroteus.form2indicator")
-def form2indicator(F):
+def form2indicator(F) -> Function:
     """
     Multiply throughout in a form and
     assemble as a cellwise error
@@ -19,9 +21,9 @@ def form2indicator(F):
     :arg F: the form
     """
     mesh = F.ufl_domain()
-    P0 = firedrake.FunctionSpace(mesh, "DG", 0)
+    P0 = FunctionSpace(mesh, "DG", 0)
     p0test = firedrake.TestFunction(P0)
-    indicator = firedrake.Function(P0)
+    indicator = Function(P0)
 
     # Contributions from surface integrals
     flux_terms = 0
@@ -59,7 +61,7 @@ def form2indicator(F):
 
 
 @PETSc.Log.EventDecorator("pyroteus.indicator2estimator")
-def indicator2estimator(indicator, absolute_value=False):
+def indicator2estimator(indicator: Function, absolute_value: bool = False) -> float:
     """
     Deduce the error estimator value
     associated with a single error
@@ -76,7 +78,9 @@ def indicator2estimator(indicator, absolute_value=False):
     return indicator.vector().gather().sum()
 
 
-def indicators2estimator(indicators, time_partition, **kwargs):
+def indicators2estimator(
+    indicators: list, time_partition: TimePartition, **kwargs
+) -> float:
     r"""
     Deduce the error estimator value
     associated with error indicator
@@ -97,7 +101,7 @@ def indicators2estimator(indicators, time_partition, **kwargs):
 
 
 @PETSc.Log.EventDecorator("pyroteus.form2estimator")
-def form2estimator(F, **kwargs):
+def form2estimator(F, **kwargs) -> float:
     """
     Multiply throughout in a form,
     assemble as a cellwise error
@@ -114,7 +118,7 @@ def form2estimator(F, **kwargs):
 
 
 @PETSc.Log.EventDecorator("pyroteus.get_dwr_indicator")
-def get_dwr_indicator(F, adjoint_error, test_space=None):
+def get_dwr_indicator(F, adjoint_error: Function, **kwargs) -> Function:
     """
     Generate a dual weighted residual (DWR)
     error indicator, given a form and an
@@ -131,8 +135,9 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
         that the test function lives in, or an
         appropriate dictionary
     """
+    test_space = kwargs.get("test_space")
     mapping = {}
-    if isinstance(adjoint_error, firedrake.Function):
+    if isinstance(adjoint_error, Function):
         fs = test_space or adjoint_error.function_space()
         if F.ufl_domain() != fs.mesh():
             raise ValueError(
@@ -142,8 +147,7 @@ def get_dwr_indicator(F, adjoint_error, test_space=None):
     elif isinstance(adjoint_error, dict):
         if test_space is None:
             test_space = {
-                key: err.function_space()
-                for key, err in adjoint_error.items()
+                key: err.function_space() for key, err in adjoint_error.items()
             }
         for key, err in adjoint_error.items():
             if F.ufl_domain() != test_space[key].ufl_domain():

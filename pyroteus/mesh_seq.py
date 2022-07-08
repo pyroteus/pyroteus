@@ -6,11 +6,14 @@ from firedrake.petsc import PETSc
 from .interpolation import project
 from .log import pyrint, debug, warning, logger, DEBUG
 from .quality import get_aspect_ratios2d, get_aspect_ratios3d
-from .utility import AttrDict, Mesh
+from .time_partition import TimePartition
+from .utility import AttrDict, Function, Mesh, MeshGeometry
 from collections import OrderedDict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from functools import wraps
+import matplotlib
 import numpy as np
+from typing import Tuple
 
 
 __all__ = ["AdaptParameters", "MeshSeq"]
@@ -22,7 +25,7 @@ class AdaptParameters(AttrDict):
     adaptive mesh fixed point iteration loops.
     """
 
-    def __init__(self, parameters={}):
+    def __init__(self, parameters: dict = {}):
         """
         :arg parameters: dictionary of parameters to set
         """
@@ -44,7 +47,7 @@ class MeshSeq:
     """
 
     @PETSc.Log.EventDecorator("pyroteus.MeshSeq.__init__")
-    def __init__(self, time_partition, initial_meshes, **kwargs):
+    def __init__(self, time_partition: TimePartition, initial_meshes: list, **kwargs):
         r"""
         :arg time_partition: the :class:`~.TimePartition` which
             partitions the temporal domain
@@ -109,25 +112,27 @@ class MeshSeq:
         if not hasattr(self, "steady"):
             self.steady = False
 
-    def debug(self, msg):
+    def debug(self, msg: str):
         debug(f"MeshSeq: {msg}")
 
-    def warning(self, msg):
+    def warning(self, msg: str):
         warning(f"MeshSeq: {msg}")
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.meshes)
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int) -> MeshGeometry:
         return self.meshes[i]
 
-    def __setitem__(self, i, mesh):
+    def __setitem__(self, i: int, mesh: MeshGeometry) -> MeshGeometry:
         self.meshes[i] = mesh
 
-    def count_elements(self):
+    def count_elements(self) -> list:
         return [mesh.num_cells() for mesh in self]  # TODO: make parallel safe
 
-    def plot(self, fig=None, axes=None, **kwargs):
+    def plot(
+        self, **kwargs
+    ) -> Tuple[matplotlib.figure.Figure, matplotlib.axes._axes.Axes]:
         """
         Plot the meshes comprising a 2D :class:`~.MeshSeq`.
 
@@ -139,6 +144,8 @@ class MeshSeq:
         """
         if self.dim != 2:
             raise ValueError("MeshSeq plotting only supported in 2D")
+        fig = kwargs.get("fig")
+        axes = kwargs.get("axes")
         kwargs.setdefault("interior_kw", {"edgecolor": "k"})
         kwargs.setdefault("boundary_kw", {"edgecolor": "k"})
         if fig is None and axes is None:
@@ -158,35 +165,32 @@ class MeshSeq:
                 i += 1
         return fig, axes
 
-    def get_function_spaces(self, mesh):
+    def get_function_spaces(self, mesh: MeshGeometry) -> Callable:
         if self._get_function_spaces is None:
             raise NotImplementedError("get_function_spaces needs implementing")
         return self._get_function_spaces(mesh)
 
-    def get_initial_condition(self):
+    def get_initial_condition(self) -> dict:
         if self._get_initial_condition is not None:
             return self._get_initial_condition(self)
-        return {
-            field: firedrake.Function(fs[0])
-            for field, fs in self.function_spaces.items()
-        }
+        return {field: Function(fs[0]) for field, fs in self.function_spaces.items()}
 
-    def get_form(self):
+    def get_form(self) -> Callable:
         if self._get_form is None:
             raise NotImplementedError("get_form needs implementing")
         return self._get_form(self)
 
-    def get_solver(self):
+    def get_solver(self) -> Callable:
         if self._get_solver is None:
             raise NotImplementedError("get_solver needs implementing")
         return self._get_solver(self)
 
-    def get_bcs(self):
+    def get_bcs(self) -> Callable:
         if self._get_bcs is not None:
             return self._get_bcs(self)
 
     @property
-    def _function_spaces_consistent(self):
+    def _function_spaces_consistent(self) -> bool:
         consistent = len(self.time_partition) == len(self)
         consistent &= all(len(self) == len(self._fs[field]) for field in self.fields)
         for field in self.fields:
@@ -200,7 +204,7 @@ class MeshSeq:
         return consistent
 
     @property
-    def function_spaces(self):
+    def function_spaces(self) -> list:
         if self._fs is None or not self._function_spaces_consistent:
             self._fs = [self.get_function_spaces(mesh) for mesh in self.meshes]
             self._fs = AttrDict(
@@ -215,7 +219,7 @@ class MeshSeq:
         return self._fs
 
     @property
-    def initial_condition(self):
+    def initial_condition(self) -> AttrDict:
         ic = OrderedDict(self.get_initial_condition())
         assert issubclass(
             ic.__class__, dict
@@ -229,19 +233,19 @@ class MeshSeq:
         return AttrDict(ic)
 
     @property
-    def form(self):
+    def form(self) -> Callable:
         return self.get_form()
 
     @property
-    def solver(self):
+    def solver(self) -> Callable:
         return self.get_solver()
 
     @property
-    def bcs(self):
+    def bcs(self) -> Callable:
         return self.get_bcs()
 
     @PETSc.Log.EventDecorator("pyroteus.MeshSeq.get_checkpoints")
-    def get_checkpoints(self, solver_kwargs={}):
+    def get_checkpoints(self, solver_kwargs: dict = {}) -> list:
         """
         Solve forward on the sequence of meshes,
         extracting checkpoints corresponding to
@@ -273,7 +277,9 @@ class MeshSeq:
                 )
         return checkpoints
 
-    def get_solve_blocks(self, field, subinterval=0, has_adj_sol=True):
+    def get_solve_blocks(
+        self, field: str, subinterval: int = 0, has_adj_sol: bool = True
+    ) -> list:
         """
         Get all blocks of the tape corresponding to
         solve steps for prognostic solution ``field``
@@ -318,7 +324,7 @@ class MeshSeq:
                 )
             for block in solve_blocks:
                 if block.adj_sol is None:
-                    block.adj_sol = firedrake.Function(
+                    block.adj_sol = Function(
                         self.function_spaces[field][subinterval], name=field
                     )
 
@@ -342,7 +348,9 @@ class MeshSeq:
             )
         return solve_blocks
 
-    def get_lagged_dependency_index(self, field, subinterval, solve_blocks):
+    def get_lagged_dependency_index(
+        self, field: str, subinterval: int, solve_blocks: list
+    ) -> int:
         """
         Get the dependency index corresponding
         to the lagged forward solution for a
@@ -385,7 +393,7 @@ class MeshSeq:
         return fwd_old_idx
 
     @PETSc.Log.EventDecorator("pyroteus.MeshSeq.solve_forward")
-    def solve_forward(self, solver_kwargs={}, clear_tape=True):
+    def solve_forward(self, solver_kwargs: dict = {}, clear_tape: bool = True) -> dict:
         """
         Solve a forward problem on a sequence of subintervals.
 
@@ -423,7 +431,7 @@ class MeshSeq:
                     {
                         label: [
                             [
-                                firedrake.Function(fs, name=f"{field}_{label}")
+                                Function(fs, name=f"{field}_{label}")
                                 for j in range(P.exports_per_subinterval[i] - 1)
                             ]
                             for i, fs in enumerate(function_spaces[field])
@@ -509,7 +517,8 @@ class MeshSeq:
         due to the relative difference in element count being
         smaller than the specified tolerance.
 
-        :return: ``True`` if converged, else ``False``
+        The :attr:`MeshSeq.converged` attribute
+        is set to ``True`` if convergence is detected.
         """
         P = self.params
         self.converged = False
@@ -523,7 +532,9 @@ class MeshSeq:
                 self.converged = False
 
     @PETSc.Log.EventDecorator("pyroteus.MeshSeq.fixed_point_iteration")
-    def fixed_point_iteration(self, adaptor, update_params=None, solver_kwargs={}):
+    def fixed_point_iteration(
+        self, adaptor: Callable, solver_kwargs: dict = {}, **kwargs
+    ):
         r"""
         Apply goal-oriented mesh adaptation using
         a fixed point iteration loop.
@@ -539,6 +550,7 @@ class MeshSeq:
         :kwarg solver_kwargs: a dictionary providing parameters
             to the solver
         """
+        update_params = kwargs.get("update_params")
         P = self.params
         self.element_counts = [self.count_elements()]
         self.converged = False
