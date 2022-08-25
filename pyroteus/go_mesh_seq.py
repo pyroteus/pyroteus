@@ -205,7 +205,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     u_star_e[f] -= u_star[f]
 
                 # Evaluate error indicator
-                indi_e = indicator_fn(F, u_star_e, enriched_spaces)
+                indi_e = indicator_fn(F, u_star_e)
 
                 # Project back to the base space
                 indi = project(indi_e, P0)
