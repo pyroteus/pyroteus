@@ -306,55 +306,6 @@ def effectivity_index(error_indicator: Function, Je: float) -> float:
     return np.abs(eta / Je)
 
 
-def classify_element(element: ufl.FiniteElement, dim: int) -> Tuple[str, np.ndarray]:
-    """
-    Classify a :class:`ufl.finiteelement.FiniteElement`
-    in terms of a label and a list of entity DOFs.
-
-    :arg element: the
-        :class:`ufl.finiteelement.FiniteElement`
-    :arg dim: the topological dimension
-    """
-    p = element.degree()
-    family = element.family()
-    n = len(element.sub_elements()) or 1
-    label = {1: "", dim: "Vector ", dim**2: "Tensor "}[n]
-    entity_dofs = np.zeros(dim + 1, dtype=np.int32)
-    if family == "Discontinuous Lagrange" and p == 0:
-        entity_dofs[-1] = n
-        label += f"P{p}DG"
-    elif family == "Lagrange" and p == 1:
-        entity_dofs[0] = n
-        label += f"P{p}"
-    else:
-        raise NotImplementedError
-    return label, entity_dofs
-
-
-@PETSc.Log.EventDecorator("pyroteus.create_section")
-def create_section(
-    mesh: MeshGeometry, element: ufl.FiniteElement
-) -> petsc4py.PETSc.Section:
-    """
-    Create a PETSc section associated with
-    a mesh and some
-    :class:`ufl.finitelement.FiniteElement`.
-
-    :arg mesh: the :class:`MeshGeometry`
-    :arg element: the
-        :class:`ufl.finiteelement.FiniteElement`
-        for which a section is sought, or a
-        list of entity DOFs to be passed
-        straight through
-    """
-    if isinstance(element, Iterable):
-        return dmcommon.create_section(mesh, element)
-    else:
-        dim = mesh.topological_dimension()
-        label, entity_dofs = classify_element(element, dim)
-        return dmcommon.create_section(mesh, entity_dofs)
-
-
 def create_directory(
     path: str, comm: mpi4py.MPI.Intracomm = firedrake.COMM_WORLD
 ) -> str:
