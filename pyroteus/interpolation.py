@@ -1,7 +1,7 @@
 """
 Driver functions for mesh-to-mesh data transfer.
 """
-from .utility import assemble_mass_matrix, get_facet_areas
+from .utility import assemble_mass_matrix, get_facet_areas, Function, FunctionSpace
 import firedrake
 from firedrake.petsc import PETSc
 from petsc4py import PETSc as petsc4py
@@ -14,7 +14,7 @@ __all__ = ["clement_interpolant", "project"]
 
 
 @PETSc.Log.EventDecorator("pyroteus.clement_interpolant")
-def clement_interpolant(source, target_space=None, boundary_tag=None):
+def clement_interpolant(source: Function, **kwargs) -> Function:
     r"""
     Compute the Clement interpolant of a :math:`\mathbb P0`
     source field, i.e. take the volume average over
@@ -26,13 +26,15 @@ def clement_interpolant(source, target_space=None, boundary_tag=None):
     :boundary_tag: optional boundary tag to compute the
         Clement interpolant over.
     """
+    target_space = kwargs.get("target_space")
+    boundary_tag = kwargs.get("boundary_tag")
     V = source.function_space()
     assert V.ufl_element().family() == "Discontinuous Lagrange"
     assert V.ufl_element().degree() == 0
     rank = len(V.ufl_element().value_shape())
     mesh = V.mesh()
     dim = mesh.topological_dimension()
-    P1 = firedrake.FunctionSpace(mesh, "CG", 1)
+    P1 = FunctionSpace(mesh, "CG", 1)
     dX = ufl.dx if boundary_tag is None else ufl.ds(boundary_tag)
     if target_space is None:
         if rank == 0:
@@ -46,16 +48,16 @@ def clement_interpolant(source, target_space=None, boundary_tag=None):
     else:
         assert target_space.ufl_element().family() == "Lagrange"
         assert target_space.ufl_element().degree() == 1
-    target = firedrake.Function(target_space)
+    target = Function(target_space)
 
     # Compute the patch volume at each vertex
     if boundary_tag is None:
-        P0 = firedrake.FunctionSpace(mesh, "DG", 0)
+        P0 = FunctionSpace(mesh, "DG", 0)
         dx = ufl.dx(domain=mesh)
         volume = firedrake.assemble(firedrake.TestFunction(P0) * dx)
     else:
         volume = get_facet_areas(mesh)
-    patch_volume = firedrake.Function(P1)
+    patch_volume = Function(P1)
     kernel = "for (int i=0; i < p.dofs; i++) p[i] += v[0];"
     keys = {
         "v": (volume, op2.READ),
@@ -125,7 +127,12 @@ def clement_interpolant(source, target_space=None, boundary_tag=None):
 # --- Conservative interpolation by supermesh projection
 
 
-def project(source, target_space, adjoint=False, **kwargs):
+def project(
+    source: Function,
+    target_space: FunctionSpace,
+    adjoint: bool = False,
+    **kwargs,
+) -> Function:
     """
     Overload :func:`firedrake.projection.project` to account
     for the case of two mixed function spaces defined on
@@ -143,14 +150,14 @@ def project(source, target_space, adjoint=False, **kwargs):
     :kwarg adjoint: apply the transposed projection
         operator?
     """
-    if not isinstance(source, firedrake.Function):
+    if not isinstance(source, Function):
         raise NotImplementedError("Can only currently project Functions")  # TODO
     source_space = source.function_space()
-    if isinstance(target_space, firedrake.Function):
+    if isinstance(target_space, Function):
         target = target_space
         target_space = target.function_space()
     else:
-        target = firedrake.Function(target_space)
+        target = Function(target_space)
     if source_space.ufl_domain() == target_space.ufl_domain():
         if source_space == target_space:
             target.assign(source)
@@ -162,7 +169,12 @@ def project(source, target_space, adjoint=False, **kwargs):
 
 
 @PETSc.Log.EventDecorator("pyroteus.mesh2mesh_project")
-def mesh2mesh_project(source, target, adjoint=False, **kwargs):
+def mesh2mesh_project(
+    source: Function,
+    target: Function,
+    adjoint: bool = False,
+    **kwargs,
+) -> Function:
     """
     Apply a mesh-to-mesh conservative projection to some
     ``source``, mapping to a ``target``.
@@ -182,7 +194,7 @@ def mesh2mesh_project(source, target, adjoint=False, **kwargs):
     if adjoint:
         return mesh2mesh_project_adjoint(source, target)
     source_space = source.function_space()
-    assert isinstance(target, firedrake.Function)
+    assert isinstance(target, Function)
     target_space = target.function_space()
     if source_space == target_space:
         target.assign(source)
@@ -197,7 +209,9 @@ def mesh2mesh_project(source, target, adjoint=False, **kwargs):
 
 
 @PETSc.Log.EventDecorator("pyroteus.mesh2mesh_project_adjoint")
-def mesh2mesh_project_adjoint(target_b, source_b, **kwargs):
+def mesh2mesh_project_adjoint(
+    target_b: Function, source_b: Function, **kwargs
+) -> Function:
     """
     Apply the adjoint of a mesh-to-mesh conservative
     projection to some seed ``target_b``, mapping to
@@ -219,7 +233,7 @@ def mesh2mesh_project_adjoint(target_b, source_b, **kwargs):
     from firedrake.supermeshing import assemble_mixed_mass_matrix
 
     target_space = target_b.function_space()
-    assert isinstance(source_b, firedrake.Function)
+    assert isinstance(source_b, Function)
     source_space = source_b.function_space()
 
     # Get subspaces

@@ -2,18 +2,18 @@
 Utility functions and classes for mesh adaptation.
 """
 from .quality import *
-import firedrake
-from firedrake.petsc import PETSc
 import firedrake.cython.dmcommon as dmcommon
-import ufl
+import mpi4py
+import petsc4py
 from .log import *
 from collections import OrderedDict
 from collections.abc import Iterable
 import numpy as np
+from typing import Tuple
 
 
 @PETSc.Log.EventDecorator("pyroteus.Mesh")
-def Mesh(arg, **kwargs):
+def Mesh(arg, **kwargs) -> MeshGeometry:
     """
     Overload :func:`firedrake.mesh.Mesh` to
     endow the output mesh with useful quantities.
@@ -30,13 +30,13 @@ def Mesh(arg, **kwargs):
         mesh = firedrake.Mesh(arg, **kwargs)
     except TypeError:
         mesh = firedrake.Mesh(arg.coordinates, **kwargs)
-    P0 = firedrake.FunctionSpace(mesh, "DG", 0)
-    P1 = firedrake.FunctionSpace(mesh, "CG", 1)
+    P0 = FunctionSpace(mesh, "DG", 0)
+    P1 = FunctionSpace(mesh, "CG", 1)
     dim = mesh.topological_dimension()
 
     # Facet area
     boundary_markers = sorted(mesh.exterior_facets.unique_markers)
-    one = firedrake.Function(P1).assign(1.0)
+    one = Function(P1).assign(1.0)
     bnd_len = OrderedDict(
         {i: firedrake.assemble(one * ufl.ds(int(i))) for i in boundary_markers}
     )
@@ -83,7 +83,9 @@ class File(firedrake.output.File):
 
 
 @PETSc.Log.EventDecorator("pyroteus.assemble_mass_matrix")
-def assemble_mass_matrix(space, norm_type="L2"):
+def assemble_mass_matrix(
+    space: FunctionSpace, norm_type: str = "L2"
+) -> petsc4py.PETSc.Mat:
     """
     Assemble the ``norm_type`` mass matrix
     associated with some finite element ``space``.
@@ -103,7 +105,7 @@ def assemble_mass_matrix(space, norm_type="L2"):
 
 
 @PETSc.Log.EventDecorator("pyroteus.norm")
-def norm(v, norm_type="L2", mesh=None, condition=None, boundary=False):
+def norm(v: Function, norm_type: str = "L2", **kwargs) -> float:
     r"""
     Overload :func:`firedrake.norms.norm` to
     allow for :math:`\ell^p` norms.
@@ -118,18 +120,18 @@ def norm(v, norm_type="L2", mesh=None, condition=None, boundary=False):
         ``'linf'``, ``'L2'``, ``'Linf'``, ``'H1'``,
         ``'Hdiv'``, ``'Hcurl'``, or any ``'Lp'`` with
         :math:`p >= 1`.
-    :kwarg mesh: the mesh that `v` is defined upon
     :kwarg condition: a UFL condition for specifying
         a subdomain to compute the norm over
     :kwarg boundary: should the norm be computed over
         the domain boundary?
     """
+    boundary = kwargs.get("boundary", False)
+    condition = kwargs.get("condition", firedrake.Constant(1.0))
     norm_codes = {"l1": 0, "l2": 2, "linf": 3}
     if norm_type in norm_codes or norm_type == "Linf":
         if boundary:
             raise NotImplementedError("lp errors on the boundary not yet implemented.")
-        if condition is not None:
-            v.interpolate(condition * v)
+        v.interpolate(condition * v)
         if norm_type == "Linf":
             with v.dat.vec_ro as vv:
                 return vv.max()[1]
@@ -141,7 +143,6 @@ def norm(v, norm_type="L2", mesh=None, condition=None, boundary=False):
             "lp norm of order {:s} not supported.".format(norm_type[1:])
         )
     else:
-        condition = condition or firedrake.Constant(1.0)
         dX = ufl.ds if boundary else ufl.dx
         if norm_type.startswith("L"):
             try:
@@ -180,7 +181,7 @@ def norm(v, norm_type="L2", mesh=None, condition=None, boundary=False):
 
 
 @PETSc.Log.EventDecorator("pyroteus.errornorm")
-def errornorm(u, uh, norm_type="L2", **kwargs):
+def errornorm(u, uh: Function, norm_type: str = "L2", **kwargs) -> float:
     r"""
     Overload :func:`firedrake.norms.errornorm`
     to allow for :math:`\ell^p` norms.
@@ -201,13 +202,13 @@ def errornorm(u, uh, norm_type="L2", **kwargs):
     if len(u.ufl_shape) != len(uh.ufl_shape):
         raise RuntimeError("Mismatching rank between u and uh")
 
-    if not isinstance(uh, firedrake.Function):
+    if not isinstance(uh, Function):
         raise ValueError("uh should be a Function, is a %r", type(uh))
     if norm_type[0] == "l":
-        if not isinstance(u, firedrake.Function):
+        if not isinstance(u, Function):
             raise ValueError("u should be a Function, is a %r", type(uh))
 
-    if isinstance(u, firedrake.Function):
+    if isinstance(u, Function):
         degree_u = u.function_space().ufl_element().degree()
         degree_uh = uh.function_space().ufl_element().degree()
         if degree_uh > degree_u:
@@ -281,7 +282,7 @@ class AttrDict(dict):
         self.__dict__ = self
 
 
-def effectivity_index(error_indicator, Je):
+def effectivity_index(error_indicator: Function, Je: float) -> float:
     r"""
     Overestimation factor of some error estimator
     for the QoI error.
@@ -295,7 +296,7 @@ def effectivity_index(error_indicator, Je):
         to individual elements
     :arg Je: error in quantity of interest
     """
-    if not isinstance(error_indicator, firedrake.Function):
+    if not isinstance(error_indicator, Function):
         raise ValueError("Error indicator must return a Function")
     el = error_indicator.ufl_element()
     assert (
@@ -305,54 +306,9 @@ def effectivity_index(error_indicator, Je):
     return np.abs(eta / Je)
 
 
-def classify_element(element, dim):
-    """
-    Classify a :class:`ufl.finiteelement.FiniteElement`
-    in terms of a label and a list of entity DOFs.
-
-    :arg element: the
-        :class:`ufl.finiteelement.FiniteElement`
-    :arg dim: the topological dimension
-    """
-    p = element.degree()
-    family = element.family()
-    n = len(element.sub_elements()) or 1
-    label = {1: "", dim: "Vector ", dim**2: "Tensor "}[n]
-    entity_dofs = np.zeros(dim + 1, dtype=np.int32)
-    if family == "Discontinuous Lagrange" and p == 0:
-        entity_dofs[-1] = n
-        label += f"P{p}DG"
-    elif family == "Lagrange" and p == 1:
-        entity_dofs[0] = n
-        label += f"P{p}"
-    else:
-        raise NotImplementedError
-    return label, entity_dofs
-
-
-@PETSc.Log.EventDecorator("pyroteus.create_section")
-def create_section(mesh, element):
-    """
-    Create a PETSc section associated with
-    a mesh and some
-    :class:`ufl.finitelement.FiniteElement`.
-
-    :arg mesh: the mesh
-    :arg element: the
-        :class:`ufl.finiteelement.FiniteElement`
-        for which a section is sought, or a
-        list of entity DOFs to be passed
-        straight through
-    """
-    if isinstance(element, Iterable):
-        return dmcommon.create_section(mesh, element)
-    else:
-        dim = mesh.topological_dimension()
-        label, entity_dofs = classify_element(element, dim)
-        return dmcommon.create_section(mesh, entity_dofs)
-
-
-def create_directory(path, comm=firedrake.COMM_WORLD):
+def create_directory(
+    path: str, comm: mpi4py.MPI.Intracomm = firedrake.COMM_WORLD
+) -> str:
     """
     Create a directory on disk.
 

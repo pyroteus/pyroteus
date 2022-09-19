@@ -6,7 +6,9 @@ from firedrake.petsc import PETSc
 from firedrake_adjoint import pyadjoint
 from .interpolation import project
 from .mesh_seq import MeshSeq
-from .utility import AttrDict, norm
+from .time_partition import TimePartition
+from .utility import AttrDict, norm, Function
+from collections.abc import Callable
 from functools import wraps
 import numpy as np
 
@@ -14,7 +16,7 @@ import numpy as np
 __all__ = ["AdjointMeshSeq", "annotate_qoi"]
 
 
-def th(num):
+def th(num: int) -> str:
     """
     Convert from cardinal to ordinal.
     """
@@ -29,7 +31,7 @@ def th(num):
         return f"{num}th"
 
 
-def annotate_qoi(get_qoi):
+def annotate_qoi(get_qoi: Callable) -> Callable:
     """
     Decorator that ensures QoIs are annotated
     properly.
@@ -76,7 +78,7 @@ class AdjointMeshSeq(MeshSeq):
     :attr:`~AdjointMeshSeq.J`, which holds the QoI value.
     """
 
-    def __init__(self, time_partition, initial_meshes, get_qoi=None, **kwargs):
+    def __init__(self, time_partition: TimePartition, initial_meshes: list, **kwargs):
         """
         :kwarg get_qoi: a function, with two arguments,
             a :class:`~.AdjointMeshSeq`, which returns
@@ -90,7 +92,7 @@ class AdjointMeshSeq(MeshSeq):
             raise ValueError(f"QoI type {self.qoi_type} not recognised")
         self.steady = self.qoi_type == "steady"
         super().__init__(time_partition, initial_meshes, **kwargs)
-        self._get_qoi = get_qoi
+        self._get_qoi = kwargs.get("get_qoi")
         self.J = 0
         self.controls = None
         self.qoi_values = []
@@ -101,14 +103,16 @@ class AdjointMeshSeq(MeshSeq):
         return super().initial_condition
 
     @annotate_qoi
-    def get_qoi(self, solution_map, i):
+    def get_qoi(self, solution_map: dict, i: int) -> Callable:
         if self._get_qoi is None:
             raise NotImplementedError("get_qoi needs implementing")
         return self._get_qoi(self, solution_map, i)
 
     @pyadjoint.no_annotations
     @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.get_checkpoints")
-    def get_checkpoints(self, solver_kwargs={}, run_final_subinterval=False):
+    def get_checkpoints(
+        self, solver_kwargs: dict = {}, run_final_subinterval: bool = False
+    ) -> list:
         """
         Solve forward on the sequence of meshes,
         extracting checkpoints corresponding to
@@ -159,11 +163,11 @@ class AdjointMeshSeq(MeshSeq):
     @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.solve_adjoint")
     def solve_adjoint(
         self,
-        solver_kwargs={},
-        adj_solver_kwargs={},
-        get_adj_values=False,
-        test_checkpoint_qoi=False,
-    ):
+        solver_kwargs: dict = {},
+        adj_solver_kwargs: dict = {},
+        get_adj_values: bool = False,
+        test_checkpoint_qoi: bool = False,
+    ) -> dict:
         """
         Solve an adjoint problem on a sequence of subintervals.
 
@@ -224,7 +228,7 @@ class AdjointMeshSeq(MeshSeq):
                     {
                         label: [
                             [
-                                firedrake.Function(fs, name=f"{field}_{label}")
+                                Function(fs, name=f"{field}_{label}")
                                 for j in range(P.exports_per_subinterval[i] - 1)
                             ]
                             for i, fs in enumerate(function_spaces[field])
@@ -377,7 +381,7 @@ class AdjointMeshSeq(MeshSeq):
 
             # Get adjoint action
             seeds = {
-                field: firedrake.Function(
+                field: Function(
                     function_spaces[field][i], val=control.block_variable.adj_value
                 )
                 for field, control in zip(self.fields, self.controls)
@@ -403,7 +407,8 @@ class AdjointMeshSeq(MeshSeq):
         due to the relative difference in QoI value being
         smaller than the specified tolerance.
 
-        :return: ``True`` if converged, else ``False``
+        The :attr:`AdjointMeshSeq.converged` attribute
+        is set to ``True`` if convergence is detected.
         """
         P = self.params
         self.converged = False

@@ -4,12 +4,13 @@ Driver functions for derivative recovery.
 from .interpolation import clement_interpolant
 from .utility import *
 from petsc4py import PETSc as petsc4py
+from typing import Optional
 
 
 __all__ = ["recover_hessian", "recover_boundary_hessian"]
 
 
-def recover_hessian(f, method="L2", **kwargs):
+def recover_hessian(f: Function, method: str = "L2", **kwargs) -> Function:
     """
     Recover the Hessian of a scalar field.
 
@@ -52,7 +53,12 @@ def recover_hessian(f, method="L2", **kwargs):
 
 
 @PETSc.Log.EventDecorator("pyroteus.double_l2_projection")
-def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
+def double_l2_projection(
+    f: Function,
+    mesh: MeshGeometry = None,
+    target_spaces: Optional[FunctionSpace] = None,
+    mixed: bool = False,
+) -> Function:
     r"""
     Recover the gradient and Hessian of a scalar field using a
     double :math:`L^2` projection.
@@ -78,7 +84,7 @@ def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
     W = P1_vec * P1_ten
     g, H = firedrake.TrialFunctions(W)
     phi, tau = firedrake.TestFunctions(W)
-    l2_projection = firedrake.Function(W)
+    l2_projection = Function(W)
     n = ufl.FacetNormal(mesh)
 
     # The formulation is chosen such that f does not need to have any
@@ -135,7 +141,13 @@ def double_l2_projection(f, mesh=None, target_spaces=None, mixed=False):
 
 
 @PETSc.Log.EventDecorator("pyroteus.recovery_boundary_hessian")
-def recover_boundary_hessian(f, mesh, method="Clement", target_space=None, **kwargs):
+def recover_boundary_hessian(
+    f: Function,
+    mesh: MeshGeometry,
+    method: str = "Clement",
+    target_space: Optional[FunctionSpace] = None,
+    **kwargs,
+) -> Function:
     """
     Recover the Hessian of a scalar field
     on the domain boundary.
@@ -161,17 +173,15 @@ def recover_boundary_hessian(f, mesh, method="Clement", target_space=None, **kwa
     ns = ufl.as_vector([n, *s])
 
     # Setup
-    P1 = firedrake.FunctionSpace(mesh, "CG", 1)
+    P1 = FunctionSpace(mesh, "CG", 1)
     P1_ten = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
     assert P1_ten.ufl_element().family() == "Lagrange"
     assert P1_ten.ufl_element().degree() == 1
     boundary_tag = kwargs.get("boundary_tag", "on_boundary")
     Hs = firedrake.TrialFunction(P1)
     v = firedrake.TestFunction(P1)
-    l2_proj = [[firedrake.Function(P1) for i in range(d - 1)] for j in range(d - 1)]
-    h = firedrake.interpolate(
-        ufl.CellDiameter(mesh), firedrake.FunctionSpace(mesh, "DG", 0)
-    )
+    l2_proj = [[Function(P1) for i in range(d - 1)] for j in range(d - 1)]
+    h = firedrake.interpolate(ufl.CellDiameter(mesh), FunctionSpace(mesh, "DG", 0))
     h = firedrake.Constant(1 / h.vector().gather().max() ** 2)
     f.pop("interior")
     sp = {
@@ -211,7 +221,7 @@ def recover_boundary_hessian(f, mesh, method="Clement", target_space=None, **kwa
         P0_vec = firedrake.VectorFunctionSpace(mesh, "DG", 0)
         P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
         P1_vec = firedrake.VectorFunctionSpace(mesh, "CG", 1)
-        H = firedrake.Function(P1_ten)
+        H = Function(P1_ten)
         p0test = firedrake.TestFunction(P0_vec)
         p1test = firedrake.TestFunction(P1)
         fa = get_facet_areas(mesh)
@@ -240,14 +250,12 @@ def recover_boundary_hessian(f, mesh, method="Clement", target_space=None, **kwa
         )
 
     # Construct tensor field
-    Hbar = firedrake.Function(P1_ten)
+    Hbar = Function(P1_ten)
     if d == 2:
         Hsub = firedrake.interpolate(abs(l2_proj[0][0]), P1)
         H = ufl.as_matrix([[h, 0], [0, Hsub]])
     else:
-        Hsub = firedrake.Function(
-            firedrake.TensorFunctionSpace(mesh, "CG", 1, shape=(2, 2))
-        )
+        Hsub = Function(firedrake.TensorFunctionSpace(mesh, "CG", 1, shape=(2, 2)))
         Hsub.interpolate(
             ufl.as_matrix(
                 [[l2_proj[0][0], l2_proj[0][1]], [l2_proj[1][0], l2_proj[1][1]]]

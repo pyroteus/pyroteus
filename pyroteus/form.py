@@ -1,14 +1,21 @@
 """
 Tools for form manipulation.
 """
-import firedrake
+from firedrake import Function, FunctionSpace, prolong, TestFunction, TrialFunction
+from firedrake.mesh import MeshGeometry
 import ufl
+from collections.abc import Callable
 
 
 __all__ = ["transfer_form"]
 
 
-def transfer_form(F, newmesh, transfer=firedrake.prolong, replace_map={}):
+def transfer_form(
+    F,
+    newmesh: MeshGeometry,
+    transfer: Callable = prolong,
+    replace_map: dict = {},
+):
     """
     Given a form defined on some mesh, generate a new form with all
     the same components, but transferred onto a different mesh.
@@ -28,16 +35,14 @@ def transfer_form(F, newmesh, transfer=firedrake.prolong, replace_map={}):
     # Test and trial functions are also replaced
     if len(F.arguments()) > 0:
         Vold = F.arguments()[0].function_space()
-        Vnew = firedrake.FunctionSpace(newmesh, Vold.ufl_element())
-        replace_map[firedrake.TestFunction(Vold)] = firedrake.TestFunction(Vnew)
-        replace_map[firedrake.TrialFunction(Vold)] = firedrake.TrialFunction(Vnew)
+        Vnew = FunctionSpace(newmesh, Vold.ufl_element())
+        replace_map[TestFunction(Vold)] = TestFunction(Vnew)
+        replace_map[TrialFunction(Vold)] = TrialFunction(Vnew)
 
     # As well as any spatially varying coefficients
     for c in F.coefficients():
-        if isinstance(c, firedrake.Function) and c not in replace_map:
-            replace_map[c] = firedrake.Function(
-                firedrake.FunctionSpace(newmesh, c.ufl_element())
-            )
+        if isinstance(c, Function) and c not in replace_map:
+            replace_map[c] = Function(FunctionSpace(newmesh, c.ufl_element()))
             transfer(c, replace_map[c])
 
     # The form is reconstructed by cell type
