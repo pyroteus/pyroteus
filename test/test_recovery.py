@@ -79,6 +79,9 @@ def test_recover_bowl_interior(
 
     # Recover Hessian
     f = bowl(*mesh.coordinates)
+    if method == "Clement":
+        P1 = FunctionSpace(mesh, "CG", 1)
+        f = interpolate(f, P1)
     cpu_time = perf_counter()
     H = recover_hessian(f, method=method, mesh=mesh, mixed=mixed)
     cpu_time = perf_counter() - cpu_time
@@ -88,7 +91,7 @@ def test_recover_bowl_interior(
     I = interpolate(Identity(dim), P1_ten)
 
     # Check that they agree
-    cond = None
+    cond = Constant(1.0)
     if ignore_boundary:
         x = SpatialCoordinate(mesh)
         cond = And(x[0] > -0.8, x[0] < 0.8)
