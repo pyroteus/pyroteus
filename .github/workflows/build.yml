@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     # The docker container to use.
     container:
-      image: firedrakeproject/firedrake-vanilla:latest
+      image: jwallwork/firedrake-parmmg:latest
     steps:
       - uses: actions/checkout@v2
       - name: Cleanup
