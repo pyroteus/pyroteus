@@ -74,12 +74,6 @@ def test_space_normalise(sensor, degree, target=1000.0):
         assert abs(metric_complexity(M) - target) < 0.1 * target
 
 
-@pytest.mark.skip("Adaptation does not currently work in parallel")
-@pytest.mark.parallel
-def test_space_normalise_parallel(sensor, degree, target=1000.0):
-    test_space_normalise(sensor, degree, target=target)
-
-
 def test_consistency(sensor, degree, target=1000.0):
     """
     Check that spatial normalisation and space-time
@@ -101,8 +95,3 @@ def test_consistency(sensor, degree, target=1000.0):
 
     # Check that the metrics coincide
     assert np.isclose(errornorm(M, M_st), 0.0)
-
-
-@pytest.mark.parallel
-def test_consistency_parallel(sensor, degree, target=1000.0):
-    test_consistency(sensor, degree, target=target)

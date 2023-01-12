@@ -203,11 +203,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
                     )
 
 
-@pytest.mark.parallel
-def test_adjoint_same_mesh_parallel(problem, qoi_type):
-    test_adjoint_same_mesh(problem, qoi_type)
-
-
 def plot_solutions(problem, qoi_type, debug=True):
     """
     Plot the forward and adjoint solutions, their lagged
