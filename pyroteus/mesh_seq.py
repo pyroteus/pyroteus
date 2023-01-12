@@ -38,6 +38,13 @@ class AdaptParameters(AttrDict):
                 raise AttributeError(f"{self} does not have {key} attribute")
             self[key] = value
 
+    def __str__(self) -> str:
+        return str({key: value for key, value in self.items()})
+
+    def __repr__(self) -> str:
+        d = ", ".join([f"{key}={value}" for key, value in self.items()])
+        return f"{self.__class__.__name__}({d})"
+
 
 class MeshSeq:
     """
@@ -112,11 +119,23 @@ class MeshSeq:
         if not hasattr(self, "steady"):
             self.steady = False
 
+    def __str__(self) -> str:
+        return f"{[str(mesh) for mesh in self.meshes]}"
+
+    def __repr__(self) -> str:
+        name = self.__class__.__name__
+        if len(self) == 1:
+            return f"{name}([{repr(self.meshes[0])}])"
+        elif len(self) == 2:
+            return f"{name}([{repr(self.meshes[0])}, {repr(self.meshes[1])}])"
+        else:
+            return f"{name}([{repr(self.meshes[0])}, ..., {repr(self.meshes[-1])}])"
+
     def debug(self, msg: str):
-        debug(f"MeshSeq: {msg}")
+        debug(f"{self.__class__.__name__}: {msg}")
 
     def warning(self, msg: str):
-        warning(f"MeshSeq: {msg}")
+        warning(f"{self.__class__.__name__}: {msg}")
 
     def __len__(self) -> int:
         return len(self.meshes)
