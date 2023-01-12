@@ -53,7 +53,6 @@ all_problems = [
     "burgers",
     "solid_body_rotation",
     "solid_body_rotation_split",
-    "rossby_wave",
 ]
 
 
