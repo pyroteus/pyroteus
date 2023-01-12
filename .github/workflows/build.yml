@@ -15,6 +15,7 @@ jobs:
     # The docker container to use.
     container:
       image: jwallwork/firedrake-parmmg:latest
+      options: --user root
     steps:
       - uses: actions/checkout@v2
       - name: Cleanup
