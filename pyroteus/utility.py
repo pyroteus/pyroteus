@@ -2,14 +2,11 @@
 Utility functions and classes for mesh adaptation.
 """
 from .quality import *
-import firedrake.cython.dmcommon as dmcommon
 import mpi4py
 import petsc4py
 from .log import *
 from collections import OrderedDict
-from collections.abc import Iterable
 import numpy as np
-from typing import Tuple
 
 
 @PETSc.Log.EventDecorator("pyroteus.Mesh")

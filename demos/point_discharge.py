@@ -91,6 +91,7 @@ def get_form(mesh_seq):
 
     return form
 
+
 # Note that the lagged solution ``c_`` is not actually used in
 # :func:`form`, since we have a steady-state problem.
 #

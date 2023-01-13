@@ -313,7 +313,8 @@ def anisotropic_dwr_metric(
     if isinstance(hessian, list):  # FIXME: This is hacky
         hessian = hessian[0]
     target_complexity = kwargs.get("target_complexity", None)
-    min_eigenvalue = kwargs.get("min_eigenvalue", 1.0e-05)
+    # min_eigenvalue = kwargs.get("min_eigenvalue", 1.0e-05)
+    # TODO: why was this ^^^ here?
     assert target_complexity > 0.0, "Target complexity must be positive"
     mesh = error_indicator.ufl_domain()
     dim = mesh.topological_dimension()
@@ -342,13 +343,15 @@ def anisotropic_dwr_metric(
 
         # Compute stretching factors, in ascending order
         evectors, evalues = compute_eigendecomposition(P0_metric, reorder=True)
-        lmin = max(evalues.vector().gather().min(), min_eigenvalue)
+        # lmin = max(evalues.vector().gather().min(), min_eigenvalue)
+        # TODO: why was this ^^^ here?
         S = abs(evalues / pow(np.prod(evalues), 1 / dim))
 
         # Assemble metric with modified eigenvalues
         evalues.interpolate(K_ratio * S)
         v = evalues.vector().gather()
-        lmin = max(v.min(), min_eigenvalue)
+        # lmin = max(v.min(), min_eigenvalue)
+        # TODO: why was this ^^^ here?
         if np.isnan(v).any():
             raise ValueError("At least one modified stretching factor is not finite")
         P0_metric.assign(assemble_eigendecomposition(evectors, evalues))
