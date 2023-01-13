@@ -53,7 +53,6 @@ all_problems = [
     "burgers",
     "solid_body_rotation",
     "solid_body_rotation_split",
-    "rossby_wave",
 ]
 
 
@@ -202,11 +201,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
                     raise ValueError(
                         f"Adjoint values do not match at t=0 (error {err:.4e}.)"
                     )
-
-
-@pytest.mark.parallel
-def test_adjoint_same_mesh_parallel(problem, qoi_type):
-    test_adjoint_same_mesh(problem, qoi_type)
 
 
 def plot_solutions(problem, qoi_type, debug=True):

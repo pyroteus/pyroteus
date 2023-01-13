@@ -126,6 +126,7 @@ axes.set_aspect("equal")
 plt.tight_layout()
 plt.savefig("solid_body_rotation-init.jpg")
 
+
 # .. figure:: solid_body_rotation-init.jpg
 #    :figwidth: 90%
 #    :align: center
