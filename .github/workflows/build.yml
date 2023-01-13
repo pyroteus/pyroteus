@@ -37,6 +37,11 @@ jobs:
           . /home/firedrake/firedrake/bin/activate
           python $(which firedrake-clean)
           python -m pytest -n 3 -v test
+      - name: Test Pyroteus adjoint
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          python $(which firedrake-clean)
+          python -m pytest -n 1 -v test_adjoint
       - name: Lint
         if: ${{ always() }}
         run: |
