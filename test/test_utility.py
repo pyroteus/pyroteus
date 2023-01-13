@@ -27,7 +27,7 @@ def test_is_spd(dim):
     P1_ten = TensorFunctionSpace(mesh, "CG", 1)
     M = interpolate(Identity(dim), P1_ten)
     assert is_spd(M)
-    M.sub(0).assign(-1)
+    M *= -1
     assert not is_spd(M)
 
 
