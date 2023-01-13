@@ -394,7 +394,7 @@ class AdjointMeshSeq(MeshSeq):
         end = int(str(num)[-1])
         try:
             c = {1: "st", 2: "nd", 3: "rd"}[end]
-        except IndexError:
+        except KeyError:
             c = "th"
         return f"{num}{c}"
 
