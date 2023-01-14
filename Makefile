@@ -23,8 +23,8 @@ test: lint
 coverage:
 	@echo "Generating coverage report..."
 	@python3 -m coverage erase
-	@python3 -m coverage -a --source=pyroteus -m pytest -v test
-	@python3 -m coverage -a --source=pyroteus -m pytest -v test_adjoint
+	@python3 -m coverage run -a --source=pyroteus -m pytest -v test
+	@python3 -m coverage run -a --source=pyroteus -m pytest -v test_adjoint
 	@python3 -m coverage html
 
 demo:
