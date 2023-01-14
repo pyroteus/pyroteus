@@ -4,6 +4,7 @@ Testing for the mesh sequence objects.
 from pyroteus.mesh_seq import MeshSeq
 from pyroteus.time_partition import TimePartition, TimeInterval
 from firedrake import UnitSquareMesh
+import re
 import unittest
 
 
@@ -13,21 +14,14 @@ class TestStringFormatting(unittest.TestCase):
     Pyroteus' :class:`MeshSeq` object.
     """
 
-    _index = 0
-
-    @property
-    def index(self):
-        TestStringFormatting._index += 1
-        return TestStringFormatting._index
-
     def setUp(self):
         self.time_partition = TimePartition(1.0, 2, [0.5, 0.5], ["field"])
         self.time_interval = TimeInterval(1.0, [0.5], ["field"])
 
     def test_mesh_seq_time_interval_str(self):
         mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
-        expected = f"['<Mesh #{self.index}>']"
-        assert str(mesh_seq) == expected
+        got = re.sub("#[0-9]*", "?", str(mesh_seq))
+        assert got == "['<Mesh ?>']"
 
     def test_mesh_seq_time_partition_str(self):
         meshes = [
@@ -35,13 +29,13 @@ class TestStringFormatting(unittest.TestCase):
             UnitSquareMesh(1, 1, diagonal="right"),
         ]
         mesh_seq = MeshSeq(self.time_partition, meshes)
-        expected = f"['<Mesh #{self.index}>', '<Mesh #{self.index}>']"
-        assert str(mesh_seq) == expected
+        got = re.sub("#[0-9]*", "?", str(mesh_seq))
+        assert got == "['<Mesh ?>', '<Mesh ?>']"
 
     def test_mesh_seq_time_interval_repr(self):
         mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
-        expected = f"MeshSeq([Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), {self.index})])"
-        assert repr(mesh_seq) == expected
+        expected = "MeshSeq([Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
+        assert re.match(repr(mesh_seq), expected)
 
     def test_mesh_seq_time_partition_repr(self):
         meshes = [
@@ -51,7 +45,7 @@ class TestStringFormatting(unittest.TestCase):
         mesh_seq = MeshSeq(self.time_partition, meshes)
         expected = (
             "MeshSeq(["
-            f"Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), {self.index}), "
-            f"Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), {self.index})])"
+            "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*), "
+            "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
         )
-        assert repr(mesh_seq) == expected
+        assert re.match(repr(mesh_seq), expected)
