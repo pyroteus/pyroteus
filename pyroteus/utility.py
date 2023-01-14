@@ -124,6 +124,7 @@ def norm(v: Function, norm_type: str = "L2", **kwargs) -> float:
     boundary = kwargs.get("boundary", False)
     condition = kwargs.get("condition", firedrake.Constant(1.0))
     norm_codes = {"l1": 0, "l2": 2, "linf": 3}
+    p = 2
     if norm_type in norm_codes or norm_type == "Linf":
         if boundary:
             raise NotImplementedError("lp errors on the boundary not yet implemented.")
@@ -151,27 +152,23 @@ def norm(v: Function, norm_type: str = "L2", **kwargs) -> float:
                 1 / p
             )
         elif norm_type.lower() == "h1":
-            return ufl.sqrt(
-                firedrake.assemble(
-                    condition
-                    * (ufl.inner(v, v) + ufl.inner(ufl.grad(v), ufl.grad(v)))
-                    * dX
-                )
-            )
+            return firedrake.assemble(
+                condition
+                * (ufl.inner(v, v) + ufl.inner(ufl.grad(v), ufl.grad(v)))
+                * (p / 2)
+                * dX
+            ) ** (1 / p)
         elif norm_type.lower() == "hdiv":
-            return ufl.sqrt(
-                firedrake.assemble(
-                    condition * (ufl.inner(v, v) + ufl.div(v) * ufl.div(v)) * dX
-                )
-            )
+            return firedrake.assemble(
+                condition * (ufl.inner(v, v) + ufl.div(v) * ufl.div(v)) * (p / 2) * dX
+            ) ** (1 / p)
         elif norm_type.lower() == "hcurl":
-            return ufl.sqrt(
-                firedrake.assemble(
-                    condition
-                    * (ufl.inner(v, v) + ufl.inner(ufl.curl(v), ufl.curl(v)))
-                    * dX
-                )
-            )
+            return firedrake.assemble(
+                condition
+                * (ufl.inner(v, v) + ufl.inner(ufl.curl(v), ufl.curl(v)))
+                * (p / 2)
+                * dX
+            ) ** (1 / p)
         else:
             raise ValueError(f"Unknown norm type {norm_type}")
 
@@ -199,10 +196,10 @@ def errornorm(u, uh: Function, norm_type: str = "L2", **kwargs) -> float:
         raise RuntimeError("Mismatching rank between u and uh")
 
     if not isinstance(uh, Function):
-        raise ValueError("uh should be a Function, is a %r", type(uh))
+        raise TypeError(f"uh should be a Function, is a {type(uh):r}")
     if norm_type[0] == "l":
         if not isinstance(u, Function):
-            raise ValueError("u should be a Function, is a %r", type(uh))
+            raise TypeError(f"u should be a Function, is a {type(uh):r}")
 
     if isinstance(u, Function):
         degree_u = u.function_space().ufl_element().degree()
@@ -264,9 +261,8 @@ def effectivity_index(error_indicator: Function, Je: float) -> float:
     if not isinstance(error_indicator, Function):
         raise ValueError("Error indicator must return a Function")
     el = error_indicator.ufl_element()
-    assert (
-        el.family() == "Discontinuous Lagrange" and el.degree() == 0
-    ), "Error indicator must be P0"
+    if not (el.family() == "Discontinuous Lagrange" and el.degree() == 0):
+        raise ValueError("Error indicator must be P0")
     eta = error_indicator.vector().gather().sum()
     return np.abs(eta / Je)
 
