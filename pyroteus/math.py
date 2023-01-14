@@ -95,7 +95,10 @@ def gram_schmidt(*v, normalise=False):
     else:
         from ufl import dot, sqrt
     u = []
-    proj = lambda x, y: dot(x, y) / dot(x, x) * x
+
+    def proj(x, y):
+        return dot(x, y) / dot(x, x) * x
+
     for i, vi in enumerate(v):
         if i > 0:
             vi -= sum([proj(uj, vi) for uj in u])

@@ -1,0 +1,13 @@
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+)/
+'''
+
+[tools.pytest.ini_options]
+markers = [
+	"slow: mark test as slow"
+]

@@ -22,6 +22,7 @@ def reorder(request):
     return request.param
 
 
+@pytest.mark.slow
 def test_eigendecomposition(dim, reorder):
     """
     Check decomposition of a metric into its eigenvectors

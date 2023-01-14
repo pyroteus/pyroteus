@@ -71,6 +71,7 @@ def qoi_type(request):
     return request.param
 
 
+@pytest.mark.slow
 def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     """
     Check that `solve_adjoint` gives the same

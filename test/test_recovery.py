@@ -13,6 +13,7 @@ from time import perf_counter
 # ---------------------------
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "dim,method,norm_type,ignore_boundary,mixed",
     [
