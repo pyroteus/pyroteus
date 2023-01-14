@@ -20,6 +20,13 @@ test: lint
 	@cd test && make
 	@echo "PASS"
 
+coverage:
+	@echo "Generating coverage report..."
+	@python3 -m coverage erase
+	@python3 -m coverage -a --source=pyroteus -m pytest -v test
+	@python3 -m coverage -a --source=pyroteus -m pytest -v test_adjoint
+	@python3 -m coverage html
+
 demo:
 	@echo "Running all demos..."
 	@cd demos && make
