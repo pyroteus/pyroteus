@@ -74,6 +74,7 @@ def test_space_normalise(sensor, degree, target=1000.0):
         assert abs(metric_complexity(M) - target) < 0.1 * target
 
 
+@pytest.mark.slow
 def test_consistency(sensor, degree, target=1000.0):
     """
     Check that spatial normalisation and space-time

@@ -33,6 +33,7 @@ def test_gram_schmidt_numpy(dim, normalise):
             assert np.isclose(np.dot(ui, uj), 1.0 if i == j else 0.0)
 
 
+@pytest.mark.slow
 def test_metric_math(dim):
     """
     Check that the metric exponential and

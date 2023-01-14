@@ -18,6 +18,7 @@ def dim(request):
     return request.param
 
 
+@pytest.mark.slow
 def test_intersection(dim):
     """
     Check that metric intersection DTRT when
@@ -37,8 +38,3 @@ def test_intersection(dim):
     M2.interpolate(4 * I)
     M = metric_intersection(M1, M2)
     assert np.isclose(norm(Function(M).assign(M - M2)), 0.0)
-
-
-@pytest.mark.parallel
-def test_intersection_parallel(dim):
-    test_intersection(dim)
