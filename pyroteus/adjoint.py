@@ -16,21 +16,6 @@ import numpy as np
 __all__ = ["AdjointMeshSeq", "annotate_qoi"]
 
 
-def th(num: int) -> str:
-    """
-    Convert from cardinal to ordinal.
-    """
-    end = int(str(num)[-1])
-    if end == 1:
-        return f"{num}st"
-    elif end == 2:
-        return f"{num}nd"
-    elif end == 3:
-        return f"{num}rd"
-    else:
-        return f"{num}th"
-
-
 def annotate_qoi(get_qoi: Callable) -> Callable:
     """
     Decorator that ensures QoIs are annotated
@@ -368,7 +353,7 @@ class AdjointMeshSeq(MeshSeq):
                 # Check non-zero adjoint solution/value
                 if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
                     self.warning(
-                        f"Adjoint solution for field {field} on {th(i)} subinterval is zero."
+                        f"Adjoint solution for field {field} on {self.th(i)} subinterval is zero."
                     )
                 if (
                     self.warn
@@ -376,7 +361,7 @@ class AdjointMeshSeq(MeshSeq):
                     and np.isclose(norm(sols.adj_value[i][0]), 0.0)
                 ):
                     self.warning(
-                        f"Adjoint action for field {field} on {th(i)} subinterval is zero."
+                        f"Adjoint action for field {field} on {self.th(i)} subinterval is zero."
                     )
 
             # Get adjoint action
@@ -389,7 +374,7 @@ class AdjointMeshSeq(MeshSeq):
             for field, seed in seeds.items():
                 if self.warn and np.isclose(norm(seed), 0.0):
                     self.warning(
-                        f"Adjoint action for field {field} on {th(i)} subinterval is zero."
+                        f"Adjoint action for field {field} on {self.th(i)} subinterval is zero."
                     )
             tape.clear_tape()
 
@@ -400,6 +385,18 @@ class AdjointMeshSeq(MeshSeq):
                 f" run do not match ({J_chk} vs. {self.J})"
             )
         return solutions
+
+    @staticmethod
+    def th(num: int) -> str:
+        """
+        Convert from cardinal to ordinal.
+        """
+        end = int(str(num)[-1])
+        try:
+            c = {1: "st", 2: "nd", 3: "rd"}[end]
+        except KeyError:
+            c = "th"
+        return f"{num}{c}"
 
     def check_qoi_convergence(self):
         """

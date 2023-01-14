@@ -70,9 +70,8 @@ class File(firedrake.output.File):
         each time (albeit on different meshes).
         """
         if self._fnames is not None:
-            assert len(self._fnames) == len(
-                functions
-            ), "Writing different set of functions"
+            if len(self._fnames) != len(functions):
+                raise ValueError("Writing different set of functions")
             for name, f in zip(self._fnames, functions):
                 if f.name() != name:
                     f.rename(name)

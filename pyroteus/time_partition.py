@@ -156,7 +156,19 @@ class TimePartition:
         label = " ".join(attr.split("_"))
         debug(f"TimePartition: {label:25s} {val}")
 
-    def __len__(self) -> str:
+    def __str__(self) -> str:
+        return f"{self.subintervals}"
+
+    def __repr__(self) -> str:
+        timesteps = ", ".join([str(dt) for dt in self.timesteps])
+        fields = ", ".join([f"'{field}'" for field in self.fields])
+        return f"TimePartition(" \
+            f"end_time={self.end_time}, " \
+            f"num_subintervals={self.num_subintervals}, " \
+            f"timesteps=[{timesteps}], " \
+            f"fields=[{fields}])"
+
+    def __len__(self) -> int:
         return self.num_subintervals
 
     def __getitem__(self, i: int) -> dict:
@@ -195,7 +207,10 @@ class TimeInterval(TimePartition):
         super().__init__(end_time, 1, timestep, fields, **kwargs)
 
     def __repr__(self) -> str:
-        return str(self[0])
+        return f"TimeInterval(" \
+            f"end_time={self.end_time}, " \
+            f"timestep={self.timestep}, " \
+            f"fields={self.fields})"
 
     @property
     def timestep(self) -> float:
@@ -210,6 +225,19 @@ class TimeInstant(TimeInterval):
     a single timestep.
     """
 
-    def __init__(self, fields: Union[List[str], str], end_time: float = 1.0):
-        timestep = end_time
-        super().__init__(end_time, timestep, fields)
+    def __init__(self, fields: Union[List[str], str], **kwargs):
+        time = kwargs.get("time", 1.0)
+        if "end_time" in kwargs:
+            if "time" in kwargs:
+                raise ValueError("Both 'time' and 'end_time' are set")
+            time = kwargs.get("end_time")
+        timestep = time
+        super().__init__(time, timestep, fields)
+
+    def __str__(self) -> str:
+        return f"({self.end_time})"
+
+    def __repr__(self) -> str:
+        return f"TimeInstant(" \
+            f"time={self.end_time}, " \
+            f"fields={self.fields})"
