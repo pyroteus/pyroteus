@@ -162,11 +162,13 @@ class TimePartition:
     def __repr__(self) -> str:
         timesteps = ", ".join([str(dt) for dt in self.timesteps])
         fields = ", ".join([f"'{field}'" for field in self.fields])
-        return f"TimePartition(" \
-            f"end_time={self.end_time}, " \
-            f"num_subintervals={self.num_subintervals}, " \
-            f"timesteps=[{timesteps}], " \
+        return (
+            f"TimePartition("
+            f"end_time={self.end_time}, "
+            f"num_subintervals={self.num_subintervals}, "
+            f"timesteps=[{timesteps}], "
             f"fields=[{fields}])"
+        )
 
     def __len__(self) -> int:
         return self.num_subintervals
@@ -189,6 +191,28 @@ class TimePartition:
             }
         )
 
+    def __eq__(self, other):
+        if len(self) != len(other):
+            return False
+        return (
+            np.allclose(self.subintervals, other.subintervals)
+            and np.allclose(self.timesteps, other.timesteps)
+            and np.allclose(self.exports_per_subinterval, other.exports_per_subinterval)
+            and self.fields == other.fields
+        )
+
+    def __ne__(self, other):
+        if len(self) != len(other):
+            return True
+        return (
+            not np.allclose(self.subintervals, other.subintervals)
+            or not np.allclose(self.timesteps, other.timesteps)
+            or not np.allclose(
+                self.exports_per_subinterval, other.exports_per_subinterval
+            )
+            or not self.fields == other.fields
+        )
+
 
 class TimeInterval(TimePartition):
     """
@@ -207,10 +231,12 @@ class TimeInterval(TimePartition):
         super().__init__(end_time, 1, timestep, fields, **kwargs)
 
     def __repr__(self) -> str:
-        return f"TimeInterval(" \
-            f"end_time={self.end_time}, " \
-            f"timestep={self.timestep}, " \
+        return (
+            f"TimeInterval("
+            f"end_time={self.end_time}, "
+            f"timestep={self.timestep}, "
             f"fields={self.fields})"
+        )
 
     @property
     def timestep(self) -> float:
@@ -238,6 +264,4 @@ class TimeInstant(TimeInterval):
         return f"({self.end_time})"
 
     def __repr__(self) -> str:
-        return f"TimeInstant(" \
-            f"time={self.end_time}, " \
-            f"fields={self.fields})"
+        return f"TimeInstant(" f"time={self.end_time}, " f"fields={self.fields})"
