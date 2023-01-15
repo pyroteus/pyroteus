@@ -170,6 +170,7 @@ class TestNorm(unittest.TestCase):
         val = norm(self.f, norm_type=norm_type, condition=condition)
         self.assertAlmostEqual(val, expected)
 
+
 class TestErrorNorm(unittest.TestCase):
     """
     Unit tests for :func:`errornorm`.
