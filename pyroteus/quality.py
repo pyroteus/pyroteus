@@ -7,13 +7,11 @@ from firedrake import Function, FunctionSpace, interpolate
 from firedrake.mesh import MeshGeometry
 from firedrake.petsc import PETSc
 from pyop2 import op2
+from pyop2.utils import get_petsc_dir
 import ufl
 
 
-try:
-    from firedrake.slate.slac.compiler import PETSC_ARCH
-except ImportError:
-    PETSC_ARCH = os.path.join(os.environ.get("PETSC_DIR"), os.environ.get("PETSC_ARCH"))
+PETSC_DIR, PETSC_ARCH = get_petsc_dir()
 include_dir = ["%s/include/eigen3" % PETSC_ARCH]
 
 
@@ -25,15 +23,8 @@ def get_pyop2_kernel(func: Function, dim: int) -> op2.Kernel:
     :arg func: function name
     :arg dim: spatial dimension
     """
-    if func == "get_skewness" and dim == 3:
-        raise NotImplementedError(f"Spatial dimension {dim} not supported.")
-    if func == "get_area" and dim == 3:
-        func = "get_volume"
-    elif func == "get_volume" and dim == 2:
-        func = "get_area"
-    code = open(
-        os.path.join(os.path.dirname(__file__), f"cxx/quality{dim}d.cxx")
-    ).read()
+    fname = os.path.join(os.path.dirname(__file__), "cxx", f"quality{dim}d.cxx")
+    code = open(fname, "r").read()
     return op2.Kernel(code, func, cpp=True, include_dirs=include_dir)
 
 
