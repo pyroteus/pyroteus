@@ -233,37 +233,6 @@ def errornorm(u, uh: Function, norm_type: str = "L2", **kwargs) -> float:
     return norm(v, norm_type=norm_type, **kwargs)
 
 
-def rotation_matrix_2d(angle):
-    """
-    Rotation matrix associated with some
-    angle, as a UFL matrix.
-
-    :arg angle: the angle
-    """
-    return ufl.as_matrix(
-        [[ufl.cos(angle), -ufl.sin(angle)], [ufl.sin(angle), ufl.cos(angle)]]
-    )
-
-
-def rotate(v, angle, origin=None):
-    """
-    Rotate a UFL :class:`ufl.tensors.as_vector`
-    by some angle.
-
-    :arg v: the vector to rotate
-    :arg angle: the angle to rotate by
-    :kwarg origin: origin of rotation
-    """
-    dim = len(v)
-    origin = origin or ufl.as_vector(np.zeros(dim))
-    assert len(origin) == dim, "Origin does not match dimension"
-    if dim == 2:
-        R = rotation_matrix_2d(angle)
-    else:
-        raise NotImplementedError
-    return ufl.dot(R, v - origin) + origin
-
-
 class AttrDict(dict):
     """
     Dictionary that provides both ``self[key]``

@@ -15,7 +15,8 @@ as first considered in [LeVeque 1996].
     flow' (1996).
 """
 from firedrake import *
-from pyroteus.utility import rotate
+import numpy as np
+import ufl
 
 
 # Problem setup
@@ -30,6 +31,37 @@ dt = pi / 300
 dt_per_export = 25
 steady = False
 wq = Constant(1.0)
+
+
+def rotation_matrix_2d(angle):
+    """
+    Rotation matrix associated with some
+    angle, as a UFL matrix.
+
+    :arg angle: the angle
+    """
+    return ufl.as_matrix(
+        [[ufl.cos(angle), -ufl.sin(angle)], [ufl.sin(angle), ufl.cos(angle)]]
+    )
+
+
+def rotate(v, angle, origin=None):
+    """
+    Rotate a UFL :class:`ufl.tensors.as_vector`
+    by some angle.
+
+    :arg v: the vector to rotate
+    :arg angle: the angle to rotate by
+    :kwarg origin: origin of rotation
+    """
+    dim = len(v)
+    origin = origin or ufl.as_vector(np.zeros(dim))
+    assert len(origin) == dim, "Origin does not match dimension"
+    if dim == 2:
+        R = rotation_matrix_2d(angle)
+    else:
+        raise NotImplementedError
+    return ufl.dot(R, v - origin) + origin
 
 
 def get_function_spaces(mesh, field="tracer_2d"):
