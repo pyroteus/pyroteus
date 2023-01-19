@@ -16,7 +16,7 @@ def test_transfer_linear_system():
     def setup_problem(mesh):
         V = FunctionSpace(mesh, "CG", 1)
         x, y = SpatialCoordinate(mesh)
-        nu = Constant(1.0)
+        nu = Function(V).assign(1.0)
         f = (1 + 8 * pi**2) * sin(2 * pi * x) * sin(2 * pi * y)
         u = TrialFunction(V)
         v = TestFunction(V)
