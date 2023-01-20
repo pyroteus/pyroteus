@@ -4,7 +4,7 @@ Driver functions for derivative recovery.
 from .interpolation import clement_interpolant
 from .utility import *
 from petsc4py import PETSc as petsc4py
-from typing import Optional
+from typing import Dict, Optional, Union
 
 
 __all__ = ["recover_hessian", "recover_boundary_hessian"]
@@ -142,7 +142,7 @@ def double_l2_projection(
 
 @PETSc.Log.EventDecorator("pyroteus.recovery_boundary_hessian")
 def recover_boundary_hessian(
-    f: Function,
+    f: Dict[Union[str, int], Function],
     mesh: MeshGeometry,
     method: str = "Clement",
     target_space: Optional[FunctionSpace] = None,
