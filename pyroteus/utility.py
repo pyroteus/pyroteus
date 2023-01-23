@@ -148,29 +148,16 @@ def norm(v: Function, norm_type: str = "L2", **kwargs) -> float:
                     raise ValueError(f"{norm_type} norm does not make sense.")
             except ValueError:
                 raise ValueError(f"Don't know how to interpret {norm_type} norm.")
-            return firedrake.assemble(condition * ufl.inner(v, v) ** (p / 2) * dX) ** (
-                1 / p
-            )
+            integrand = ufl.inner(v, v)
         elif norm_type.lower() == "h1":
-            return firedrake.assemble(
-                condition
-                * (ufl.inner(v, v) + ufl.inner(ufl.grad(v), ufl.grad(v)))
-                * (p / 2)
-                * dX
-            ) ** (1 / p)
+            integrand = ufl.inner(v, v) + ufl.inner(ufl.grad(v), ufl.grad(v))
         elif norm_type.lower() == "hdiv":
-            return firedrake.assemble(
-                condition * (ufl.inner(v, v) + ufl.div(v) * ufl.div(v)) * (p / 2) * dX
-            ) ** (1 / p)
+            integrand = ufl.inner(v, v) + ufl.div(v) * ufl.div(v)
         elif norm_type.lower() == "hcurl":
-            return firedrake.assemble(
-                condition
-                * (ufl.inner(v, v) + ufl.inner(ufl.curl(v), ufl.curl(v)))
-                * (p / 2)
-                * dX
-            ) ** (1 / p)
+            integrand = ufl.inner(v, v) + ufl.inner(ufl.curl(v), ufl.curl(v))
         else:
             raise ValueError(f"Unknown norm type {norm_type}")
+        return firedrake.assemble(condition * integrand ** (p / 2) * dX) ** (1 / p)
 
 
 @PETSc.Log.EventDecorator("pyroteus.errornorm")
