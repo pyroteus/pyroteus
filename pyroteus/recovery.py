@@ -24,11 +24,11 @@ def recover_hessian(f: Function, method: str = "L2", **kwargs) -> Function:
         mesh = kwargs.get("mesh") or f.function_space().mesh()
         family = f.ufl_element().family()
         degree = f.ufl_element().degree()
-        msg = "Clement can only be used to compute gradients of "
+        msg = "Clement can only be used to compute gradients of"
         if family not in ("Lagrange", "Discontinuous Lagrange"):
-            raise ValueError(msg + "Lagrange fields")
+            raise ValueError(f"{msg} Lagrange fields.")
         if degree == 0:
-            raise ValueError(msg + "fields of degree > 0")
+            raise ValueError(f"{msg} fields of degree > 0.")
 
         # Recover gradient
         gradf = ufl.grad(f)
