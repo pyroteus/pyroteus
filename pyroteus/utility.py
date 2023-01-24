@@ -96,7 +96,7 @@ def assemble_mass_matrix(
             + ufl.inner(ufl.grad(trial), ufl.grad(test)) * ufl.dx
         )
     else:
-        raise ValueError(f"Norm type {norm_type} not recognised.")
+        raise ValueError(f"Norm type '{norm_type}' not recognised.")
     return firedrake.assemble(lhs).petscmat
 
 
@@ -144,10 +144,10 @@ def norm(v: Function, norm_type: str = "L2", **kwargs) -> float:
         if norm_type.startswith("L"):
             try:
                 p = int(norm_type[1:])
-                if p < 1:
-                    raise ValueError(f"{norm_type} norm does not make sense.")
-            except ValueError:
-                raise ValueError(f"Don't know how to interpret {norm_type} norm.")
+            except Exception:
+                raise ValueError(f"Don't know how to interpret '{norm_type}' norm.")
+            if p < 1:
+                raise ValueError(f"'{norm_type}' norm does not make sense.")
             integrand = ufl.inner(v, v)
         elif norm_type.lower() == "h1":
             integrand = ufl.inner(v, v) + ufl.inner(ufl.grad(v), ufl.grad(v))
@@ -156,7 +156,7 @@ def norm(v: Function, norm_type: str = "L2", **kwargs) -> float:
         elif norm_type.lower() == "hcurl":
             integrand = ufl.inner(v, v) + ufl.inner(ufl.curl(v), ufl.curl(v))
         else:
-            raise ValueError(f"Unknown norm type {norm_type}")
+            raise ValueError(f"Unknown norm type '{norm_type}'.")
         return firedrake.assemble(condition * integrand ** (p / 2) * dX) ** (1 / p)
 
 
@@ -180,13 +180,13 @@ def errornorm(u, uh: Function, norm_type: str = "L2", **kwargs) -> float:
         the domain boundary?
     """
     if len(u.ufl_shape) != len(uh.ufl_shape):
-        raise RuntimeError("Mismatching rank between u and uh")
+        raise RuntimeError("Mismatching rank between u and uh.")
 
     if not isinstance(uh, Function):
-        raise TypeError(f"uh should be a Function, is a {type(uh):r}")
+        raise TypeError(f"uh should be a Function, is a {type(uh).__name__}.")
     if norm_type[0] == "l":
         if not isinstance(u, Function):
-            raise TypeError(f"u should be a Function, is a {type(uh):r}")
+            raise TypeError(f"u should be a Function, is a {type(u).__name__}.")
 
     if isinstance(u, Function):
         degree_u = u.function_space().ufl_element().degree()
@@ -203,12 +203,14 @@ def errornorm(u, uh: Function, norm_type: str = "L2", **kwargs) -> float:
 
     # Case 2: UFL norms for mixed function spaces
     elif hasattr(uh.function_space(), "num_sub_spaces"):
-        if norm_type[1:] == "2":
+        if norm_type == "L2":
             vv = [uu - uuh for uu, uuh in zip(u.split(), uh.split())]
             dX = ufl.ds if kwargs.get("boundary", False) else ufl.dx
             return ufl.sqrt(firedrake.assemble(sum([ufl.inner(v, v) for v in vv]) * dX))
         else:
-            raise NotImplementedError
+            raise NotImplementedError(
+                f"Norm type '{norm_type}' not supported for mixed spaces."
+            )
 
     # Case 3: UFL norms for non-mixed spaces
     else:
@@ -246,10 +248,10 @@ def effectivity_index(error_indicator: Function, Je: float) -> float:
     :arg Je: error in quantity of interest
     """
     if not isinstance(error_indicator, Function):
-        raise ValueError("Error indicator must return a Function")
+        raise ValueError("Error indicator must return a Function.")
     el = error_indicator.ufl_element()
     if not (el.family() == "Discontinuous Lagrange" and el.degree() == 0):
-        raise ValueError("Error indicator must be P0")
+        raise ValueError("Error indicator must be P0.")
     eta = error_indicator.vector().gather().sum()
     return np.abs(eta / Je)
 
