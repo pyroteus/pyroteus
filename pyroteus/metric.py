@@ -24,8 +24,6 @@ __all__ = [
     "determine_metric_complexity",
     "density_and_quotients",
     "check_spd",
-    "metric_exponential",
-    "metric_logarithm",
     "ramp_complexity",
 ]
 
@@ -846,62 +844,6 @@ def check_spd(M: Function):
     """
     assert is_symmetric(M), "FAIL: Matrix is not symmetric"
     assert is_pos_def(M), "FAIL: Matrix is not positive-definite"
-
-
-@PETSc.Log.EventDecorator("pyroteus.metric_exponential")
-def metric_exponential(M: Function) -> Function:
-    r"""
-    Compute the matrix exponential of a metric.
-
-    :arg M: a :math:`\mathbb P1` metric
-        :class:`firedrake.function.Function`
-    :return: its matrix exponential
-    """
-    V, Lambda = compute_eigendecomposition(M)
-    if not Lambda.vector().gather().min() > 0.0:
-        lmin = Lambda.vector().gather().min()
-        raise ValueError(f"Input matrix is not positive-definite (min {lmin})")
-    kernel = (
-        """
-    int dim = %d;
-    for (int i=0; i < L.dofs; i++) {
-      for (int d=0; d < dim; d++) {
-        L[dim*i+d] = exp(L[dim*i+d]);
-      }
-    }
-    """
-        % M.function_space().mesh().topological_dimension()
-    )
-    firedrake.par_loop(kernel, ufl.dx, {"L": (Lambda, op2.RW)})
-    return assemble_eigendecomposition(V, Lambda)
-
-
-@PETSc.Log.EventDecorator("pyroteus.metric_logarithm")
-def metric_logarithm(M: Function) -> Function:
-    r"""
-    Compute the matrix logarithm of a metric.
-
-    :arg M: a :math:`\mathbb P1` metric
-        :class:`firedrake.function.Function`
-    :return: its matrix logarithm
-    """
-    V, Lambda = compute_eigendecomposition(M)
-    if not Lambda.vector().gather().min() > 0.0:
-        lmin = Lambda.vector().gather().min()
-        raise ValueError(f"Input matrix is not positive-definite (min {lmin})")
-    kernel = (
-        """
-    int dim = %d;
-    for (int i=0; i < L.dofs; i++) {
-      for (int d=0; d < dim; d++) {
-        L[dim*i+d] = log(L[dim*i+d]);
-      }
-    }
-    """
-        % M.function_space().mesh().topological_dimension()
-    )
-    firedrake.par_loop(kernel, ufl.dx, {"L": (Lambda, op2.RW)})
-    return assemble_eigendecomposition(V, Lambda)
 
 
 def ramp_complexity(
