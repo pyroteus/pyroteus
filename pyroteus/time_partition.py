@@ -55,7 +55,9 @@ class TimePartition:
         self.end_time = end_time
         self.num_subintervals = int(np.round(num_subintervals))
         if not np.isclose(num_subintervals, self.num_subintervals):
-            raise ValueError(f"Non-integer number of subintervals {num_subintervals}")
+            raise ValueError(
+                f"Non-integer number of subintervals '{num_subintervals}'."
+            )
         self.debug("num_subintervals")
         self.interval = (self.start_time, self.end_time)
         self.debug("interval")
@@ -86,7 +88,7 @@ class TimePartition:
         if len(self.timesteps) != num_subintervals:
             raise ValueError(
                 "Number of timesteps and subintervals do not match"
-                f" ({len(self.timesteps)} vs. {num_subintervals})"
+                f" ({len(self.timesteps)} vs. {num_subintervals})."
             )
 
         # Get number of timesteps on each subinterval
@@ -99,7 +101,7 @@ class TimePartition:
         if not np.allclose(self.timesteps_per_subinterval, _timesteps_per_subinterval):
             raise ValueError(
                 "Non-integer timesteps per subinterval"
-                f" ({_timesteps_per_subinterval})"
+                f" ({_timesteps_per_subinterval})."
             )
         self.debug("timesteps_per_subinterval")
 
@@ -107,7 +109,7 @@ class TimePartition:
         if not isinstance(timesteps_per_export, Iterable):
             if not np.isclose(timesteps_per_export, np.round(timesteps_per_export)):
                 raise ValueError(
-                    f"Non-integer timesteps per export ({timesteps_per_export})"
+                    f"Non-integer timesteps per export ({timesteps_per_export})."
                 )
             timesteps_per_export = [
                 int(np.round(timesteps_per_export)) for subinterval in self.subintervals
@@ -117,7 +119,7 @@ class TimePartition:
             raise ValueError(
                 "Number of timesteps per export and subinterval do not match"
                 f" ({len(self.timesteps_per_export)}"
-                f" vs. {self.timesteps_per_subinterval})"
+                f" vs. {len(self.timesteps_per_subinterval)})."
             )
         for i, (tspe, tsps) in enumerate(
             zip(self.timesteps_per_export, self.timesteps_per_subinterval)
@@ -126,7 +128,7 @@ class TimePartition:
                 raise ValueError(
                     "Number of timesteps per export does not divide number of"
                     f" timesteps per subinterval ({tspe} vs. {tsps}"
-                    f" on subinteral {i})"
+                    f" on subinterval {i})."
                 )
         self.debug("timesteps_per_export")
 
@@ -151,7 +153,7 @@ class TimePartition:
             val = self.__getattribute__(attr)
         except AttributeError:
             raise AttributeError(
-                f"Attribute {attr} cannot be debuged because it doesn't exist"
+                f"Attribute '{attr}' cannot be debugged because it doesn't exist."
             )
         label = " ".join(attr.split("_"))
         debug(f"TimePartition: {label:25s} {val}")
@@ -162,11 +164,13 @@ class TimePartition:
     def __repr__(self) -> str:
         timesteps = ", ".join([str(dt) for dt in self.timesteps])
         fields = ", ".join([f"'{field}'" for field in self.fields])
-        return f"TimePartition(" \
-            f"end_time={self.end_time}, " \
-            f"num_subintervals={self.num_subintervals}, " \
-            f"timesteps=[{timesteps}], " \
+        return (
+            f"TimePartition("
+            f"end_time={self.end_time}, "
+            f"num_subintervals={self.num_subintervals}, "
+            f"timesteps=[{timesteps}], "
             f"fields=[{fields}])"
+        )
 
     def __len__(self) -> int:
         return self.num_subintervals
@@ -189,6 +193,28 @@ class TimePartition:
             }
         )
 
+    def __eq__(self, other):
+        if len(self) != len(other):
+            return False
+        return (
+            np.allclose(self.subintervals, other.subintervals)
+            and np.allclose(self.timesteps, other.timesteps)
+            and np.allclose(self.exports_per_subinterval, other.exports_per_subinterval)
+            and self.fields == other.fields
+        )
+
+    def __ne__(self, other):
+        if len(self) != len(other):
+            return True
+        return (
+            not np.allclose(self.subintervals, other.subintervals)
+            or not np.allclose(self.timesteps, other.timesteps)
+            or not np.allclose(
+                self.exports_per_subinterval, other.exports_per_subinterval
+            )
+            or not self.fields == other.fields
+        )
+
 
 class TimeInterval(TimePartition):
     """
@@ -207,10 +233,12 @@ class TimeInterval(TimePartition):
         super().__init__(end_time, 1, timestep, fields, **kwargs)
 
     def __repr__(self) -> str:
-        return f"TimeInterval(" \
-            f"end_time={self.end_time}, " \
-            f"timestep={self.timestep}, " \
+        return (
+            f"TimeInterval("
+            f"end_time={self.end_time}, "
+            f"timestep={self.timestep}, "
             f"fields={self.fields})"
+        )
 
     @property
     def timestep(self) -> float:
@@ -229,7 +257,7 @@ class TimeInstant(TimeInterval):
         time = kwargs.get("time", 1.0)
         if "end_time" in kwargs:
             if "time" in kwargs:
-                raise ValueError("Both 'time' and 'end_time' are set")
+                raise ValueError("Both 'time' and 'end_time' are set.")
             time = kwargs.get("end_time")
         timestep = time
         super().__init__(time, timestep, fields)
@@ -238,6 +266,4 @@ class TimeInstant(TimeInterval):
         return f"({self.end_time})"
 
     def __repr__(self) -> str:
-        return f"TimeInstant(" \
-            f"time={self.end_time}, " \
-            f"fields={self.fields})"
+        return f"TimeInstant(" f"time={self.end_time}, " f"fields={self.fields})"

@@ -4,7 +4,7 @@ Driver functions for derivative recovery.
 from .interpolation import clement_interpolant
 from .utility import *
 from petsc4py import PETSc as petsc4py
-from typing import Optional
+from typing import Dict, Optional, Union
 
 
 __all__ = ["recover_hessian", "recover_boundary_hessian"]
@@ -24,11 +24,11 @@ def recover_hessian(f: Function, method: str = "L2", **kwargs) -> Function:
         mesh = kwargs.get("mesh") or f.function_space().mesh()
         family = f.ufl_element().family()
         degree = f.ufl_element().degree()
-        msg = "Clement can only be used to compute gradients of "
+        msg = "Clement can only be used to compute gradients of"
         if family not in ("Lagrange", "Discontinuous Lagrange"):
-            raise ValueError(msg + "Lagrange fields")
+            raise ValueError(f"{msg} Lagrange fields.")
         if degree == 0:
-            raise ValueError(msg + "fields of degree > 0")
+            raise ValueError(f"{msg} fields of degree > 0.")
 
         # Recover gradient
         gradf = ufl.grad(f)
@@ -142,7 +142,7 @@ def double_l2_projection(
 
 @PETSc.Log.EventDecorator("pyroteus.recovery_boundary_hessian")
 def recover_boundary_hessian(
-    f: Function,
+    f: Dict[Union[str, int], Function],
     mesh: MeshGeometry,
     method: str = "Clement",
     target_space: Optional[FunctionSpace] = None,

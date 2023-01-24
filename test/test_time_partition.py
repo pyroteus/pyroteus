@@ -5,6 +5,143 @@ from pyroteus.time_partition import TimePartition, TimeInterval, TimeInstant
 import unittest
 
 
+class TestSetup(unittest.TestCase):
+    """
+    Tests related to the construction of time partitions.
+    """
+
+    def test_time_instant_multiple_kwargs(self):
+        with self.assertRaises(ValueError) as cm:
+            TimeInstant("field", time=1.0, end_time=1.0)
+        msg = "Both 'time' and 'end_time' are set."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_time_partition_eq_positive(self):
+        time_partition1 = TimePartition(1.0, 1, [1.0], "field")
+        time_partition2 = TimePartition(1.0, 1, [1.0], "field")
+        self.assertTrue(time_partition1 == time_partition2)
+
+    def test_time_partition_eq_negative(self):
+        time_partition1 = TimePartition(1.0, 1, [1.0], "field")
+        time_partition2 = TimePartition(2.0, 1, [1.0], "field")
+        self.assertFalse(time_partition1 == time_partition2)
+
+    def test_time_partition_ne_positive(self):
+        time_partition1 = TimePartition(1.0, 2, [0.5, 0.5], "field")
+        time_partition2 = TimePartition(1.0, 1, [1.0], "field")
+        self.assertTrue(time_partition1 != time_partition2)
+
+    def test_time_partition_ne_negative(self):
+        time_partition1 = TimePartition(1.0, 1, [1.0], "field", timesteps_per_export=1)
+        time_partition2 = TimePartition(1.0, 1, [1.0], "field")
+        self.assertFalse(time_partition1 != time_partition2)
+
+    def test_time_interval_eq_positive(self):
+        time_interval1 = TimeInterval(1.0, 1.0, "field")
+        time_interval2 = TimeInterval((0.0, 1.0), 1.0, ["field"])
+        self.assertTrue(time_interval1 == time_interval2)
+
+    def test_time_interval_eq_negative(self):
+        time_interval1 = TimeInterval(1.0, 1.0, "field")
+        time_interval2 = TimeInterval((0.5, 1.0), 0.5, "field")
+        self.assertFalse(time_interval1 == time_interval2)
+
+    def test_time_interval_ne_positive(self):
+        time_interval1 = TimeInterval(1.0, 1.0, "field")
+        time_interval2 = TimeInterval((-0.5, 0.5), 1.0, "field")
+        self.assertTrue(time_interval1 != time_interval2)
+
+    def test_time_interval_ne_negative(self):
+        time_interval1 = TimeInterval(1.0, 1.0, "field")
+        time_interval2 = TimeInterval((0.0, 1.0), 1.0, ["field"])
+        self.assertFalse(time_interval1 != time_interval2)
+
+    def test_time_instant_eq_positive(self):
+        time_instant1 = TimeInstant("field", time=1.0)
+        time_instant2 = TimeInstant(["field"], time=1.0)
+        self.assertTrue(time_instant1 == time_instant2)
+
+    def test_time_instant_eq_negative(self):
+        time_instant1 = TimeInstant("field", time=1.0)
+        time_instant2 = TimeInstant("f", time=1.0)
+        self.assertFalse(time_instant1 == time_instant2)
+
+    def test_time_instant_ne_positive(self):
+        time_instant1 = TimeInstant("field", time=1.0)
+        time_instant2 = TimeInstant("field", time=2.0)
+        self.assertTrue(time_instant1 != time_instant2)
+
+    def test_time_instant_ne_negative(self):
+        time_instant1 = TimeInstant("field", time=1.0)
+        time_instant2 = TimeInstant("field", end_time=1.0)
+        self.assertFalse(time_instant1 != time_instant2)
+
+    def test_time_partition_eq_interval_positive(self):
+        time_partition = TimePartition(1.0, 1, [0.5], ["field"])
+        time_interval = TimeInterval(1.0, 0.5, "field")
+        self.assertTrue(time_partition == time_interval)
+
+    def test_time_partition_eq_interval_negative(self):
+        time_partition = TimePartition(1.0, 2, [0.5, 0.5], ["field"])
+        time_interval = TimeInterval(1.0, 0.5, "field")
+        self.assertFalse(time_partition == time_interval)
+
+    def test_time_partition_ne_interval_positive(self):
+        time_partition = TimePartition(0.5, 1, [0.5], "field")
+        time_interval = TimeInterval(1.0, 0.5, "field")
+        self.assertTrue(time_partition != time_interval)
+
+    def test_time_partition_ne_interval_negative(self):
+        time_partition = TimePartition(1.0, 1, 0.5, ["field"], start_time=0.0)
+        time_interval = TimeInterval(1.0, 0.5, "field")
+        self.assertFalse(time_partition != time_interval)
+
+    def test_noninteger_subintervals(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 1.1, 0.5, "field")
+        msg = "Non-integer number of subintervals '1.1'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_wrong_num_timesteps(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 1, [0.5, 0.5], "field")
+        msg = "Number of timesteps and subintervals do not match (2 vs. 1)."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_noninteger_timesteps_per_subinterval(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 1, [0.4], "field")
+        msg = "Non-integer timesteps per subinterval ([2.5])."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_noninteger_timesteps_per_export(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 1, [0.5], "field", timesteps_per_export=1.1)
+        msg = "Non-integer timesteps per export (1.1)."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_nonmatching_num_timesteps_per_export(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 1, [0.5], "field", timesteps_per_export=[1, 2])
+        msg = "Number of timesteps per export and subinterval do not match (2 vs. 1)."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_indivisible_timesteps_per_export(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 1, [0.5], "field", timesteps_per_export=4)
+        msg = (
+            "Number of timesteps per export does not divide number of timesteps per"
+            " subinterval (4 vs. 2 on subinterval 0)."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_debug_invalid_field(self):
+        with self.assertRaises(AttributeError) as cm:
+            TimeInstant("field").debug("blah")
+        msg = "Attribute 'blah' cannot be debugged because it doesn't exist."
+        self.assertEqual(str(cm.exception), msg)
+
+
 class TestStringFormatting(unittest.TestCase):
     """
     Test that the :meth:`__str__`` and :meth:`__repr__`` methods work as intended for
@@ -14,10 +151,6 @@ class TestStringFormatting(unittest.TestCase):
     def setUp(self):
         self.end_time = 1.0
         self.fields = ["field"]
-
-        # Define time partitions
-        self.time_interval = TimeInterval(self.end_time, [0.5], self.fields)
-        self.time_instant = TimeInstant(self.fields, time=self.end_time)
 
     def get_time_partition(self, n):
         split = self.end_time / n
@@ -38,11 +171,13 @@ class TestStringFormatting(unittest.TestCase):
 
     def test_time_interval_str(self):
         expected = "[(0.0, 1.0)]"
-        self.assertEqual(str(self.time_interval), expected)
+        time_interval = TimeInterval(self.end_time, [0.5], self.fields)
+        self.assertEqual(str(time_interval), expected)
 
     def test_time_instant_str(self):
         expected = "(1.0)"
-        self.assertEqual(str(self.time_instant), expected)
+        time_instant = TimeInstant(self.fields, time=self.end_time)
+        self.assertEqual(str(time_instant), expected)
 
     def test_time_partition1_repr(self):
         expected = (
@@ -67,11 +202,13 @@ class TestStringFormatting(unittest.TestCase):
 
     def test_time_interval_repr(self):
         expected = "TimeInterval(end_time=1.0, timestep=0.5, fields=['field'])"
-        self.assertEqual(repr(self.time_interval), expected)
+        time_interval = TimeInterval(self.end_time, [0.5], self.fields)
+        self.assertEqual(repr(time_interval), expected)
 
     def test_time_instant_repr(self):
         expected = "TimeInstant(time=1.0, fields=['field'])"
-        self.assertEqual(repr(self.time_instant), expected)
+        time_instant = TimeInstant(self.fields, time=self.end_time)
+        self.assertEqual(repr(time_instant), expected)
 
 
 if __name__ == "__main__":
