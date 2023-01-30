@@ -194,5 +194,46 @@ class TestGoalOrientedParameters(unittest.TestCase):
         self.assertEqual(str(cm.exception), msg)
 
 
+class TestGoalOrientedMetricParameters(unittest.TestCase):
+    """
+    Unit tests for the :class:`GoalOrientedMetricParameters` class.
+    """
+
+    def setUp(self):
+        self.defaults = {
+            "qoi_rtol": 0.001,
+            "estimator_rtol": 0.001,
+            "h_min": 1.0e-30,
+            "h_max": 1.0e30,
+            "a_max": 1.0e30,
+            "p": 1.0,
+            "base_complexity": 200.0,
+            "target_complexity": 4000.0,
+            "num_ramp_iterations": 3,
+            "miniter": 3,
+            "maxiter": 35,
+            "element_rtol": 0.001,
+        }
+
+    def test_defaults(self):
+        ap = GoalOrientedMetricParameters()
+        for key, value in self.defaults.items():
+            self.assertEqual(ap[key], value)
+
+    def test_str(self):
+        ap = GoalOrientedMetricParameters()
+        self.assertEqual(str(ap), str(self.defaults))
+
+    def test_repr(self):
+        ap = GoalOrientedMetricParameters()
+        expected = (
+            "GoalOrientedMetricParameters(qoi_rtol=0.001, estimator_rtol=0.001,"
+            " h_min=1e-30, h_max=1e+30, a_max=1e+30, p=1.0, base_complexity=200.0,"
+            " target_complexity=4000.0, num_ramp_iterations=3, miniter=3, maxiter=35,"
+            " element_rtol=0.001)"
+        )
+        self.assertEqual(repr(ap), expected)
+
+
 if __name__ == "__main__":
     unittest.main()
