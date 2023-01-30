@@ -147,5 +147,52 @@ class TestMetricParameters(unittest.TestCase):
         self.assertEqual(str(cm.exception), msg)
 
 
+class TestGoalOrientedParameters(unittest.TestCase):
+    """
+    Unit tests for the :class:`GoalOrientedParameters` class.
+    """
+
+    def setUp(self):
+        self.defaults = {
+            "qoi_rtol": 0.001,
+            "estimator_rtol": 0.001,
+            "miniter": 3,
+            "maxiter": 35,
+            "element_rtol": 0.001,
+        }
+
+    def test_defaults(self):
+        ap = GoalOrientedParameters()
+        for key, value in self.defaults.items():
+            self.assertEqual(ap[key], value)
+
+    def test_str(self):
+        ap = GoalOrientedParameters()
+        self.assertEqual(str(ap), str(self.defaults))
+
+    def test_repr(self):
+        ap = GoalOrientedParameters()
+        expected = (
+            "GoalOrientedParameters(qoi_rtol=0.001, estimator_rtol=0.001, miniter=3,"
+            " maxiter=35, element_rtol=0.001)"
+        )
+        self.assertEqual(repr(ap), expected)
+
+    def test_qoi_rtol_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            GoalOrientedParameters({"qoi_rtol": "0.001"})
+        msg = "Expected attribute 'qoi_rtol' to be of type 'float' or 'int', not 'str'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_estimator_rtol_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            GoalOrientedParameters({"estimator_rtol": "0.001"})
+        msg = (
+            "Expected attribute 'estimator_rtol' to be of type 'float' or 'int', not"
+            " 'str'."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+
 if __name__ == "__main__":
     unittest.main()
