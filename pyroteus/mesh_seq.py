@@ -5,6 +5,7 @@ import firedrake
 from firedrake.petsc import PETSc
 from .interpolation import project
 from .log import pyrint, debug, warning, logger, DEBUG
+from .options import AdaptParameters
 from .quality import QualityMeasure
 from .time_partition import TimePartition
 from .utility import AttrDict, Function, Mesh, MeshGeometry
@@ -16,34 +17,7 @@ import numpy as np
 from typing import Tuple
 
 
-__all__ = ["AdaptParameters", "MeshSeq"]
-
-
-class AdaptParameters(AttrDict):
-    """
-    A class for holding parameters associated with
-    adaptive mesh fixed point iteration loops.
-    """
-
-    def __init__(self, parameters: dict = {}):
-        """
-        :arg parameters: dictionary of parameters to set
-        """
-        self["miniter"] = 3  # Minimum iteration count
-        self["maxiter"] = 35  # Maximum iteration count
-        self["element_rtol"] = 0.001  # Relative tolerance for element count
-
-        for key, value in parameters.items():
-            if key not in self:
-                raise AttributeError(f"{self} does not have {key} attribute")
-            self[key] = value
-
-    def __str__(self) -> str:
-        return str({key: value for key, value in self.items()})
-
-    def __repr__(self) -> str:
-        d = ", ".join([f"{key}={value}" for key, value in self.items()])
-        return f"{self.__class__.__name__}({d})"
+__all__ = ["MeshSeq"]
 
 
 class MeshSeq:
