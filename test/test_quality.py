@@ -1,6 +1,6 @@
 from firedrake import *
 from pyroteus import *
-import pyroteus.quality as mq
+from pyroteus.quality import QualityMeasure
 from parameterized import parameterized
 import pytest
 import unittest
@@ -19,9 +19,10 @@ def test_facet_areas(dim):
     (isotropic) triangular or tetrahedral mesh.
     """
     mesh = uniform_mesh(dim, 1)
-    f = mq.get_facet_areas2d if dim == 2 else mq.get_facet_areas3d
+    qm = QualityMeasure(mesh, python=True)
+    f = qm("facet_area")
     expected = 5.414214 if dim == 2 else 10.242641
-    assert np.isclose(sum(f(mesh).dat.data), expected)
+    assert np.isclose(sum(f.dat.data), expected)
 
 
 class TestQuality(unittest.TestCase):
@@ -31,22 +32,21 @@ class TestQuality(unittest.TestCase):
 
     def quality(self, name, mesh, **kwargs):
         dim = mesh.topological_dimension()
-        measure = getattr(mq, name)
-        if name.startswith("get_quality_metrics"):
+        if name == "metric":
             P1_ten = TensorFunctionSpace(mesh, "CG", 1)
             M = interpolate(Identity(dim), P1_ten)
-            return measure(mesh, M, **kwargs)
-        return measure(mesh, **kwargs)
+            kwargs["metric"] = M
+        return QualityMeasure(mesh, **kwargs)(name)
 
     @parameterized.expand(
         [
-            ("get_min_angles2d", np.pi / 4),
-            ("get_areas2d", 0.005),
-            ("get_eskews2d", 1.070796),
-            ("get_aspect_ratios2d", 1.207107),
-            ("get_scaled_jacobians2d", 0.707107),
-            ("get_skewnesses2d", 0.463648),
-            ("get_quality_metrics2d", 6.928203),
+            ("min_angle", np.pi / 4),
+            ("area", 0.005),
+            ("eskew", 1.070796),
+            ("aspect_ratio", 1.207107),
+            ("scaled_jacobian", 0.707107),
+            ("skewness", 0.463648),
+            ("metric", 6.928203),
         ]
     )
     def test_uniform_quality_2d(self, measure, expected):
@@ -54,18 +54,18 @@ class TestQuality(unittest.TestCase):
         q = self.quality(measure, mesh)
         truth = Function(q.function_space()).assign(expected)
         self.assertAlmostEqual(errornorm(truth, q), 0.0, places=6)
-        if measure == "get_areas2d":
+        if measure == "area":
             s = q.vector().gather().sum()
             self.assertAlmostEqual(s, 1.0)
 
     @parameterized.expand(
         [
-            ("get_min_angles3d", 0.61547971),
-            ("get_volumes3d", 0.00260417),
-            ("get_eskews3d", 0.41226017),
-            ("get_aspect_ratios3d", 1.39384685),
-            ("get_scaled_jacobians3d", 0.40824829),
-            ("get_quality_metrics3d", 1.25),
+            ("min_angle", 0.61547971),
+            ("volume", 0.00260417),
+            ("eskew", 0.41226017),
+            ("aspect_ratio", 1.39384685),
+            ("scaled_jacobian", 0.40824829),
+            ("metric", 1.25),
         ]
     )
     def test_uniform_quality_3d(self, measure, expected):
@@ -73,29 +73,21 @@ class TestQuality(unittest.TestCase):
         q = self.quality(measure, mesh)
         truth = Function(q.function_space()).assign(expected)
         self.assertAlmostEqual(errornorm(truth, q), 0.0)
-        if measure == "get_volumes3d":
+        if measure == "volume":
             s = q.vector().gather().sum()
             self.assertAlmostEqual(s, 1.0)
 
     @parameterized.expand(
         [
-            ("get_areas2d"),
-            ("get_aspect_ratios2d"),
-            ("get_scaled_jacobians2d"),
+            ("area", 2),
+            ("aspect_ratio", 2),
+            ("scaled_jacobian", 2),
+            ("volume", 3),
         ]
     )
-    def test_consistency_2d(self, measure):
+    def test_consistency(self, measure, dim):
         np.random.seed(0)
-        mesh = uniform_mesh(2, 4)
-        mesh.coordinates.dat.data[:] += np.random.rand(*mesh.coordinates.dat.data.shape)
-        quality_cpp = self.quality(measure, mesh, python=False)
-        quality_py = self.quality(measure, mesh, python=True)
-        self.assertAlmostEqual(errornorm(quality_cpp, quality_py), 0.0)
-
-    @parameterized.expand([("get_volumes3d")])
-    def test_consistency_3d(self, measure):
-        np.random.seed(0)
-        mesh = uniform_mesh(3, 4)
+        mesh = uniform_mesh(dim, 4)
         mesh.coordinates.dat.data[:] += np.random.rand(*mesh.coordinates.dat.data.shape)
         quality_cpp = self.quality(measure, mesh, python=False)
         quality_py = self.quality(measure, mesh, python=True)
@@ -103,31 +95,44 @@ class TestQuality(unittest.TestCase):
 
     @parameterized.expand(
         [
-            ("get_facet_areas2d"),
-            ("get_facet_areas3d"),
-            ("get_skewnesses3d"),
+            ("facet_area", 2),
+            ("facet_area", 3),
+            ("skewness", 3),
         ]
     )
-    def test_cxx_notimplemented(self, measure):
-        mesh = uniform_mesh(2, 10)
-        with pytest.raises(NotImplementedError):
+    def test_cxx_notimplemented(self, measure, dim):
+        mesh = uniform_mesh(dim, 1)
+        with self.assertRaises(NotImplementedError) as cm:
             self.quality(measure, mesh, python=False)
+        msg = f"Quality measure '{measure}' not implemented in the {dim}D case in C++."
+        self.assertEqual(str(cm.exception), msg)
 
     @parameterized.expand(
         [
-            ("get_min_angles2d"),
-            ("get_min_angles3d"),
-            ("get_aspect_ratios3d"),
-            ("get_eskews2d"),
-            ("get_eskews3d"),
-            ("get_skewnesses2d"),
-            ("get_skewnesses3d"),
-            ("get_scaled_jacobians3d"),
-            ("get_quality_metrics2d"),
-            ("get_quality_metrics3d"),
+            ("min_angle", 2),
+            ("min_angle", 3),
+            ("aspect_ratio", 3),
+            ("eskew", 2),
+            ("eskew", 3),
+            ("skewness", 2),
+            ("skewness", 3),
+            ("scaled_jacobian", 3),
+            ("metric", 2),
+            ("metric", 3),
         ]
     )
-    def test_python_notimplemented(self, measure):
-        mesh = uniform_mesh(2, 10)
-        with pytest.raises(NotImplementedError):
+    def test_python_notimplemented(self, measure, dim):
+        mesh = uniform_mesh(dim, 1)
+        with self.assertRaises(NotImplementedError) as cm:
             self.quality(measure, mesh, python=True)
+        msg = (
+            f"Quality measure '{measure}' not implemented in the {dim}D case in Python."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_unrecognised_error(self):
+        mesh = uniform_mesh(2, 1)
+        with self.assertRaises(ValueError) as cm:
+            self.quality("invalid", mesh, python=False)
+        msg = "Quality measure 'invalid' not recognised."
+        self.assertEqual(str(cm.exception), msg)
