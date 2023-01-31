@@ -180,7 +180,7 @@ void get_skewness(double *Skews, double *Coords) {
   Gets the quality metric, based on a Riemannian metric
   for all triangular cell elements in a mesh.
 */
-void get_metric(double *Metrics, const double *T_, double *Coords) {
+void get_metric(double *Metrics, double *Coords, const double *T_) {
     // Map coordinates onto Eigen objects
     Map<Vector2d> p1((double *) &Coords[0]);
     Map<Vector2d> p2((double *) &Coords[2]);

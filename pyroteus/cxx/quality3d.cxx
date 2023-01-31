@@ -250,7 +250,7 @@ void get_scaled_jacobian(double *SJacobians, double *Coords) {
   Gets the quality metric, based on a Riemannian metric
   for all tetrahedral cell elements in a mesh.
 */
-void get_metric(double *Metrics, const double *T_, double *Coords) {
+void get_metric(double *Metrics, double *Coords, const double *T_) {
   // Map vertices as vectors
   Map<Vector3d> p1((double *) &Coords[0]);
   Map<Vector3d> p2((double *) &Coords[3]);
