@@ -5,7 +5,7 @@ import firedrake
 from firedrake.petsc import PETSc
 from .interpolation import project
 from .log import pyrint, debug, warning, logger, DEBUG
-from .quality import get_aspect_ratios2d, get_aspect_ratios3d
+from .quality import QualityMeasure
 from .time_partition import TimePartition
 from .utility import AttrDict, Function, Mesh, MeshGeometry
 from collections import OrderedDict
@@ -97,10 +97,8 @@ class MeshSeq:
             for i, mesh in enumerate(self.meshes):
                 nc = mesh.num_cells()
                 nv = mesh.num_vertices()
-                if self.dim == 2:
-                    ar = get_aspect_ratios2d(mesh)
-                else:
-                    ar = get_aspect_ratios3d(mesh)
+                qm = QualityMeasure(mesh)
+                ar = qm("aspect_ratio")
                 mar = ar.vector().gather().max()
                 self.debug(
                     f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}"
