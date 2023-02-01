@@ -51,7 +51,7 @@ class QualityMeasure:
     ):
         """
         :arg mesh: the input mesh to do computations on
-        :arg metric: the tenor field representing the metric space transformation
+        :arg metric: the tensor field representing the metric space transformation
         :kwarg python: compute the measure using Python?
         """
         self.mesh = mesh
