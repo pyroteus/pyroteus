@@ -224,7 +224,7 @@ def recover_boundary_hessian(
         H = Function(P1_ten)
         p0test = firedrake.TestFunction(P0_vec)
         p1test = firedrake.TestFunction(P1)
-        fa = get_facet_areas(mesh)
+        fa = QualityMeasure(mesh, python=True)("facet_area")
         for tag, fi in f.items():
             source = firedrake.assemble(ufl.inner(p0test, ufl.grad(fi)) / fa * ufl.ds)
 

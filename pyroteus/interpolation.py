@@ -1,7 +1,7 @@
 """
 Driver functions for mesh-to-mesh data transfer.
 """
-from .utility import assemble_mass_matrix, get_facet_areas, Function, FunctionSpace
+from .utility import assemble_mass_matrix, QualityMeasure, Function, FunctionSpace
 import firedrake
 from firedrake.petsc import PETSc
 from petsc4py import PETSc as petsc4py
@@ -56,7 +56,7 @@ def clement_interpolant(source: Function, **kwargs) -> Function:
         dx = ufl.dx(domain=mesh)
         volume = firedrake.assemble(firedrake.TestFunction(P0) * dx)
     else:
-        volume = get_facet_areas(mesh)
+        volume = QualityMeasure(mesh, python=True)("facet_area")
     patch_volume = Function(P1)
     kernel = "for (int i=0; i < p.dofs; i++) p[i] += v[0];"
     keys = {
