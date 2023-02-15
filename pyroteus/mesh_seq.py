@@ -84,7 +84,9 @@ class MeshSeq:
         self._get_form = kwargs.get("get_form")
         self._get_solver = kwargs.get("get_solver")
         self._get_bcs = kwargs.get("get_bcs")
-        self.params = kwargs.get("parameters", AdaptParameters())
+        self.params = kwargs.get("parameters")
+        if self.params is None:
+            self.params = AdaptParameters()
         self.warn = kwargs.get("warnings", True)
         self._lagged_dep_idx = {}
         self.sections = [{} for mesh in self]

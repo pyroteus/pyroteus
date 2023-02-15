@@ -6,6 +6,7 @@ from firedrake.petsc import PETSc
 from firedrake_adjoint import pyadjoint
 from .interpolation import project
 from .mesh_seq import MeshSeq
+from .options import GoalOrientedParameters
 from .time_partition import TimePartition
 from .utility import AttrDict, norm, Function
 from collections.abc import Callable
@@ -72,6 +73,8 @@ class AdjointMeshSeq(MeshSeq):
             integrated quantity of interest, respectively,
             as well as an index for the :class:`~.MeshSeq`
         """
+        if kwargs.get("parameters") is None:
+            kwargs["parameters"] = GoalOrientedParameters()
         self.qoi_type = kwargs.pop("qoi_type")
         if self.qoi_type not in ["end_time", "time_integrated", "steady"]:
             raise ValueError(f"QoI type {self.qoi_type} not recognised")
