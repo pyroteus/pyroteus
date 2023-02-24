@@ -4,22 +4,22 @@
 # Bash script for installing Firedrake based on a PETSc installation     #
 # which uses Mmg and ParMmg.                                             #
 #                                                                        #
-# The `install_petsc.sh` script should be run first.                     #
+# The `install_petsc_custom_mpich.sh` script should be run first.        #
 #                                                                        #
-# Note that we use custom PETSc and Firedrake branches.                  #
+# Note that we use a custom Firedrake branch.                            #
 #                                                                        #
 # Joe Wallwork, 2022.                                                    #
 # ====================================================================== #
 
 # Unset PYTHONPATH
-export PYTHONPATH_TMP=$PYTHONPATH
+PYTHONPATH_TMP=$PYTHONPATH
 unset PYTHONPATH
 
 # Environment variables for MPI
-export MPICC=/usr/bin/mpicc.mpich
-export MPICXX=/usr/bin/mpicxx.mpich
-export MPIEXEC=/usr/bin/mpiexec.mpich
-export MPIF90=/usr/bin/mpif90.mpich
+MPICC=/usr/bin/mpicc.mpich
+MPICXX=/usr/bin/mpicxx.mpich
+MPIEXEC=/usr/bin/mpiexec.mpich
+MPIF90=/usr/bin/mpif90.mpich
 for mpi in $MPICC $MPICXX $MPIEXEC $MPIF90; do
 	if [ ! -f $mpi ]; then
 		echo "Cannot find $mpi in /usr/bin."
@@ -28,34 +28,38 @@ for mpi in $MPICC $MPICXX $MPIEXEC $MPIF90; do
 done
 
 # Environment variables for Firedrake installation
-export FIREDRAKE_ENV=firedrake-adapt
-export FIREDRAKE_DIR=$SOFTWARE/$FIREDRAKE_ENV
+FIREDRAKE_ENV=firedrake-adapt
+FIREDRAKE_DIR=$SOFTWARE/$FIREDRAKE_ENV
+FIREDRAKE_BRANCH=jwallwork23/parmmg-metric-based
 
 # Check environment variables
 echo "MPICC="$MPICC
 echo "MPICXX="$MPICXX
 echo "MPIF90="$MPIF90
 echo "MPIEXEC="$MPIEXEC
+echo "PETSC_DIR="$PETSC_DIR
+if [ ! -e "$PETSC_DIR" ]; then
+	echo "$PETSC_DIR does not exist. Please run install_petsc.sh."
+	exit 1
+fi
+echo "PETSC_ARCH="$PETSC_ARCH
 echo "FIREDRAKE_ENV="$FIREDRAKE_ENV
 echo "FIREDRAKE_DIR="$FIREDRAKE_DIR
+echo "FIREDRAKE_BRANCH=$FIREDRAKE_BRANCH"
 echo "python3="$(which python3)
 echo "Are these settings okay? Press enter to continue."
 read chk
 
-# Set PETSc configure options
-export PETSC_CONFIGURE_OPTIONS=$(echo '--with-debugging=0 --with-fortran-bindings=0 --download-zlib --download-metis --download-parmetis --download-ptscotch --download-hdf5 --download-scalapack --download-mumps --download-chaco --download-hypre --download-eigen --download-mmg --download-parmmg --with-mpiexec=$MPIEXEC --CC=$MPICC --CXX=$MPICXX --FC=$MPIF90')
-
 # Install Firedrake
 curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
-python3 firedrake-install --install thetis --venv-name $FIREDRAKE_ENV \
+python3 firedrake-install --honour-petsc-dir -venv-name $FIREDRAKE_ENV \
 	--mpicc $MPICC --mpicxx $MPICXX --mpif90 $MPIF90 --mpiexec $MPIEXEC \
-	--package-branch firedrake jwallwork23/metric-based --package-branch petsc jwallwork23/firedrake \
-    --disable-ssh
+	--package-branch firedrake $FIREDRAKE_BRANCH
 source $FIREDRAKE_DIR/bin/activate
 
-# Reset PYTHONPATH
+# Reset environment
 export PYTHONPATH=$PYTHONPATH_TMP
 
-# Very basic test of installation
-cd $FIREDRAKE_DIR/src/firedrake
-python3 tests/test_adapt_2d.py
+# Basic test of metric-based functionality
+cd $FIREDRAKE_DIR/src/firedrake/tests/regression
+pytest -v test_meshadapt.py

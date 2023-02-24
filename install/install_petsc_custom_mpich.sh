@@ -26,7 +26,7 @@ read chk
 # Checkout appropriate branch
 cd $SOFTWARE
 git clone https://gitlab.com/petsc/petsc.git petsc
-cp configure_petsc.py petsc/
+cp configure_petsc_custom_mpich.py petsc/
 cd petsc
 git remote add firedrake https://github.com/firedrakeproject/petsc.git
 git fetch firedrake $PETSC_BRANCH
@@ -34,7 +34,7 @@ git checkout firedrake/$PETSC_BRANCH
 git checkout -b $PETSC_BRANCH
 
 # Configure and install
-./configure_petsc.py
+./configure_petsc_custom_mpich.py
 make PETSC_DIR=$PETSC_DIR PETSC_ARCH=$PETSC_ARCH all
 make PETSC_DIR=$PETSC_DIR PETSC_ARCH=$PETSC_ARCH check
 cd ..
