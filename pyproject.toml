@@ -7,7 +7,8 @@ exclude = '''
 )/
 '''
 
-[tools.pytest.ini_options]
-markers = [
-	"slow: mark test as slow"
+[tool.pytest.ini_options]
+filterwarnings = [
+	"ignore:`np.bool8` is a deprecated alias for `np.bool_`*:DeprecationWarning",
+	"ignore:unable to find git revision*:UserWarning",
 ]
