@@ -137,7 +137,7 @@ def double_l2_projection(
         )
         sp = {"pc_mat_factor_solver_type": "mumps"}
         firedrake.solve(a == L, l2_projection, solver_parameters=sp)
-    return l2_projection.split()
+    return l2_projection.subfunctions
 
 
 @PETSc.Log.EventDecorator("pyroteus.recovery_boundary_hessian")

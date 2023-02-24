@@ -115,7 +115,7 @@ def get_initial_condition(self):
     x, y = SpatialCoordinate(self[0])
     u_inflow = as_vector([y * (10 - y) / 25.0, 0])
     up = Function(self.function_spaces["up"][0])
-    u, p = up.split()
+    u, p = up.subfunctions
     u.interpolate(u_inflow)
     return {"up": up}
 
@@ -127,7 +127,7 @@ def get_qoi(self, sol, i):
     """
 
     def steady_qoi():
-        u, p = sol["up"].split()
+        u, p = split(sol["up"])
         return p * ds(4)
 
     return steady_qoi
