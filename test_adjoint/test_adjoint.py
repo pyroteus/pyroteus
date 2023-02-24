@@ -254,7 +254,9 @@ def plot_solutions(problem, qoi_type, debug=True):
             to_plot = []
             for field in time_partition.fields:
                 sol = solutions[field][label][0][k]
-                to_plot += [sol] if not hasattr(sol, "split") else list(sol.split())
+                to_plot += (
+                    [sol] if not hasattr(sol, "split") else list(sol.subfunctions)
+                )
             outfiles[label].write(*to_plot)
 
 

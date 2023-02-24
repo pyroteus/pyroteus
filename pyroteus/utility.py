@@ -207,7 +207,7 @@ def errornorm(u, uh: Function, norm_type: str = "L2", **kwargs) -> float:
     # Case 2: UFL norms for mixed function spaces
     elif hasattr(uh.function_space(), "num_sub_spaces"):
         if norm_type == "L2":
-            vv = [uu - uuh for uu, uuh in zip(u.split(), uh.split())]
+            vv = [uu - uuh for uu, uuh in zip(u.subfunctions, uh.subfunctions)]
             dX = ufl.ds if kwargs.get("boundary", False) else ufl.dx
             return ufl.sqrt(firedrake.assemble(sum([ufl.inner(v, v) for v in vv]) * dX))
         else:

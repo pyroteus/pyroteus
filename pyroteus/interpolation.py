@@ -201,7 +201,7 @@ def mesh2mesh_project(
     elif hasattr(target_space, "num_sub_spaces"):
         assert hasattr(source_space, "num_sub_spaces")
         assert target_space.num_sub_spaces() == source_space.num_sub_spaces()
-        for s, t in zip(source.split(), target.split()):
+        for s, t in zip(source.subfunctions, target.subfunctions):
             t.project(s, **kwargs)
     else:
         target.project(source, **kwargs)
@@ -245,8 +245,8 @@ def mesh2mesh_project_adjoint(
             raise ValueError(f"Incompatible spaces {source_space} and {target_space}")
         if not target_space.num_sub_spaces() == source_space.num_sub_spaces():
             raise ValueError(f"Incompatible spaces {source_space} and {target_space}")
-        target_b_split = target_b.split()
-        source_b_split = source_b.split()
+        target_b_split = target_b.subfunctions
+        source_b_split = source_b.subfunctions
     elif hasattr(target_space, "num_sub_spaces"):
         raise ValueError(f"Incompatible spaces {source_space} and {target_space}")
     else:
