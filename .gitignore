@@ -3,12 +3,14 @@ bench/
 build/
 data/
 docs/source/demos/
+htmlcov*
 outputs/
 plots/
 __pycache__/
 pyroteus.egg-info/
 
 # Specific files
+.coverage
 docs/source/pyroteus.rst
 
 # File extensions
