@@ -34,11 +34,19 @@ def annotate_qoi(get_qoi: Callable) -> Callable:
         num_kwargs = 0 if qoi.__defaults__ is None else len(qoi.__defaults__)
         num_args = qoi.__code__.co_argcount - num_kwargs
         if num_args == 0:
-            mesh_seq.qoi_type in ["end_time", "steady"]
+            if mesh_seq.qoi_type not in ["end_time", "steady"]:
+                raise ValueError(
+                    "Expected qoi_type to be 'end_time' or 'steady',"
+                    f" not '{mesh_seq.qoi_type}'."
+                )
         elif num_args == 1:
-            mesh_seq.qoi_type = "time_integrated"
+            if mesh_seq.qoi_type != "time_integrated":
+                raise ValueError(
+                    "Expected qoi_type to be 'time_integrated',"
+                    f" not '{mesh_seq.qoi_type}'."
+                )
         else:
-            raise ValueError(f"QoI should have 0 or 1 args, not {num_args}")
+            raise ValueError(f"QoI should have 0 or 1 args, not {num_args}.")
 
         @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.evaluate_qoi")
         @wraps(qoi)
@@ -77,7 +85,10 @@ class AdjointMeshSeq(MeshSeq):
             kwargs["parameters"] = GoalOrientedParameters()
         self.qoi_type = kwargs.pop("qoi_type")
         if self.qoi_type not in ["end_time", "time_integrated", "steady"]:
-            raise ValueError(f"QoI type {self.qoi_type} not recognised")
+            raise ValueError(
+                f"QoI type '{self.qoi_type}' not recognised."
+                " Choose from 'end_time', 'time_integrated', or 'steady'."
+            )
         self.steady = self.qoi_type == "steady"
         super().__init__(time_partition, initial_meshes, **kwargs)
         self._get_qoi = kwargs.get("get_qoi")
@@ -93,7 +104,7 @@ class AdjointMeshSeq(MeshSeq):
     @annotate_qoi
     def get_qoi(self, solution_map: dict, i: int) -> Callable:
         if self._get_qoi is None:
-            raise NotImplementedError("get_qoi needs implementing")
+            raise NotImplementedError("'get_qoi' is not implemented.")
         return self._get_qoi(self, solution_map, i)
 
     @pyadjoint.no_annotations
