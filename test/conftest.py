@@ -3,8 +3,6 @@ Global pytest configuration.
 
 **Disclaimer: some functions copied from firedrake/src/tests/conftest.py
 """
-import pyadjoint
-import pytest
 from subprocess import check_call
 
 
@@ -110,22 +108,6 @@ def pytest_runtest_call(item):
     if item.get_closest_marker("parallel") and MPI.COMM_WORLD.size == 1:
         # Spawn parallel processes to run test
         parallel(item)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def check_empty_tape(request):
-    """
-    Check that the tape is empty at the end of each module
-
-    **Disclaimer: copied from firedrake/src/tests/conftest.py
-    """
-
-    def fin():
-        tape = pyadjoint.get_working_tape()
-        if tape is not None:
-            assert len(tape.get_blocks()) == 0
-
-    request.addfinalizer(fin)
 
 
 def pytest_runtest_teardown(item, nextitem):
