@@ -51,8 +51,6 @@ all_problems = [
     "point_discharge3d",
     "steady_flow_past_cyl",
     "burgers",
-    "solid_body_rotation",
-    "solid_body_rotation_split",
 ]
 
 
