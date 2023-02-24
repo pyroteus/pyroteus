@@ -23,7 +23,6 @@ __all__ = [
     "combine_metrics",
     "determine_metric_complexity",
     "density_and_quotients",
-    "check_spd",
     "ramp_complexity",
 ]
 
@@ -803,47 +802,6 @@ def density_and_quotients(metric: Function, reorder: bool = False) -> List[Funct
     density.interpolate(1 / np.prod(magnitudes))
     quotients.interpolate(ufl.as_vector([density * h**dim for h in magnitudes]))
     return density, quotients, evectors
-
-
-@PETSc.Log.EventDecorator("pyroteus.is_symmetric")
-def is_symmetric(M: Function, rtol: float = 1.0e-08) -> bool:
-    """
-    Determine whether a tensor field is symmetric.
-
-    :arg M: the tensor field
-    :kwarg rtol: relative tolerance for the test
-    """
-    err = firedrake.assemble(abs(ufl.det(M - ufl.transpose(M))) * ufl.dx)
-    return err / firedrake.assemble(abs(ufl.det(M)) * ufl.dx) < rtol
-
-
-@PETSc.Log.EventDecorator("pyroteus.is_pos_def")
-def is_pos_def(M: Function) -> bool:
-    """
-    Determine whether a tensor field is positive-definite.
-
-    :arg M: the tensor field
-    """
-    return compute_eigendecomposition(M)[1].vector().gather().min() > 0.0
-
-
-def is_spd(M: Function) -> bool:
-    """
-    Determine whether a tensor field is symmetric positive-definite.
-
-    :arg M: the tensor field
-    """
-    return is_symmetric(M) and is_pos_def(M)
-
-
-def check_spd(M: Function):
-    """
-    Verify that a tensor field is symmetric positive-definite.
-
-    :arg M: the tensor field
-    """
-    assert is_symmetric(M), "FAIL: Matrix is not symmetric"
-    assert is_pos_def(M), "FAIL: Matrix is not positive-definite"
 
 
 def ramp_complexity(
