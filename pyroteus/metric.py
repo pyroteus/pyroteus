@@ -10,12 +10,10 @@ from typing import List, Optional, Tuple, Union
 __all__ = [
     "compute_eigendecomposition",
     "assemble_eigendecomposition",
-    "metric_complexity",
     "isotropic_metric",
     "anisotropic_metric",
     "hessian_metric",
     "enforce_element_constraints",
-    "space_normalise",
     "space_time_normalise",
     "metric_relaxation",
     "metric_average",
@@ -117,21 +115,6 @@ def assemble_eigendecomposition(evectors: Function, evalues: Function) -> Functi
 
 
 # --- General
-
-
-@PETSc.Log.EventDecorator("pyroteus.metric_complexity")
-def metric_complexity(metric: Function, boundary: bool = False) -> float:
-    """
-    Compute the complexity of a metric.
-
-    This is the continuous analogue of the
-    (discrete) mesh vertex count.
-
-    :kwarg boundary: compute metric on domain
-        interior or boundary?
-    """
-    differential = ufl.ds if boundary else ufl.dx
-    return firedrake.assemble(ufl.sqrt(ufl.det(metric)) * differential)
 
 
 @PETSc.Log.EventDecorator("pyroteus.isotropic_metric")
@@ -475,46 +458,6 @@ def enforce_element_constraints(
 
 
 # --- Normalisation
-
-
-@PETSc.Log.EventDecorator("pyroteus.space_normalise")
-def space_normalise(
-    metric: Function,
-    target: float,
-    p: float,
-    global_factor: Optional[float] = None,
-    boundary: bool = False,
-) -> Function:
-    r"""
-    Apply :math:`L^p` normalisation in space alone.
-
-    :arg metric: :class:`firedrake.function.Function`\s
-        corresponding to the metric to be normalised.
-    :arg target: target metric complexity *in space alone*.
-    :arg p: normalisation order.
-    :kwarg global_factor: optional pre-computed global
-        normalisation factor.
-    :kwarg boundary: is the normalisation over the domain
-        boundary?
-    """
-    assert p == "inf" or p >= 1.0, f"Norm order {p} not valid"
-    d = metric.function_space().mesh().topological_dimension()
-    if boundary:
-        d -= 1
-
-    # Compute global normalisation factor
-    if global_factor is None:
-        detM = ufl.det(metric)
-        dX = ufl.ds if boundary else ufl.dx
-        integral = firedrake.assemble(
-            pow(detM, 0.5 if p == "inf" else p / (2 * p + d)) * dX
-        )
-        global_factor = firedrake.Constant(pow(target / integral, 2 / d))
-
-    # Normalise
-    determinant = 1 if p == "inf" else pow(ufl.det(metric), -1 / (2 * p + d))
-    metric.interpolate(global_factor * determinant * metric)
-    return metric
 
 
 @PETSc.Log.EventDecorator("pyroteus.space_time_normalise")
