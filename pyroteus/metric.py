@@ -2,6 +2,7 @@
 Driver functions for metric-based mesh adaptation.
 """
 from .utility import *
+from firedrake.meshadapt import RiemannianMetric
 from .interpolation import clement_interpolant
 from collections.abc import Iterable
 from typing import List, Optional, Tuple, Union
@@ -37,21 +38,22 @@ def get_metric_kernel(func: str, dim: int) -> op2.Kernel:
     return op2.Kernel(code, func, cpp=True, include_dirs=include_dir)
 
 
-@PETSc.Log.EventDecorator("pyroteus.compute_eigendecomposition")
+@PETSc.Log.EventDecorator()
 def compute_eigendecomposition(
-    metric: Function, reorder: bool = False
+    metric: RiemannianMetric, reorder: bool = False
 ) -> Tuple[Function, Function]:
     """
     Compute the eigenvectors and eigenvalues of
     a matrix-valued function.
 
-    :arg M: a :class:`firedrake.function.Function` from a
-        :func:`firedrake.functionspace.TensorFunctionSpace`
+    :arg M: a :class:`firedrake.meshadapt.RiemannianMetric`
     :kwarg reorder: should the eigendecomposition
         be reordered in order of *descending*
         eigenvalue magnitude?
-    :return: eigenvector :class:`firedrake.function.Function`,
-        eigenvalue :class:`firedrake.function.Function`
+    :return: eigenvector :class:`firedrake.function.Function` and
+        eigenvalue :class:`firedrake.function.Function` from the
+        :func:`firedrake.functionspace.TensorFunctionSpace`
+        underpinning the metric
     """
     V_ten = metric.function_space()
     if len(V_ten.ufl_element().value_shape()) != 2:
@@ -77,8 +79,10 @@ def compute_eigendecomposition(
     return evectors, evalues
 
 
-@PETSc.Log.EventDecorator("pyroteus.assemble_eigendecomposition")
-def assemble_eigendecomposition(evectors: Function, evalues: Function) -> Function:
+@PETSc.Log.EventDecorator()
+def assemble_eigendecomposition(
+    evectors: Function, evalues: Function
+) -> RiemannianMetric:
     """
     Assemble a matrix from its eigenvectors and
     eigenvalues.
@@ -87,8 +91,8 @@ def assemble_eigendecomposition(evectors: Function, evalues: Function) -> Functi
         :class:`firedrake.function.Function`
     :arg evalues: eigenvalue
         :class:`firedrake.function.Function`
-    :return: the assembled matrix
-        :class:`firedrake.function.Function`
+    :return: the assembled matrix as a
+        :class:`firedrake.meshadapt.RiemannianMetric`
     """
     V_ten = evectors.function_space()
     fe_ten = V_ten.ufl_element()
@@ -103,7 +107,7 @@ def assemble_eigendecomposition(evectors: Function, evalues: Function) -> Functi
     if fe_ten.degree() != fe_vec.degree():
         raise ValueError("Mismatching finite element space degrees")
     dim = V_ten.mesh().topological_dimension()
-    M = Function(V_ten)
+    M = RiemannianMetric(V_ten)
     op2.par_loop(
         get_metric_kernel("set_eigendecomposition", dim),
         V_ten.node_set,
@@ -681,8 +685,10 @@ def combine_metrics(
 # --- Metric decompositions and properties
 
 
-@PETSc.Log.EventDecorator("pyroteus.density_and_quotients")
-def density_and_quotients(metric: Function, reorder: bool = False) -> List[Function]:
+@PETSc.Log.EventDecorator()
+def density_and_quotients(
+    metric: RiemannianMetric, reorder: bool = False
+) -> List[Function]:
     r"""
     Extract the density and anisotropy quotients from a
     metric.
