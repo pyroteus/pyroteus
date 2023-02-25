@@ -22,21 +22,83 @@
 # obtained by adding more degrees of freedom to the base space. This could
 # be done by solving global or local auxiliary PDEs, or by applying patch
 # recovery type methods. Currently, only global enrichment is supported in
-# Pyroteus.
-#
-# First, import the various functions and create a sequence of meshes
-# and a :class:`TimePartition`. ::
+# Pyroteus. ::
 
 from firedrake import *
 from pyroteus_adjoint import *
-from burgers1 import (
-    fields,
-    get_function_spaces,
-    get_form,
-    get_solver,
-    get_initial_condition,
-    get_qoi,
-)
+
+# Redefine the ``fields`` variable and the getter functions as in the first
+# adjoint Burgers demo. ::
+
+fields = ["u"]
+
+
+def get_function_spaces(mesh):
+    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
+
+
+def get_form(mesh_seq):
+    def form(index, solutions):
+        u, u_ = solutions["u"]
+        P = mesh_seq.time_partition
+        dt = Constant(P.timesteps[index])
+
+        # Specify viscosity coefficient
+        nu = Constant(0.0001)
+
+        # Setup variational problem
+        v = TestFunction(u.function_space())
+        F = (
+            inner((u - u_) / dt, v) * dx
+            + inner(dot(u, nabla_grad(u)), v) * dx
+            + nu * inner(grad(u), grad(v)) * dx
+        )
+        return F
+
+    return form
+
+
+def get_solver(mesh_seq):
+    def solver(index, ic):
+        function_space = mesh_seq.function_spaces["u"][index]
+        u = Function(function_space)
+
+        # Initialise 'lagged' solution
+        u_ = Function(function_space, name="u_old")
+        u_.assign(ic["u"])
+
+        # Define form
+        F = mesh_seq.form(index, {"u": (u, u_)})
+
+        # Time integrate from t_start to t_end
+        P = mesh_seq.time_partition
+        t_start, t_end = P.subintervals[index]
+        dt = P.timesteps[index]
+        t = t_start
+        while t < t_end - 1.0e-05:
+            solve(F == 0, u, ad_block_tag="u")
+            u_.assign(u)
+            t += dt
+        return {"u": u}
+
+    return solver
+
+
+def get_initial_condition(mesh_seq):
+    fs = mesh_seq.function_spaces["u"][0]
+    x, y = SpatialCoordinate(mesh_seq[0])
+    return {"u": interpolate(as_vector([sin(pi * x), 0]), fs)}
+
+
+def get_qoi(mesh_seq, solutions, i):
+    def end_time_qoi():
+        u = solutions["u"]
+        return inner(u, u) * ds(2)
+
+    return end_time_qoi
+
+
+# Next, create a sequence of meshes and a :class:`TimePartition`. ::
 
 n = 32
 meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="left")]
