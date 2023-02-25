@@ -121,10 +121,10 @@ def assemble_eigendecomposition(
 # --- General
 
 
-@PETSc.Log.EventDecorator("pyroteus.isotropic_metric")
+@PETSc.Log.EventDecorator()
 def isotropic_metric(
     error_indicator: Function, interpolant: str = "Clement", **kwargs
-) -> Function:
+) -> RiemannianMetric:
     r"""
     Compute an isotropic metric from some error indicator.
 
@@ -138,6 +138,8 @@ def isotropic_metric(
         in which the metric will exist
     :kwarg interpolant: choose from 'Clement', 'L2',
         'interpolate', 'project'
+    :return: the isotropic
+        :class:`firedrake.meshadapt.RiemannianMetric`
     """
     target_space = kwargs.get("target_space")
     mesh = error_indicator.ufl_domain()
@@ -146,6 +148,7 @@ def isotropic_metric(
     target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
     assert target_space.ufl_element().family() == "Lagrange"
     assert target_space.ufl_element().degree() == 1
+    metric = RiemannianMetric(target_space)
 
     # Interpolate P0 indicators into P1 space
     if interpolant == "Clement":
@@ -162,18 +165,15 @@ def isotropic_metric(
                 )
             error_indicator = clement_interpolant(error_indicator)
     if interpolant in ("Clement", "interpolate"):
-        return firedrake.interpolate(
-            abs(error_indicator) * ufl.Identity(dim), target_space
-        )
+        metric.interpolate(abs(error_indicator) * ufl.Identity(dim), target_space)
     elif interpolant in ("L2", "project"):
         error_indicator = firedrake.project(
             error_indicator, FunctionSpace(mesh, "CG", 1)
         )
-        return firedrake.interpolate(
-            abs(error_indicator) * ufl.Identity(dim), target_space
-        )
+        metric.interpolate(abs(error_indicator) * ufl.Identity(dim), target_space)
     else:
         raise ValueError(f"Interpolant {interpolant} not recognised")
+    return metric
 
 
 @PETSc.Log.EventDecorator("pyroteus.hessian_metric")
