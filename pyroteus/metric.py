@@ -547,9 +547,12 @@ def determine_metric_complexity(
     import sympy
 
     d = H_interior.function_space().mesh().topological_dimension()
-    assert d in (2, 3), f"Spatial dimension {dim:d} not supported."
-    if p == "inf":
-        raise NotImplementedError  # TODO
+    if d not in (2, 3):
+        raise ValueError(f"Spatial dimension {d} not supported.")
+    if np.isinf(p):
+        raise NotImplementedError(
+            "Metric complexity cannot be determined in the L-infinity case."
+        )
     g = kwargs.get("H_interior_scaling", firedrake.Constant(1.0))
     gbar = kwargs.get("H_boundary_scaling", firedrake.Constant(1.0))
     g = pow(g, d / (2 * p + d))
