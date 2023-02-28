@@ -203,8 +203,8 @@ def hessian_metric(hessian: Function) -> Function:
 
 
 def anisotropic_metric(
-    error_indicator: Function, hessian: Function, **kwargs
-) -> Function:
+    error_indicator: Function, hessian: RiemannianMetric, **kwargs
+) -> RiemannianMetric:
     r"""
     Compute an element-wise anisotropic metric from some
     error indicator, given a Hessian field.
@@ -235,7 +235,7 @@ def anisotropic_metric(
         raise ValueError(f"Anisotropic metric approach {approach} not recognised.")
 
 
-@PETSc.Log.EventDecorator("pyroteus.anisotropic_dwr_metric")
+@PETSc.Log.EventDecorator()
 def anisotropic_dwr_metric(
     error_indicator: Function, interpolant: str = "Clement", **kwargs
 ) -> Function:
@@ -276,14 +276,21 @@ def anisotropic_dwr_metric(
     target_complexity = kwargs.get("target_complexity", None)
     # min_eigenvalue = kwargs.get("min_eigenvalue", 1.0e-05)
     # TODO: why was this ^^^ here?
-    assert target_complexity > 0.0, "Target complexity must be positive"
+    if target_complexity <= 0.0:
+        raise ValueError(
+            f"Target complexity must be positive, not {target_complexity}."
+        )
     mesh = error_indicator.ufl_domain()
     dim = mesh.topological_dimension()
-    assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
+    if dim not in (2, 3):
+        raise ValueError(f"Spatial dimension {dim} not supported. Must be 2 or 3.")
     convergence_rate = kwargs.get("convergence_rate", 1.0)
-    assert convergence_rate >= 1.0, "Convergence rate must be at least one"
+    if convergence_rate < 1.0:
+        raise ValueError(
+            f"Convergence rate must be at least one, not {convergence_rate}."
+        )
     P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
-    P0_metric = Function(P0_ten)
+    P0_metric = RiemannianMetric(P0_ten)
 
     # Get reference element volume
     K_hat = 1 / 2 if dim == 2 else 1 / 6
@@ -298,9 +305,11 @@ def anisotropic_dwr_metric(
     K_ratio = pow(abs(K_hat / K_opt), 2 / dim)
     if hessian is None:
         P0_metric.interpolate(K_ratio * ufl.Identity(dim))
+        P0_metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
     else:
         # Interpolate from P1 to P0 by averaging the vertex-wise values
-        P0_metric.assign(hessian_metric(firedrake.project(hessian, P0_ten)))
+        P0_metric.project(hessian)
+        P0_metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
 
         # Compute stretching factors, in ascending order
         evectors, evalues = compute_eigendecomposition(P0_metric, reorder=True)
@@ -314,24 +323,30 @@ def anisotropic_dwr_metric(
         # lmin = max(v.min(), min_eigenvalue)
         # TODO: why was this ^^^ here?
         if np.isnan(v).any():
-            raise ValueError("At least one modified stretching factor is not finite")
+            raise ValueError("At least one modified stretching factor is not finite.")
         P0_metric.assign(assemble_eigendecomposition(evectors, evalues))
 
     # Interpolate the metric into target space and ensure SPD
     target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
+    metric = RiemannianMetric(target_space)
     if interpolant == "Clement":
-        return hessian_metric(clement_interpolant(P0_metric, target_space=target_space))
+        metric.assign(clement_interpolant(P0_metric, target_space=target_space))
     elif interpolant == "interpolate":
-        return hessian_metric(firedrake.interpolate(P0_metric, target_space))
+        metric.interpolate(P0_metric)
     elif interpolant in ("project", "L2"):
-        return hessian_metric(firedrake.project(P0_metric, target_space))
+        metric.project(P0_metric)
     else:
         raise ValueError(f"Interpolant {interpolant} not recognised")
+    metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
+    return metric
 
 
-@PETSc.Log.EventDecorator("pyroteus.weighted_hessian_metric")
+@PETSc.Log.EventDecorator()
 def weighted_hessian_metric(
-    error_indicators: list, hessians: list, interpolant: str = "Clement", **kwargs
+    error_indicators: List[Function],
+    hessians: List[RiemannianMetric],
+    interpolant: str = "Clement",
+    **kwargs,
 ) -> Function:
     r"""
     Compute a vertex-wise anisotropic metric from a (list
@@ -358,11 +373,12 @@ def weighted_hessian_metric(
         hessians = [hessians]
     mesh = hessians[0].ufl_domain()
     dim = mesh.topological_dimension()
-    assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
+    if dim not in (2, 3):
+        raise ValueError(f"Spatial dimension {dim:d} not supported. Must be 2 or 3.")
 
     # Project error indicators into P1 space and use them to weight Hessians
     target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
-    metrics = [Function(target_space, name="Metric") for hessian in hessians]
+    metrics = [RiemannianMetric(target_space) for hessian in hessians]
     for error_indicator, hessian, metric in zip(error_indicators, hessians, metrics):
         if interpolant == "Clement":
             error_indicator = clement_interpolant(error_indicator)
