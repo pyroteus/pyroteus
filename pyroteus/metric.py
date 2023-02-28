@@ -796,11 +796,15 @@ def ramp_complexity(
     :arg i: the current iteration
     :kwarg num_iterations: how many iterations to ramp over?
     """
-    assert base > 0.0
-    assert target > 0.0
-    assert i >= 0
-    if num_iterations == 0:
-        return target
-    assert num_iterations > 0
+    if base <= 0.0:
+        raise ValueError(f"Base complexity must be positive, not {base}.")
+    if target <= 0.0:
+        raise ValueError(f"Target complexity must be positive, not {target}.")
+    if i < 0:
+        raise ValueError(f"Current iteration must be non-negative, not {i}.")
+    if num_iterations < 0:
+        raise ValueError(
+            f"Number of iterations must be non-negative, not {num_iterations}."
+        )
     alpha = min(i / num_iterations, 1)
     return alpha * target + (1 - alpha) * base
