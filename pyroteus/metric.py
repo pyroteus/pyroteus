@@ -475,53 +475,71 @@ def enforce_element_constraints(
 # --- Normalisation
 
 
-@PETSc.Log.EventDecorator("pyroteus.space_time_normalise")
+@PETSc.Log.EventDecorator()
 def space_time_normalise(
-    metrics: List[Function],
+    metrics: List[RiemannianMetric],
     end_time: float,
     timesteps: List[float],
-    target: float,
-    p: float,
-) -> List[Function]:
+    metric_parameters: dict,
+    global_factor: Optional[float] = None,
+    boundary: bool = False,
+    **kwargs,
+) -> List[RiemannianMetric]:
     r"""
     Apply :math:`L^p` normalisation in both space and time.
 
-    :arg metrics: list of :class:`firedrake.function.Function`\s
+    :arg metrics: list of :class:`firedrake.meshadapt.RiemannianMetric`\s
         corresponding to the metric associated with
         each subinterval
     :arg end_time: end time of simulation
     :arg timesteps: list of timesteps specified in each
         subinterval
-    :arg target: target *space-time* metric complexity
-    :arg p: normalisation order
+    :arg metric_parameters: dictionary containing the target *space-time*
+        metric complexity under `dm_plex_metric_target_complexity` and the
+        normalisation order under `dm_plex_metric_p`
+    :kwarg global_factor: pre-computed global normalisation factor
+    :kwarg boundary: is the normalisation to be done over the boundary?
+    :kwarg restrict_sizes: should minimum and maximum metric magnitudes
+        be enforced?
+    :kwarg restrict_anisotropy: should maximum anisotropy be enforced?
     """
-    # NOTE: Assumes uniform subinterval lengths
-    assert p == "inf" or p >= 1.0, f"Norm order {p} not valid"
-    num_subintervals = len(metrics)
-    assert len(timesteps) == num_subintervals
-    dt_per_mesh = [
-        firedrake.Constant(end_time / num_subintervals / dt) for dt in timesteps
-    ]
+    p = metric_parameters.get("dm_plex_metric_p")
+    if p is None:
+        raise ValueError("Normalisation order 'dm_plex_metric_p' must be set.")
+    if not (np.isinf(p) or p >= 1.0):
+        raise ValueError(f"Normalisation order {p} not valid.")
+    target = metric_parameters.get("dm_plex_metric_target_complexity")
+    if target is None:
+        raise ValueError(
+            "Target complexity 'dm_plex_metric_target_complexity' must be set."
+        )
+    if target < 0.0:
+        raise ValueError("Target complexity must be positive.")
+
+    # TODO: Avoid assuming uniform subinterval lengths
+    assert len(metrics) == len(timesteps)
+    dt_per_mesh = [firedrake.Constant(end_time / len(metrics) / dt) for dt in timesteps]
     d = metrics[0].function_space().mesh().topological_dimension()
 
+    # Enforce that the metric is SPD
+    for metric in metrics:
+        metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
+
     # Compute global normalisation factor
-    integral = 0
-    for metric, tau in zip(metrics, dt_per_mesh):
-        detM = ufl.det(metric)
-        if p == "inf":
-            integral += firedrake.assemble(tau * ufl.sqrt(detM) * ufl.dx)
-        else:
-            integral += firedrake.assemble(
-                pow(tau**2 * detM, p / (2 * p + d)) * ufl.dx
-            )
-    global_norm = firedrake.Constant(pow(target / integral, 2 / d))
+    if global_factor is None:
+        integral = 0
+        for metric, tau in zip(metrics, dt_per_mesh):
+            detM = ufl.det(metric)
+            dX = (ufl.ds if boundary else ufl.dx)(metric.function_space().mesh())
+            exponent = 0.5 if np.isinf(p) else (p / (2 * p + d))
+            integral += firedrake.assemble(pow(tau**2 * detM, exponent) * dX)
+        global_factor = firedrake.Constant(pow(target / integral, 2 / d))
 
     # Normalise on each subinterval
     for metric, tau in zip(metrics, dt_per_mesh):
-        determinant = (
-            1 if p == "inf" else pow(tau**2 * ufl.det(metric), -1 / (2 * p + d))
-        )
-        metric.interpolate(global_norm * determinant * metric)
+        metric.set_parameters(metric_parameters)
+        metric.normalise(global_factor=pow(tau, -2 / (2 * p + d)) * global_factor)
+        metric.enforce_spd(**kwargs)
     return metrics
 
 
