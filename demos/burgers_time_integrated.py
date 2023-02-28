@@ -11,7 +11,41 @@
 
 from firedrake import *
 from pyroteus_adjoint import *
-from burgers import get_initial_condition, get_function_spaces, get_form
+
+# Redefine the ``get_initial_condition``, ``get_function_spaces``,
+# and ``get_form`` functions as in the first Burgers demo. ::
+
+
+def get_function_spaces(mesh):
+    return {"u": VectorFunctionSpace(mesh, "CG", 2)}
+
+
+def get_form(mesh_seq):
+    def form(index, solutions):
+        u, u_ = solutions["u"]
+        P = mesh_seq.time_partition
+        dt = Constant(P.timesteps[index])
+
+        # Specify viscosity coefficient
+        nu = Constant(0.0001)
+
+        # Setup variational problem
+        v = TestFunction(u.function_space())
+        F = (
+            inner((u - u_) / dt, v) * dx
+            + inner(dot(u, nabla_grad(u)), v) * dx
+            + nu * inner(grad(u), grad(v)) * dx
+        )
+        return F
+
+    return form
+
+
+def get_initial_condition(mesh_seq):
+    fs = mesh_seq.function_spaces["u"][0]
+    x, y = SpatialCoordinate(mesh_seq[0])
+    return {"u": interpolate(as_vector([sin(pi * x), 0]), fs)}
+
 
 # The solver needs to be modified slightly in order to take
 # account of time dependent QoIs. The Burgers solver

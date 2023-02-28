@@ -137,9 +137,9 @@ class QualityMeasure:
             c = ufl.sqrt(ufl.dot(edge3, edge3))
             detJ = ufl.JacobianDeterminant(self.mesh)
             jacobian_sign = ufl.sign(detJ)
-            max_product = ufl.Max(
-                ufl.Max(ufl.Max(a * b, a * c), ufl.Max(b * c, b * a)),
-                ufl.Max(c * a, c * b),
+            max_product = ufl.max_value(
+                ufl.max_value(ufl.max_value(a * b, a * c), ufl.max_value(b * c, b * a)),
+                ufl.max_value(c * a, c * b),
             )
             return interpolate(detJ / max_product * jacobian_sign, self.P0)
         else:
