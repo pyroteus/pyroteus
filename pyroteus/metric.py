@@ -380,9 +380,10 @@ def weighted_hessian_metric(
     return combine_metrics(*metrics, average=kwargs.get("average", False))
 
 
-@PETSc.Log.EventDecorator("pyroteus.enforce_element_constraints")
+# TODO: Implement this on the PETSc level and port it through to Firedrake
+@PETSc.Log.EventDecorator()
 def enforce_element_constraints(
-    metrics: List[Function],
+    metrics: List[RiemannianMetric],
     h_min: List[Function],
     h_max: List[Function],
     a_max: List[Function],
@@ -409,7 +410,7 @@ def enforce_element_constraints(
     from collections.abc import Iterable
     from firedrake import Function
 
-    if isinstance(metrics, Function):
+    if isinstance(metrics, RiemannianMetric):
         metrics = [metrics]
     if not isinstance(h_min, Iterable):
         h_min = [h_min] * len(metrics)
@@ -420,29 +421,39 @@ def enforce_element_constraints(
     for metric, hmin, hmax, amax in zip(metrics, h_min, h_max, a_max):
         fs = metric.function_space()
         mesh = fs.mesh()
+        P1 = FunctionSpace(mesh, "CG", 1)
+
+        def interp(f):
+            if isinstance(f, Function):
+                return Function(P1).assign(f)
+            else:
+                return clement_interpolant(f)
 
         # Interpolate hmin, hmax and amax into P1
-        P1 = FunctionSpace(mesh, "CG", 1)
-        hmin = (
-            clement_interpolant if isinstance(hmin, Function) else Function(P1).assign
-        )(hmin)
-        hmax = (
-            clement_interpolant if isinstance(hmax, Function) else Function(P1).assign
-        )(hmax)
-        amax = (
-            clement_interpolant if isinstance(amax, Function) else Function(P1).assign
-        )(amax)
+        hmin = interp(hmin)
+        hmax = interp(hmax)
+        amax = interp(amax)
 
         # Check the values are okay
         if not optimise:
             _hmin = hmin.vector().gather().min()
-            assert _hmin > 0.0
-            assert hmax.vector().gather().min() > _hmin
+            if _hmin <= 0.0:
+                raise ValueError(
+                    f"Encountered negative non-positive hmin value: {_hmin}."
+                )
+            if hmax.vector().gather().min() < _hmin:
+                raise ValueError(
+                    f"Encountered hmax value smaller than hmin: {_hmax} vs. {_hmin}."
+                )
             dx = ufl.dx(domain=mesh)
-            assert np.isclose(
-                firedrake.assemble(ufl.conditional(hmax < hmin, 1, 0) * dx), 0.0
-            )
-            assert amax.vector().gather().min() > 1.0
+            integral = firedrake.assemble(ufl.conditional(hmax < hmin, 1, 0) * dx)
+            if not np.isclose(integral, 0.0):
+                raise ValueError(
+                    f"Encountered regions where hmax < hmin: volume {integral}."
+                )
+            _amax = amax.vector().gather().min()
+            if _amax < 1.0:
+                raise ValueError(f"Encountered amax value smaller than unity: {_amax}.")
 
         # Enforce constraints
         dim = fs.mesh().topological_dimension()
