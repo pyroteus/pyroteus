@@ -16,7 +16,7 @@ __all__ = [
     "hessian_metric",
     "enforce_element_constraints",
     "space_time_normalise",
-    "metric_intersection",
+    "intersect_on_boundary",
     "combine_metrics",
     "determine_metric_complexity",
     "density_and_quotients",
@@ -613,54 +613,63 @@ def determine_metric_complexity(
 # --- Combination
 
 
-@PETSc.Log.EventDecorator("pyroteus.metric_intersection")
-def metric_intersection(
-    *metrics: Tuple[Function],
-    function_space: Optional[FunctionSpace] = None,
-    boundary_tag: Optional[Union[str, int]] = None,
+@PETSc.Log.EventDecorator()
+def intersect_on_boundary(
+    *metrics: Tuple[RiemannianMetric],
+    boundary_tag: Union[str, int] = "on_boundary",
 ) -> Function:
     """
     Combine a list of metrics by intersection.
 
     :arg metrics: the metrics to be combined
-    :kwarg function_space: the
-        :class:`firedrake.functionspaceimpl.FunctionSpace`
-        the intersected metric should live in
     :kwarg boundary_tag: optional boundary segment physical
         ID for boundary intersection. Otherwise, the
-        intersection is over the whole domain
+        intersection is over the whole domain ('on_boundary')
     """
     n = len(metrics)
     assert n > 0, "Nothing to combine"
-    fs = function_space or metrics[0].function_space()
-    for metric in metrics:
-        if not isinstance(metric, Function) or metric.function_space() != fs:
-            metric = firedrake.interpolate(metric, function_space)
-    intersected_metric = Function(metrics[0])
-    if boundary_tag is None:
-        node_set = fs.node_set
-    elif boundary_tag == []:
-        raise ValueError(
-            "It is unclear what to do with an empty list of boundary tags."
-        )
-    else:
-        node_set = firedrake.DirichletBC(fs, 0, boundary_tag).node_set
+    fs = metrics[0].function_space()
     dim = fs.mesh().topological_dimension()
-    assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
+    if dim not in (2, 3):
+        raise ValueError(
+            f"Spatial dimension {dim} not supported." " Must be either 2 or 3."
+        )
+    for i, metric in enumerate(metrics):
+        if not isinstance(metric, RiemannianMetric):
+            raise ValueError(
+                f"Metric {i} should be of type 'RiemannianMetric',"
+                f" but is of type '{type(metric)}'."
+            )
+        fsi = metric.function_space()
+        if fs != fsi:
+            raise ValueError(
+                f"Function space of metric {i} does not match that"
+                f" of metric 0: {fsi} vs. {fs}."
+            )
 
-    def intersect_pair(M1, M2):
-        M12 = Function(M1)
+    # Create the metric to be returned
+    intersected_metric = RiemannianMetric(fs)
+    intersected_metric.assign(metrics[0])
+
+    # Establish the boundary node set
+    if isinstance(boundary_tag, (list, tuple)) and len(boundary_tag) == 0:
+        raise ValueError(
+            "It is unclear what to do with an empty"
+            f" {type(boundary_tag)} of boundary tags."
+        )
+    node_set = firedrake.DirichletBC(fs, 0, boundary_tag).node_set
+
+    # Compute the intersection
+    Mtmp = RiemannianMetric(fs)
+    for metric in metrics[1:]:
+        Mtmp.assign(intersected_metric)
         op2.par_loop(
             get_metric_kernel("intersect", dim),
             node_set,
-            M12.dat(op2.RW),
-            M1.dat(op2.READ),
-            M2.dat(op2.READ),
+            intersected_metric.dat(op2.RW),
+            Mtmp.dat(op2.READ),
+            metric.dat(op2.READ),
         )
-        return M12
-
-    for metric in metrics[1:]:
-        intersected_metric = intersect_pair(intersected_metric, metric)
     return intersected_metric
 
 
