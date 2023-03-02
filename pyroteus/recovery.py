@@ -162,7 +162,7 @@ def recover_boundary_hessian(
         in which the metric will exist
     """
     from pyroteus.math import construct_orthonormal_basis
-    from pyroteus.metric import hessian_metric
+    from pyroteus.metric import get_metric_kernel
 
     d = mesh.topological_dimension()
     assert d in (2, 3)
@@ -255,13 +255,26 @@ def recover_boundary_hessian(
         Hsub = firedrake.interpolate(abs(l2_proj[0][0]), P1)
         H = ufl.as_matrix([[h, 0], [0, Hsub]])
     else:
-        Hsub = Function(firedrake.TensorFunctionSpace(mesh, "CG", 1, shape=(2, 2)))
+        fs = firedrake.TensorFunctionSpace(mesh, "CG", 1, shape=(2, 2))
+        Hsub = Function(fs)
         Hsub.interpolate(
             ufl.as_matrix(
                 [[l2_proj[0][0], l2_proj[0][1]], [l2_proj[1][0], l2_proj[1][1]]]
             )
         )
-        Hsub = hessian_metric(Hsub)
+
+        # Enforce SPD
+        metric = Function(fs)
+        op2.par_loop(
+            get_metric_kernel("metric_from_hessian", 2),
+            fs.node_set,
+            metric.dat(op2.RW),
+            Hsub.dat(op2.READ),
+        )
+        Hsub.assign(metric)
+        # TODO: Could this be supported using RiemannianMetric.enforce_spd?
+
+        # Construct Hessian
         H = ufl.as_matrix(
             [[h, 0, 0], [0, Hsub[0, 0], Hsub[0, 1]], [0, Hsub[1, 0], Hsub[1, 1]]]
         )

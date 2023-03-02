@@ -13,7 +13,6 @@ __all__ = [
     "assemble_eigendecomposition",
     "isotropic_metric",
     "anisotropic_metric",
-    "hessian_metric",
     "enforce_element_constraints",
     "space_time_normalise",
     "intersect_on_boundary",
@@ -171,32 +170,6 @@ def isotropic_metric(
         metric.interpolate(abs(error_indicator) * ufl.Identity(dim), target_space)
     else:
         raise ValueError(f"Interpolant {interpolant} not recognised")
-    return metric
-
-
-@PETSc.Log.EventDecorator("pyroteus.hessian_metric")
-def hessian_metric(hessian: Function) -> Function:
-    """
-    Modify the eigenvalues of a Hessian matrix so
-    that it is positive-definite.
-
-    :arg hessian: the Hessian matrix
-    """
-    fs = hessian.function_space()
-    shape = fs.ufl_element().value_shape()
-    if len(shape) != 2:
-        raise ValueError(f"Expected a rank 2 tensor, got rank {len(shape)}.")
-    if shape[0] != shape[1]:
-        raise ValueError(
-            f"Expected a square tensor field, got {fs.ufl_element().value_shape()}."
-        )
-    metric = Function(fs)
-    op2.par_loop(
-        get_metric_kernel("metric_from_hessian", shape[0]),
-        fs.node_set,
-        metric.dat(op2.RW),
-        hessian.dat(op2.READ),
-    )
     return metric
 
 
