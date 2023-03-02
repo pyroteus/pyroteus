@@ -31,8 +31,9 @@ def get_metric_kernel(func: str, dim: int) -> op2.Kernel:
     :arg func: function name
     :arg dim: spatial dimension
     """
-    code = open(os.path.join(os.path.dirname(__file__), f"cxx/metric{dim}d.cxx")).read()
-    return op2.Kernel(code, func, cpp=True, include_dirs=include_dir)
+    pwd = os.path.abspath(os.path.join(os.path.dirname(__file__), "cxx"))
+    with open(os.path.join(pwd, f"metric{dim}d.cxx"), "r") as code:
+        return op2.Kernel(code.read(), func, cpp=True, include_dirs=include_dir)
 
 
 @PETSc.Log.EventDecorator()
@@ -53,9 +54,10 @@ def compute_eigendecomposition(
         underpinning the metric
     """
     V_ten = metric.function_space()
-    if len(V_ten.ufl_element().value_shape()) != 2:
+    if not isinstance(metric, RiemannianMetric):
         raise ValueError(
-            "Can only compute eigendecompositions of matrix-valued functions."
+            "Can only compute eigendecompositions of RiemannianMetrics,"
+            f" not objects of type '{type(metric)}'."
         )
     mesh = V_ten.mesh()
     fe = (V_ten.ufl_element().family(), V_ten.ufl_element().degree())
@@ -94,15 +96,27 @@ def assemble_eigendecomposition(
     V_ten = evectors.function_space()
     fe_ten = V_ten.ufl_element()
     if len(fe_ten.value_shape()) != 2:
-        raise ValueError("Eigenvector Function should be rank-2")
+        raise ValueError(
+            "Eigenvector Function should be rank-2,"
+            f" not rank-{len(fe_ten.value_shape())}."
+        )
     V_vec = evalues.function_space()
     fe_vec = V_vec.ufl_element()
     if len(fe_vec.value_shape()) != 1:
-        raise ValueError("Eigenvector Function should be rank-1")
+        raise ValueError(
+            "Eigenvalue Function should be rank-1,"
+            f" not rank-{len(fe_vec.value_shape())}."
+        )
     if fe_ten.family() != fe_vec.family():
-        raise ValueError("Mismatching finite element families")
+        raise ValueError(
+            "Mismatching finite element families:"
+            f" '{fe_ten.family()}' vs. '{fe_vec.family()}'."
+        )
     if fe_ten.degree() != fe_vec.degree():
-        raise ValueError("Mismatching finite element space degrees")
+        raise ValueError(
+            "Mismatching finite element space degrees:"
+            f" {fe_ten.degree()} vs. {fe_vec.degree()}."
+        )
     dim = V_ten.mesh().topological_dimension()
     M = RiemannianMetric(V_ten)
     op2.par_loop(
