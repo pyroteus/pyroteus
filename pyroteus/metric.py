@@ -508,14 +508,16 @@ def space_time_normalise(
     if p is None:
         raise ValueError("Normalisation order 'dm_plex_metric_p' must be set.")
     if not (np.isinf(p) or p >= 1.0):
-        raise ValueError(f"Normalisation order {p} not valid.")
+        raise ValueError(
+            f"Normalisation order '{p}' should be one or greater or np.inf."
+        )
     target = metric_parameters.get("dm_plex_metric_target_complexity")
     if target is None:
         raise ValueError(
             "Target complexity 'dm_plex_metric_target_complexity' must be set."
         )
-    if target < 0.0:
-        raise ValueError("Target complexity must be positive.")
+    if target <= 0.0:
+        raise ValueError(f"Target complexity '{target}' is not positive.")
 
     # TODO: Avoid assuming uniform subinterval lengths
     assert len(metrics) == len(timesteps)
