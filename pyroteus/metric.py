@@ -16,8 +16,6 @@ __all__ = [
     "hessian_metric",
     "enforce_element_constraints",
     "space_time_normalise",
-    "metric_relaxation",
-    "metric_average",
     "metric_intersection",
     "combine_metrics",
     "determine_metric_complexity",
@@ -615,52 +613,6 @@ def determine_metric_complexity(
 # --- Combination
 
 
-@PETSc.Log.EventDecorator("pyroteus.metric_relaxation")
-def metric_relaxation(
-    *metrics: Tuple[Function],
-    weights: Optional[List[float]] = None,
-    function_space: Optional[FunctionSpace] = None,
-) -> Function:
-    """
-    Combine a list of metrics with a weighted average.
-
-    :arg metrics: the metrics to be combined
-    :kwarg weights: a list of weights
-    :kwarg function_space: the
-        :class:`firedrake.functionspaceimpl.FunctionSpace`
-        the relaxed metric should live in
-    """
-    n = len(metrics)
-    assert n > 0, "Nothing to combine"
-    weights = weights or np.ones(n) / n
-    num_weights = len(weights)
-    if num_weights != n:
-        raise ValueError(
-            f"Number of weights do not match number of metrics ({num_weights} != {n})"
-        )
-    fs = function_space or metrics[0].function_space()
-    relaxed_metric = Function(fs)
-    for weight, metric in zip(weights, metrics):
-        if not isinstance(metric, Function) or metric.function_space() != fs:
-            metric = firedrake.interpolate(metric, function_space)
-        relaxed_metric += weight * metric
-    return relaxed_metric
-
-
-def metric_average(
-    *metrics: Tuple[Function], function_space: Optional[FunctionSpace] = None
-) -> Function:
-    """
-    Combine a list of metrics by averaging.
-
-    :arg metrics: the metrics to be combined
-    :kwarg function_space: the
-        :class:`firedrake.functionspaceimpl.FunctionSpace`
-        the averaged metric should live in
-    """
-    return metric_relaxation(*metrics, function_space=function_space)
-
-
 @PETSc.Log.EventDecorator("pyroteus.metric_intersection")
 def metric_intersection(
     *metrics: Tuple[Function],
@@ -713,21 +665,19 @@ def metric_intersection(
 
 
 def combine_metrics(
-    *metrics: Tuple[Function], average: bool = True, **kwargs
-) -> Function:
+    *metrics: Tuple[RiemannianMetric], average: bool = True, **kwargs
+) -> RiemannianMetric:
     """
     Combine a list of metrics.
 
     :kwarg average: combination by averaging or intersection?
     """
+    metric = RiemannianMetric(metrics[0].function_space())
     if average:
-        if "boundary_tag" in kwargs:
-            kwargs.pop("boundary_tag")
-        return metric_relaxation(*metrics, **kwargs)
+        metric.average(*metrics, **kwargs)
     else:
-        if "weights" in kwargs:
-            kwargs.pop("weights")
-        return metric_intersection(*metrics, **kwargs)
+        metric.intersect(*metrics, **kwargs)
+    return metric
 
 
 # --- Metric decompositions and properties

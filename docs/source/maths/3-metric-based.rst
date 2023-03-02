@@ -383,10 +383,8 @@ average in general. See :cite:`PUDG:01` for details.
    Image taken from :cite:`Wallwork:21` with author's permission.
 
 Metric combination may be achieved in Pyroteus using the
-functions :func:`~.metric_average`,
-:func:`~.metric_intersection`, :func:`~.metric_relaxation`
-(generalised average) and simply :func:`~.combine_metrics`,
-which defaults to the metric average.
+function :func:`~.combine_metrics`, which defaults to the
+metric average.
 
 
 Now that a concrete example of a mesh adaptation approach has
