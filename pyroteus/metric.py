@@ -719,7 +719,7 @@ def density_and_quotients(
 
     .. math::
         d = \prod_{i=1}^n h_i,\qquad
-        r_i = \frac{h_i^n}d,\qquad \forall i=1:n,
+        r_i = h_i^n d,\qquad \forall i=1:n,
 
     where :math:`h_i := \frac1{\sqrt{\lambda_i}}`.
 
