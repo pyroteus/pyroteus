@@ -426,9 +426,9 @@ def enforce_element_constraints(
 
         def interp(f):
             if isinstance(f, Function):
-                return Function(P1).assign(f)
-            else:
                 return clement_interpolant(f)
+            else:
+                return Function(P1).assign(f)
 
         # Interpolate hmin, hmax and amax into P1
         hmin = interp(hmin)
