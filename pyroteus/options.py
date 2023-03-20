@@ -77,13 +77,6 @@ class MetricParameters(AdaptParameters):
         self["base_complexity"] = 200.0  # Base metric complexity
         self["target_complexity"] = 4000.0  # Target metric complexity
 
-        # --- Adaptation
-        self["no_insert"] = False  # Turn off node insertion
-        self["no_swap"] = False  # Turn off edge and face swapping
-        self["no_move"] = False  # Turn off node movement
-        self["no_surf"] = False  # Turn off surface meshing
-        self["num_parmmg_iterations"] = 3
-
         # --- Post-processing
         self["h_min"] = 1.0e-30  # Minimum metric magnitude
         self["h_max"] = 1.0e30  # Maximum metric magnitude
@@ -91,6 +84,13 @@ class MetricParameters(AdaptParameters):
         self["restrict_anisotropy_first"] = False
         self["hausdorff_number"] = 0.01  # Controls length scales
         self["gradation_factor"] = 1.3  # Controls ratio between adjacent edge lengths
+
+        # --- Adaptation
+        self["no_insert"] = False  # Turn off node insertion
+        self["no_swap"] = False  # Turn off edge and face swapping
+        self["no_move"] = False  # Turn off node movement
+        self["no_surf"] = False  # Turn off surface meshing
+        self["num_parmmg_iterations"] = 3
 
         super().__init__(parameters=parameters)
 
