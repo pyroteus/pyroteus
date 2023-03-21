@@ -1,4 +1,7 @@
+from firedrake import TensorFunctionSpace
+from firedrake.meshadapt import RiemannianMetric
 from pyroteus.options import *
+from utility import uniform_mesh
 import unittest
 
 
@@ -157,6 +160,37 @@ class TestMetricParameters(unittest.TestCase):
             MetricParameters({"a_max": "1.0e30"})
         msg = "Expected attribute 'a_max' to be of type 'float' or 'int', not 'str'."
         self.assertEqual(str(cm.exception), msg)
+
+    def test_export(self):
+        mp = MetricParameters()
+        mesh = uniform_mesh(2, 1)
+        P1_ten = TensorFunctionSpace(mesh, "CG", 1)
+        metric = RiemannianMetric(P1_ten)
+        mp.export(metric)
+        plex = metric._plex
+        self.assertEqual(self.defaults["verbosity"], plex.metricGetVerbosity())
+        self.assertEqual(self.defaults["p"], metric.normalisation_order)
+        self.assertEqual(self.defaults["target_complexity"], metric.target_complexity)
+        self.assertEqual(self.defaults["h_min"], plex.metricGetMinimumMagnitude())
+        self.assertEqual(self.defaults["h_max"], plex.metricGetMaximumMagnitude())
+        self.assertEqual(self.defaults["a_max"], plex.metricGetMaximumAnisotropy())
+        self.assertEqual(
+            self.defaults["hausdorff_number"], plex.metricGetHausdorffNumber()
+        )
+        self.assertEqual(
+            self.defaults["gradation_factor"], plex.metricGetGradationFactor()
+        )
+        self.assertEqual(
+            self.defaults["restrict_anisotropy_first"],
+            plex.metricRestrictAnisotropyFirst(),
+        )
+        self.assertEqual(self.defaults["no_insert"], plex.metricNoInsertion())
+        self.assertEqual(self.defaults["no_swap"], plex.metricNoSwapping())
+        self.assertEqual(self.defaults["no_move"], plex.metricNoMovement())
+        self.assertEqual(self.defaults["no_surf"], plex.metricNoSurf())
+        self.assertEqual(
+            self.defaults["num_parmmg_iterations"], plex.metricGetNumIterations()
+        )
 
 
 class TestGoalOrientedParameters(unittest.TestCase):
