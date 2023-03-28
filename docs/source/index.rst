@@ -77,3 +77,5 @@ earlier ones.
     Solid body rotation <demos/solid_body_rotation.py>
     Solid body rotation with multiple prognostic variables <demos/solid_body_rotation_split.py>
     Point discharge with diffusion <demos/point_discharge.py>
+    Advection-diffusion-reaction <demos/gray_scott.py>
+    Advection-diffusion-reaction with multiple prognostic variables <demos/gray_scott_split.py>
