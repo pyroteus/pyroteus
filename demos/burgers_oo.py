@@ -22,7 +22,6 @@ from pyroteus_adjoint import *
 
 
 class BurgersMeshSeq(AdjointMeshSeq):
-
     @staticmethod
     def get_function_spaces(mesh):
         return {"u": VectorFunctionSpace(mesh, "CG", 2)}
@@ -43,7 +42,7 @@ class BurgersMeshSeq(AdjointMeshSeq):
                 + inner(dot(u, nabla_grad(u)), v) * dx
                 + nu * inner(grad(u), grad(v)) * dx
             )
-            return F
+            return {"u": F}
 
         return form
 
@@ -58,7 +57,7 @@ class BurgersMeshSeq(AdjointMeshSeq):
             u_.assign(ic["u"])
 
             # Define form
-            F = self.form(index, {"u": (u, u_)})
+            F = self.form(index, {"u": (u, u_)})["u"]
 
             # Time integrate from t_start to t_end
             t_start, t_end = self.subintervals[index]
@@ -118,7 +117,9 @@ solutions = mesh_seq.solve_adjoint()
 
 # Plotting this, we find that the results are identical to those generated previously. ::
 
-fig, axes, tcs = plot_snapshots(solutions, P, "u", "adjoint", levels=np.linspace(0, 0.8, 9))
+fig, axes, tcs = plot_snapshots(
+    solutions, P, "u", "adjoint", levels=np.linspace(0, 0.8, 9)
+)
 fig.savefig("burgers-oo.jpg")
 
 # .. figure:: burgers-oo.jpg

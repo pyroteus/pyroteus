@@ -44,10 +44,11 @@ def get_function_spaces(mesh):
 # so that the finite element approximation is as close as possible to the
 # analytical solution, in some sense (see :cite:`WBHP:22` for details). ::
 
+
 def source(mesh):
     x, y = SpatialCoordinate(mesh)
     x0, y0, r = 2, 5, 0.05606388
-    return 100.0 * exp(-((x - x0) ** 2 + (y - y0) ** 2) / r ** 2)
+    return 100.0 * exp(-((x - x0) ** 2 + (y - y0) ** 2) / r**2)
 
 
 # On its own, a :math:`\mathbb P1` discretisation is unstable for this
@@ -64,6 +65,7 @@ def source(mesh):
 #    \tau = \min\left(\frac{h}{2\|\mathbf u\|},\frac{h\|\mathbf u\|}{6D}\right),
 #
 # where :math:`h` measures cell size. ::
+
 
 def get_form(mesh_seq):
     def form(index, sols):
@@ -87,7 +89,7 @@ def get_form(mesh_seq):
             + inner(D * grad(c), grad(psi)) * dx
             - S * psi * dx
         )
-        return F
+        return {"c": F}
 
     return form
 
@@ -98,6 +100,7 @@ def get_form(mesh_seq):
 # In addition, we need to strongly enforce boundary conditions on the
 # inflow, which is indexed by 1. ::
 
+
 def get_bcs(mesh_seq):
     def bcs(index):
         function_space = mesh_seq.function_spaces["c"][index]
@@ -107,6 +110,7 @@ def get_bcs(mesh_seq):
 
 
 # With these ingredients, we can now define the :meth:`get_solver` method. ::
+
 
 def get_solver(mesh_seq):
     def solver(index, ic):
@@ -119,7 +123,7 @@ def get_solver(mesh_seq):
         c.assign(c_)
 
         # Setup variational problem
-        F = mesh_seq.form(index, {"c": (c, c_)})
+        F = mesh_seq.form(index, {"c": (c, c_)})["c"]
         bc = mesh_seq.bcs(index)
 
         solve(F == 0, c, bcs=bc, ad_block_tag="c")
@@ -144,12 +148,13 @@ def get_solver(mesh_seq):
 # integrates the tracer concentration over a circular "receiver" region. Since
 # there is no time dependence, the QoI looks just like an ``"end_time"`` type QoI. ::
 
+
 def get_qoi(mesh_seq, sol, index):
     def qoi():
         c = sol["c"]
         x, y = SpatialCoordinate(mesh_seq[index])
         xr, yr, rr = 20, 7.5, 0.5
-        kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr ** 2, 1, 0)
+        kernel = conditional((x - xr) ** 2 + (y - yr) ** 2 < rr**2, 1, 0)
         return kernel * c * dx
 
     return qoi
@@ -184,11 +189,15 @@ import matplotlib.colors as mcolors
 from matplotlib import ticker
 
 plot_kwargs = {"levels": 50, "figsize": (10, 3), "cmap": "coolwarm"}
-fig, axes, tcs = plot_snapshots(solutions, time_partition, "c", "forward", **plot_kwargs)
+fig, axes, tcs = plot_snapshots(
+    solutions, time_partition, "c", "forward", **plot_kwargs
+)
 fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
 axes.set_title("Forward solution")
 fig.savefig("point-discharge-forward.jpg")
-fig, axes, tcs = plot_snapshots(solutions, time_partition, "c", "adjoint", **plot_kwargs)
+fig, axes, tcs = plot_snapshots(
+    solutions, time_partition, "c", "adjoint", **plot_kwargs
+)
 fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
 axes.set_title("Adjoint solution")
 fig.savefig("point-discharge-adjoint.jpg")
