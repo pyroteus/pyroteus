@@ -166,10 +166,20 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     sols_e[f][ADJ_NEXT][i],
                 ]
 
-            # Get form in enriched space
-            F = mesh_seq_e.form(i, mapping)
+            # Get forms for each equation in enriched space
+            forms = mesh_seq_e.form(i, mapping)
+            if not isinstance(forms, dict):
+                raise TypeError(
+                    "The function defined by get_form should return a dictionary, not a"
+                    f" {type(forms)}."
+                )
 
+            # Construct the error indicator
             for j in range(len(sols[self.fields[0]]["forward"][i])):
+                P0_e = FunctionSpace(mesh_seq_e[i], "DG", 0)
+                indi_e = Function(P0_e)
+
+                # Loop over each strongly coupled field
                 for f in self.fields:
 
                     # Update fields
@@ -185,8 +195,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     )
                     u_star_e[f] -= u_star[f]
 
-                # Evaluate error indicator
-                indi_e = indicator_fn(F, u_star_e)
+                    # Evaluate error indicator
+                    indi_e += indicator_fn(forms[f], u_star_e[f])
 
                 # Project back to the base space
                 indi = project(indi_e, P0)
