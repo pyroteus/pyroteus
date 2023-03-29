@@ -245,18 +245,20 @@ mesh_seq = AdjointMeshSeq(
 )
 solutions = mesh_seq.solve_adjoint()
 
-# So far, we have visualised outputs using `Matplotlib`. In
-# many cases, it is better to use `Paraview`. To save all
-# adjoint solution components in Paraview format, use ::
+# So far, we have visualised outputs using `Matplotlib`. In many cases, it is better to
+# use Paraview. To save all adjoint solution components in Paraview format, use the
+# following. The `if` statement is used here to check whether this demo is being run as
+# part of Pyroteus' continuous integration testing and can be ignored. ::
 
-for field, sols in solutions.items():
-    fwd_outfile = File(f"solid_body_rotation/{field}_forward.pvd")
-    adj_outfile = File(f"solid_body_rotation/{field}_adjoint.pvd")
-    for i, mesh in enumerate(mesh_seq):
-        for sol in sols["forward"][i]:
-            fwd_outfile.write(sol)
-        for sol in sols["adjoint"][i]:
-            adj_outfile.write(sol)
+if os.environ.get("PYROTEUS_REGRESSION_TEST") is None:
+    for field, sols in solutions.items():
+        fwd_outfile = File(f"solid_body_rotation/{field}_forward.pvd")
+        adj_outfile = File(f"solid_body_rotation/{field}_adjoint.pvd")
+        for i, mesh in enumerate(mesh_seq):
+            for sol in sols["forward"][i]:
+                fwd_outfile.write(sol)
+            for sol in sols["adjoint"][i]:
+                adj_outfile.write(sol)
 
 # In the `next demo <./solid_body_rotation_split.py.html>`__,
 # we consider solving the same problem, but splitting the solution
