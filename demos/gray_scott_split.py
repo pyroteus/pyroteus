@@ -5,7 +5,7 @@
 # equation using a mixed formulation for the two tracer species. Here, we instead use
 # different fields for each of them, treating the corresponding equations separately.
 # This considers an additional level of complexity compared with the
-# `split solid body rotation demo <./solid_body_rotation_split.html>`__ because the
+# `split solid body rotation demo <./solid_body_rotation_split.py.html>`__ because the
 # equations differ in both the diffusion and reaction terms. ::
 
 from firedrake import *

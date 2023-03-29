@@ -124,7 +124,7 @@ def get_qoi(mesh_seq, sols, index):
 
 # This problem is multi-scale in time and requires spinning up by gradually increasing
 # the timestep. This is straightforwardly done in Pyroteus using :class:`TimePartition`.
-# The "PYROTEUS_REGRESSION_TEST" flag can be ignored here; it is used to cut down the
+# The `"PYROTEUS_REGRESSION_TEST"` flag can be ignored here; it is used to cut down the
 # runtime in Pyroteus' continuous integration suite. ::
 
 test = os.environ.get("PYROTEUS_REGRESSION_TEST") is not None
