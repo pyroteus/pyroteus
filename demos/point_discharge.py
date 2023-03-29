@@ -232,4 +232,8 @@ fig.savefig("point-discharge-indicator.jpg")
 #    :figwidth: 80%
 #    :align: center
 #
+# In the `next demo <./gray_scott.py.html>`__, we move on from solving an
+# advection-diffusion equation to solving a system of advection-diffusion-reaction
+# equations.
+#
 # This tutorial can be dowloaded as a `Python script <point_discharge.py>`__.
