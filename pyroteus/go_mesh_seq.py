@@ -4,6 +4,7 @@ Drivers for goal-oriented error estimation on sequences of meshes.
 from .adjoint import AdjointMeshSeq
 from .error_estimation import get_dwr_indicator, indicators2estimator
 from .log import pyrint
+from .utility import AttrDict
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager, project
 from firedrake.petsc import PETSc
 from collections.abc import Callable
@@ -137,13 +138,26 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         mesh_seq_e = self.get_enriched_mesh_seq(**enrichment_kwargs)
         sols = self.solve_adjoint(**adj_kwargs)
         sols_e = mesh_seq_e.solve_adjoint(**adj_kwargs)
-        indicators = []
+
+        P0_spaces = [FunctionSpace(mesh, "DG", 0) for mesh in self]
+        indicators = AttrDict(
+            {
+                field: [
+                            [
+                                Function(fs, name=f"{field}_error_indicator")
+                                for _ in range(self.time_partition.exports_per_subinterval[i] - 1)
+                            ]
+                            for i, fs in enumerate(P0_spaces)
+                        ]
+                for field in self.fields
+            }
+        )
+
         FWD, ADJ = "forward", "adjoint"
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
         for i, mesh in enumerate(self):
-            P0 = FunctionSpace(self[i], "DG", 0)
-            indicator = []
+            P0 = P0_spaces[i]
 
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
@@ -196,13 +210,13 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     u_star_e[f] -= u_star[f]
 
                     # Evaluate error indicator
-                    indi_e += indicator_fn(forms[f], u_star_e[f])
+                    indi_e = indicator_fn(forms[f], u_star_e[f])
 
-                # Project back to the base space
-                indi = project(indi_e, P0)
-                indi.interpolate(abs(indi))
-                indicator.append(indi)
-            indicators.append(indicator)
+                    # Project back to the base space
+                    indi = project(indi_e, P0)
+                    indi.interpolate(abs(indi))
+                    indicators[f][i][j].assign(indi)
+            
         return sols, indicators
 
     def check_estimator_convergence(self):
