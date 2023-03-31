@@ -143,12 +143,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         indicators = AttrDict(
             {
                 field: [
-                            [
-                                Function(fs, name=f"{field}_error_indicator")
-                                for _ in range(self.time_partition.exports_per_subinterval[i] - 1)
-                            ]
-                            for i, fs in enumerate(P0_spaces)
-                        ]
+                    [
+                        Function(fs, name=f"{field}_error_indicator")
+                        for _ in range(self.time_partition.exports_per_subinterval[i] - 1)
+                    ]
+                    for i, fs in enumerate(P0_spaces)
+                ]
                 for field in self.fields
             }
         )
@@ -157,8 +157,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         FWD_OLD = "forward" if self.steady else "forward_old"
         ADJ_NEXT = "adjoint" if self.steady else "adjoint_next"
         for i, mesh in enumerate(self):
-            P0 = P0_spaces[i]
-
             # Get Functions
             u, u_, u_star, u_star_next, u_star_e = {}, {}, {}, {}, {}
             solutions = {}
@@ -213,10 +211,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     indi_e = indicator_fn(forms[f], u_star_e[f])
 
                     # Project back to the base space
-                    indi = project(indi_e, P0)
+                    indi = project(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
                     indicators[f][i][j].assign(indi)
-            
+
         return sols, indicators
 
     def check_estimator_convergence(self):

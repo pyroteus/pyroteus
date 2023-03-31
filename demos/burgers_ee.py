@@ -148,7 +148,7 @@ solutions, indicators = mesh_seq.indicate_errors(
 # For the purposes of this demo, we plot the solution at each exported
 # timestep using the plotting driver function :func:`plot_indicator_snapshots`. ::
 
-fig, axes, tcs = plot_indicator_snapshots(indicators, time_partition, levels=50)
+fig, axes, tcs = plot_indicator_snapshots(indicators, time_partition, "u", levels=50)
 fig.savefig("burgers-ee.jpg")
 
 # .. figure:: burgers-ee.jpg
