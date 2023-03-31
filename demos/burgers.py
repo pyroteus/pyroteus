@@ -44,7 +44,9 @@ def get_function_spaces(mesh):
 # that maps the :class:`MeshSeq` index and a dictionary of
 # solution data to the form. For each field, the dictionary
 # should provide a tuple containing the solution :class:`Function`\s
-# from the current timestep and the previous one.
+# from the current timestep and the previous one. The form should be
+# returned inside its own dictionary, with an entry for each equation
+# being solved for.
 #
 # Timestepping information associated with a given subinterval
 # can be accessed via the :attr:`TimePartition` attribute of
@@ -67,7 +69,7 @@ def get_form(mesh_seq):
             + inner(dot(u, nabla_grad(u)), v) * dx
             + nu * inner(grad(u), grad(v)) * dx
         )
-        return F
+        return {"u": F}
 
     return form
 
@@ -97,7 +99,7 @@ def get_solver(mesh_seq):
         u_.assign(ic["u"])
 
         # Define form
-        F = mesh_seq.form(index, {"u": (u, u_)})
+        F = mesh_seq.form(index, {"u": (u, u_)})["u"]
 
         # Time integrate from t_start to t_end
         P = mesh_seq.time_partition

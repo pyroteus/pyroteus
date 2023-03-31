@@ -53,7 +53,7 @@ def get_form(mesh_seq):
             + inner(dot(u, nabla_grad(u)), v) * dx
             + nu * inner(grad(u), grad(v)) * dx
         )
-        return F
+        return {"u": F}
 
     return form
 
@@ -68,7 +68,7 @@ def get_solver(mesh_seq):
         u_.assign(ic["u"])
 
         # Define form
-        F = mesh_seq.form(index, {"u": (u, u_)})
+        F = mesh_seq.form(index, {"u": (u, u_)})["u"]
 
         # Time integrate from t_start to t_end
         P = mesh_seq.time_partition
@@ -148,7 +148,7 @@ solutions, indicators = mesh_seq.indicate_errors(
 # For the purposes of this demo, we plot the solution at each exported
 # timestep using the plotting driver function :func:`plot_indicator_snapshots`. ::
 
-fig, axes, tcs = plot_indicator_snapshots(indicators, time_partition, levels=50)
+fig, axes, tcs = plot_indicator_snapshots(indicators, time_partition, "u", levels=50)
 fig.savefig("burgers-ee.jpg")
 
 # .. figure:: burgers-ee.jpg

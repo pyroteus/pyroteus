@@ -71,7 +71,10 @@ class File(firedrake.output.File):
         """
         if self._fnames is not None:
             if len(self._fnames) != len(functions):
-                raise ValueError("Writing different set of functions")
+                raise ValueError(
+                    "Writing different number of functions: expected"
+                    f" {len(self._fnames)}, got {len(functions)}."
+                )
             for name, f in zip(self._fnames, functions):
                 if f.name() != name:
                     f.rename(name)

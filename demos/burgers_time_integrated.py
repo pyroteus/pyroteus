@@ -36,7 +36,7 @@ def get_form(mesh_seq):
             + inner(dot(u, nabla_grad(u)), v) * dx
             + nu * inner(grad(u), grad(v)) * dx
         )
-        return F
+        return {"u": F}
 
     return form
 
@@ -68,7 +68,7 @@ def get_solver(mesh_seq):
         u_.assign(ic["u"])
 
         # Define form
-        F = mesh_seq.form(index, {"u": (u, u_)})
+        F = mesh_seq.form(index, {"u": (u, u_)})["u"]
 
         # Time integrate from t_start to t_end
         t_start, t_end = mesh_seq.subintervals[index]

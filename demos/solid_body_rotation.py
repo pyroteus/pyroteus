@@ -138,6 +138,7 @@ plt.savefig("solid_body_rotation-init.jpg")
 # problem in terms of a left-hand side and right-hand side and
 # output both of them. ::
 
+
 def get_form(mesh_seq):
     def form(index, sols, field="c"):
         c, c_ = sols[field]
@@ -153,7 +154,7 @@ def get_form(mesh_seq):
         phi = TestFunction(V)
         a = psi * phi * dx + dt * theta * dot(u, grad(psi)) * phi * dx
         L = c_ * phi * dx - dt * (1 - theta) * dot(u, grad(c_)) * phi * dx
-        return a, L
+        return {field: (a, L)}
 
     return form
 
@@ -161,6 +162,7 @@ def get_form(mesh_seq):
 # To implement the boundary conditions, we simply create a list of
 # :class:`DirichletBC` objects for each field. Here, the list only
 # has one entry. ::
+
 
 def get_bcs(mesh_seq):
     def bcs(index, field="c"):
@@ -173,6 +175,7 @@ def get_bcs(mesh_seq):
 # The :func:`get_form` and :func:`get_bcs` functions are then used by
 # :func:`get_solver`. ::
 
+
 def get_solver(mesh_seq):
     def solver(index, ic, field="c"):
         function_space = mesh_seq.function_spaces[field][index]
@@ -183,7 +186,7 @@ def get_solver(mesh_seq):
         c_.assign(ic[field])
 
         # Setup variational problem
-        a, L = mesh_seq.form(index, {field: (c, c_)}, field=field)
+        a, L = mesh_seq.form(index, {field: (c, c_)}, field=field)[field]
         bcs = mesh_seq.bcs(index, field=field)
 
         # Setup the solver object
@@ -214,12 +217,13 @@ def get_solver(mesh_seq):
 # integral over a disc where the slotted cylinder is expected
 # to be positioned at the end time. ::
 
+
 def get_qoi(mesh_seq, sols, index, field="c"):
     def qoi():
         c = sols[field]
         x, y = SpatialCoordinate(mesh_seq[index])
         x0, y0, r0 = 0.0, 0.25, 0.15
-        ball = conditional((x - x0) ** 2 + (y - y0) ** 2 < r0 ** 2, 1.0, 0.0)
+        ball = conditional((x - x0) ** 2 + (y - y0) ** 2 < r0**2, 1.0, 0.0)
         return ball * c * dx
 
     return qoi
@@ -241,18 +245,20 @@ mesh_seq = AdjointMeshSeq(
 )
 solutions = mesh_seq.solve_adjoint()
 
-# So far, we have visualised outputs using `Matplotlib`. In
-# many cases, it is better to use `Paraview`. To save all
-# adjoint solution components in Paraview format, use ::
+# So far, we have visualised outputs using `Matplotlib`. In many cases, it is better to
+# use Paraview. To save all adjoint solution components in Paraview format, use the
+# following. The `if` statement is used here to check whether this demo is being run as
+# part of Pyroteus' continuous integration testing and can be ignored. ::
 
-for field, sols in solutions.items():
-    fwd_outfile = File(f"solid_body_rotation/{field}_forward.pvd")
-    adj_outfile = File(f"solid_body_rotation/{field}_adjoint.pvd")
-    for i, mesh in enumerate(mesh_seq):
-        for sol in sols["forward"][i]:
-            fwd_outfile.write(sol)
-        for sol in sols["adjoint"][i]:
-            adj_outfile.write(sol)
+if os.environ.get("PYROTEUS_REGRESSION_TEST") is None:
+    for field, sols in solutions.items():
+        fwd_outfile = File(f"solid_body_rotation/{field}_forward.pvd")
+        adj_outfile = File(f"solid_body_rotation/{field}_adjoint.pvd")
+        for i, mesh in enumerate(mesh_seq):
+            for sol in sols["forward"][i]:
+                fwd_outfile.write(sol)
+            for sol in sols["adjoint"][i]:
+                adj_outfile.write(sol)
 
 # In the `next demo <./solid_body_rotation_split.py.html>`__,
 # we consider solving the same problem, but splitting the solution

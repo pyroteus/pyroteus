@@ -59,7 +59,7 @@ class TestPVD(unittest.TestCase):
         file.write(f)
         with self.assertRaises(ValueError) as cm:
             file.write(f, g)
-        msg = "Writing different set of functions"
+        msg = "Writing different number of functions: expected 1, got 2."
         self.assertEqual(str(cm.exception), msg)
         self.cleanUp()
 

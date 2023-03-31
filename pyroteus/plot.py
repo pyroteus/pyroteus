@@ -51,7 +51,7 @@ def plot_snapshots(solutions, time_partition, field, label, **kwargs):
     return fig, axes, tcs
 
 
-def plot_indicator_snapshots(indicators, time_partition, **kwargs):
+def plot_indicator_snapshots(indicators, time_partition, field, **kwargs):
     """
     Plot a sequence of snapshots associated with
     ``indicators`` and a given :class:`~.TimePartition`
@@ -71,7 +71,7 @@ def plot_indicator_snapshots(indicators, time_partition, **kwargs):
     figsize = kwargs.pop("figsize", (6 * cols, 24 // cols))
     fig, axes = plt.subplots(rows, cols, sharex="col", figsize=figsize)
     tcs = []
-    for i, indi_step in enumerate(indicators):
+    for i, indi_step in enumerate(indicators[field]):
         ax = axes if steady else axes[0] if cols == 1 else axes[0, i]
         ax.set_title(f"Mesh[{i}]")
         tc = []

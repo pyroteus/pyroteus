@@ -26,6 +26,7 @@ fields = ["bell", "cone", "slot_cyl"]
 # field name, we are able to easily duplicate the various
 # functions for the "split" case. ::
 
+
 def get_function_spaces_split(mesh):
     ret = {}
     for f in fields:
@@ -86,14 +87,15 @@ mesh_seq = AdjointMeshSeq(
 )
 solutions = mesh_seq.solve_adjoint()
 
-for field, sols in solutions.items():
-    fwd_outfile = File(f"solid_body_rotation_split/{field}_forward.pvd")
-    adj_outfile = File(f"solid_body_rotation_split/{field}_adjoint.pvd")
-    for i, mesh in enumerate(mesh_seq):
-        for sol in sols["forward"][i]:
-            fwd_outfile.write(sol)
-        for sol in sols["adjoint"][i]:
-            adj_outfile.write(sol)
+if os.environ.get("PYROTEUS_REGRESSION_TEST") is None:
+    for field, sols in solutions.items():
+        fwd_outfile = File(f"solid_body_rotation_split/{field}_forward.pvd")
+        adj_outfile = File(f"solid_body_rotation_split/{field}_adjoint.pvd")
+        for i, mesh in enumerate(mesh_seq):
+            for sol in sols["forward"][i]:
+                fwd_outfile.write(sol)
+            for sol in sols["adjoint"][i]:
+                adj_outfile.write(sol)
 
 # Looking at the Paraview files, you should find that the
 # ``slot_cyl_adjoint`` solution fields match the ``c_adjoint``
