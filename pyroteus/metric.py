@@ -1,6 +1,7 @@
 """
 Driver functions for metric-based mesh adaptation.
 """
+from .time_partition import TimePartition
 from .utility import *
 from firedrake.meshadapt import RiemannianMetric
 from .interpolation import clement_interpolant
@@ -479,8 +480,7 @@ def enforce_element_constraints(
 @PETSc.Log.EventDecorator()
 def space_time_normalise(
     metrics: List[RiemannianMetric],
-    end_time: float,
-    timesteps: List[float],
+    time_partition: TimePartition,
     metric_parameters: Union[dict, list],
     global_factor: Optional[float] = None,
     boundary: bool = False,
@@ -492,9 +492,7 @@ def space_time_normalise(
     :arg metrics: list of :class:`firedrake.meshadapt.RiemannianMetric`\s
         corresponding to the metric associated with
         each subinterval
-    :arg end_time: end time of simulation
-    :arg timesteps: list of timesteps specified in each
-        subinterval
+    :arg time_partition: :class:`TimePartition` for the problem at hand
     :arg metric_parameters: dictionary containing the target *space-time*
         metric complexity under `dm_plex_metric_target_complexity` and the
         normalisation order under `dm_plex_metric_p`, or a list thereof
@@ -526,11 +524,14 @@ def space_time_normalise(
             )
         if target <= 0.0:
             raise ValueError(f"Target complexity '{target}' is not positive.")
-
-    # TODO: Avoid assuming uniform subinterval lengths
-    assert len(metrics) == len(timesteps)
-    dt_per_mesh = [firedrake.Constant(end_time / len(metrics) / dt) for dt in timesteps]
     d = metrics[0].function_space().mesh().topological_dimension()
+
+    # Compute timestep on each subinterval
+    assert len(metrics) == len(time_partition)
+    subinterval_timestep = [
+        firedrake.Constant((S.end_time - S.start_time) / S.timestep)
+        for S in time_partition
+    ]
 
     # Enforce that the metric is SPD
     for metric in metrics:
@@ -539,7 +540,7 @@ def space_time_normalise(
     # Compute global normalisation factor
     if global_factor is None:
         integral = 0
-        for metric, tau, mp in zip(metrics, dt_per_mesh, metric_parameters):
+        for metric, tau, mp in zip(metrics, subinterval_timestep, metric_parameters):
             p = mp["dm_plex_metric_p"]
             target = mp["dm_plex_metric_target_complexity"]
             detM = ufl.det(metric)
@@ -549,7 +550,7 @@ def space_time_normalise(
         global_factor = firedrake.Constant(pow(target / integral, 2 / d))
 
     # Normalise on each subinterval
-    for metric, tau, mp in zip(metrics, dt_per_mesh, metric_parameters):
+    for metric, tau, mp in zip(metrics, subinterval_timestep, metric_parameters):
         p = mp["dm_plex_metric_p"]
         metric.set_parameters(mp)
         metric.normalise(global_factor=pow(tau, -2 / (2 * p + d)) * global_factor)

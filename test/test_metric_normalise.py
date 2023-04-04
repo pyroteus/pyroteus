@@ -16,6 +16,9 @@ class TestMetricNormalisation(unittest.TestCase):
     Unit tests for metric normalisation.
     """
 
+    def setUp(self):
+        self.time_partition = TimeInterval(1.0, 1.0, "u")
+
     @property
     def simple_metric(self):
         mesh = uniform_mesh(2, 1)
@@ -25,35 +28,35 @@ class TestMetricNormalisation(unittest.TestCase):
     def test_normalistion_order_unset_error(self):
         mp = {"dm_plex_metric_target_complexity": 1.0}
         with self.assertRaises(ValueError) as cm:
-            space_time_normalise([self.simple_metric], [1.0], [1.0], mp)
+            space_time_normalise([self.simple_metric], self.time_partition, mp)
         msg = "Normalisation order 'dm_plex_metric_p' must be set."
         assert str(cm.exception) == msg
 
     def test_normalisation_order_invalid_error(self):
         mp = {"dm_plex_metric_target_complexity": 1.0, "dm_plex_metric_p": 0.0}
         with self.assertRaises(ValueError) as cm:
-            space_time_normalise([self.simple_metric], [1.0], [1.0], mp)
+            space_time_normalise([self.simple_metric], self.time_partition, mp)
         msg = "Normalisation order '0.0' should be one or greater or np.inf."
         assert str(cm.exception) == msg
 
     def test_target_complexity_unset_error(self):
         mp = {"dm_plex_metric_p": 1.0}
         with self.assertRaises(ValueError) as cm:
-            space_time_normalise([self.simple_metric], [1.0], [1.0], mp)
+            space_time_normalise([self.simple_metric], self.time_partition, mp)
         msg = "Target complexity 'dm_plex_metric_target_complexity' must be set."
         assert str(cm.exception) == msg
 
     def test_target_complexity_zero_error(self):
         mp = {"dm_plex_metric_target_complexity": 0.0, "dm_plex_metric_p": 1.0}
         with self.assertRaises(ValueError) as cm:
-            space_time_normalise([self.simple_metric], [1.0], [1.0], mp)
+            space_time_normalise([self.simple_metric], self.time_partition, mp)
         msg = "Target complexity '0.0' is not positive."
         assert str(cm.exception) == msg
 
     def test_target_complexity_negative_error(self):
         mp = {"dm_plex_metric_target_complexity": -1.0, "dm_plex_metric_p": 1.0}
         with self.assertRaises(ValueError) as cm:
-            space_time_normalise([self.simple_metric], [1.0], [1.0], mp)
+            space_time_normalise([self.simple_metric], self.time_partition, mp)
         msg = "Target complexity '-1.0' is not positive."
         assert str(cm.exception) == msg
 
@@ -96,7 +99,7 @@ class TestMetricNormalisation(unittest.TestCase):
         # Apply both normalisation strategies
         M.set_parameters(metric_parameters)
         M.normalise()
-        space_time_normalise([M_st], 1.0, [1.0], metric_parameters)
+        space_time_normalise([M_st], self.time_partition, metric_parameters)
         assert not np.isnan(M_st.dat.data).any()
 
         # Check that the metrics coincide
