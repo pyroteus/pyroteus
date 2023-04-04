@@ -481,7 +481,7 @@ def space_time_normalise(
     metrics: List[RiemannianMetric],
     end_time: float,
     timesteps: List[float],
-    metric_parameters: dict,
+    metric_parameters: Union[dict, list],
     global_factor: Optional[float] = None,
     boundary: bool = False,
     **kwargs,
@@ -497,27 +497,35 @@ def space_time_normalise(
         subinterval
     :arg metric_parameters: dictionary containing the target *space-time*
         metric complexity under `dm_plex_metric_target_complexity` and the
-        normalisation order under `dm_plex_metric_p`
+        normalisation order under `dm_plex_metric_p`, or a list thereof
     :kwarg global_factor: pre-computed global normalisation factor
     :kwarg boundary: is the normalisation to be done over the boundary?
     :kwarg restrict_sizes: should minimum and maximum metric magnitudes
         be enforced?
     :kwarg restrict_anisotropy: should maximum anisotropy be enforced?
     """
-    p = metric_parameters.get("dm_plex_metric_p")
-    if p is None:
-        raise ValueError("Normalisation order 'dm_plex_metric_p' must be set.")
-    if not (np.isinf(p) or p >= 1.0):
-        raise ValueError(
-            f"Normalisation order '{p}' should be one or greater or np.inf."
-        )
-    target = metric_parameters.get("dm_plex_metric_target_complexity")
-    if target is None:
-        raise ValueError(
-            "Target complexity 'dm_plex_metric_target_complexity' must be set."
-        )
-    if target <= 0.0:
-        raise ValueError(f"Target complexity '{target}' is not positive.")
+    if isinstance(metric_parameters, dict):
+        metric_parameters = [metric_parameters]
+    for mp in metric_parameters:
+        if not isinstance(mp, dict):
+            raise TypeError(
+                "Expected metric_parameters to consist of dictionaries,"
+                f" not objects of type '{type(mp)}'"
+            )
+        p = mp.get("dm_plex_metric_p")
+        if p is None:
+            raise ValueError("Normalisation order 'dm_plex_metric_p' must be set.")
+        if not (np.isinf(p) or p >= 1.0):
+            raise ValueError(
+                f"Normalisation order '{p}' should be one or greater or np.inf."
+            )
+        target = mp.get("dm_plex_metric_target_complexity")
+        if target is None:
+            raise ValueError(
+                "Target complexity 'dm_plex_metric_target_complexity' must be set."
+            )
+        if target <= 0.0:
+            raise ValueError(f"Target complexity '{target}' is not positive.")
 
     # TODO: Avoid assuming uniform subinterval lengths
     assert len(metrics) == len(timesteps)
@@ -531,7 +539,9 @@ def space_time_normalise(
     # Compute global normalisation factor
     if global_factor is None:
         integral = 0
-        for metric, tau in zip(metrics, dt_per_mesh):
+        for metric, tau, mp in zip(metrics, dt_per_mesh, metric_parameters):
+            p = mp["dm_plex_metric_p"]
+            target = mp["dm_plex_metric_target_complexity"]
             detM = ufl.det(metric)
             dX = (ufl.ds if boundary else ufl.dx)(metric.function_space().mesh())
             exponent = 0.5 if np.isinf(p) else (p / (2 * p + d))
@@ -539,8 +549,9 @@ def space_time_normalise(
         global_factor = firedrake.Constant(pow(target / integral, 2 / d))
 
     # Normalise on each subinterval
-    for metric, tau in zip(metrics, dt_per_mesh):
-        metric.set_parameters(metric_parameters)
+    for metric, tau, mp in zip(metrics, dt_per_mesh, metric_parameters):
+        p = mp["dm_plex_metric_p"]
+        metric.set_parameters(mp)
         metric.normalise(global_factor=pow(tau, -2 / (2 * p + d)) * global_factor)
         metric.enforce_spd(**kwargs)
     return metrics
