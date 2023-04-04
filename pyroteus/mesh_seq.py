@@ -310,6 +310,7 @@ class MeshSeq:
         )
 
         # Default adjoint solution to zero, rather than None
+        # TODO: This should be in adjoint subclass
         if has_adj_sol:
             if all(block.adj_sol is None for block in solve_blocks):
                 self.warning(
