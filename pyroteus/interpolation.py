@@ -158,7 +158,9 @@ def project(
         target_space = target.function_space()
     else:
         target = Function(target_space)
-    if source_space.ufl_domain() == target_space.ufl_domain():
+    if ufl.domain.extract_unique_domain(source) == ufl.domain.extract_unique_domain(
+        target
+    ):
         if source_space == target_space:
             target.assign(source)
         else:
