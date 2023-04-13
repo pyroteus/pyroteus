@@ -4,7 +4,8 @@ Sequences of meshes corresponding to a :class:`~.TimePartition`.
 import firedrake
 from firedrake.petsc import PETSc
 from firedrake.adjoint.solving import get_solve_blocks
-from pyadjoint import get_working_tape
+from firedrake.adjoint.blocks import GenericSolveBlock
+from pyadjoint import get_working_tape, Block
 from .interpolation import project
 from .log import pyrint, debug, warning, logger, DEBUG
 from .options import AdaptParameters
@@ -90,7 +91,6 @@ class MeshSeq:
         if self.params is None:
             self.params = AdaptParameters()
         self.warn = kwargs.get("warnings", True)
-        self._lagged_dep_idx = {}
         self.sections = [{} for mesh in self]
         if not hasattr(self, "steady"):
             self.steady = False
@@ -364,49 +364,103 @@ class MeshSeq:
             )
         return solve_blocks
 
-    def get_lagged_dependency_index(
-        self, field: str, subinterval: int, solve_blocks: list
-    ) -> int:
+    def _output(self, field: str, subinterval: int, solve_block: Block) -> Function:
         """
-        Get the dependency index corresponding
-        to the lagged forward solution for a
-        solve block.
+        For a given solve block and solution field, get the block's outputs which
+        corresponds to the solution from the current timestep.
 
         :arg field: field of interest
         :arg subinterval: subinterval index
-        :arg solve_blocks: list of taped
-            :class:`firedrake.adjoint.blocks.GenericSolveBlocks`
+        :arg solve_block: taped :class:`firedrake.adjoint.blocks.GenericSolveBlock`
         """
-        if field in self._lagged_dep_idx:
-            return self._lagged_dep_idx[field]
         fs = self.function_spaces[field][subinterval]
-        fwd_old_idx = [
-            dep_index
-            for dep_index, dep in enumerate(solve_blocks[0]._dependencies)
-            if hasattr(dep.output, "function_space")
-            and dep.output.function_space() == solve_blocks[0].function_space == fs
-            and hasattr(dep.output, "name")
-            and dep.output.name() == field + "_old"
-        ]
-        if len(fwd_old_idx) == 0:
-            if not self.steady:
-                self.warning(
-                    f"Solve block for field '{field}' on"
-                    f" subinterval {subinterval} has no dependencies"
-                )
-            fwd_old_idx = None
-        else:
-            if len(fwd_old_idx) > 1:
-                self.warning(
-                    f"Solve block for field '{field}' on subinterval"
-                    f" {subinterval} has dependencies in the prognostic"
-                    " space other than the PDE solution at the previous"
-                    f" timestep (dep. indices {fwd_old_idx}). Naively"
-                    " assuming the first to be the right one."
-                )
-            fwd_old_idx = fwd_old_idx[0]
-        self._lagged_dep_idx[field] = fwd_old_idx
-        return fwd_old_idx
+        assert isinstance(solve_block, GenericSolveBlock)
+
+        # Loop through the solve block's outputs
+        candidates = []
+        for out in solve_block._outputs:
+
+            # Look for Functions with matching function spaces
+            if not isinstance(out.output, Function):
+                continue
+            if not hasattr(out.output, "function_space"):
+                continue
+            if out.output.function_space() != fs:
+                continue
+
+            # Look for Functions whose name matches that of the field
+            # NOTE: Here we assume that the user has set this correctly in their
+            #       get_solver method
+            if not hasattr(out.output, "name"):
+                continue
+            if not out.output.name() == field:
+                continue
+
+            # Add to the list of candidates
+            candidates.append(out)
+
+        # Check for existence and uniqueness
+        if len(candidates) == 1:
+            return candidates[0]
+        elif len(candidates) > 1:
+            raise AttributeError(
+                "Cannot determine a unique output for the solution"
+                f" associated with field '{field}'. Candidates: {candidates}."
+            )
+        elif not self.steady:
+            raise AttributeError(
+                f"Solve block for field '{field}' on subinterval {subinterval} has no"
+                " outputs."
+            )
+
+    def _dependency(self, field: str, subinterval: int, solve_block: Block) -> Function:
+        """
+        For a given solve block and solution field, get the block's dependency which
+        corresponds to the solution from the previous timestep.
+
+        :arg field: field of interest
+        :arg subinterval: subinterval index
+        :arg solve_block: taped :class:`firedrake.adjoint.blocks.GenericSolveBlock`
+        """
+        fs = self.function_spaces[field][subinterval]
+        assert isinstance(solve_block, GenericSolveBlock)
+
+        # Loop through the solve block's dependencies
+        candidates = []
+        for dep in solve_block._dependencies:
+
+            # Look for Functions with matching function spaces
+            if not isinstance(dep.output, Function):
+                continue
+            if not hasattr(dep.output, "function_space"):
+                continue
+            if dep.output.function_space() != fs:
+                continue
+
+            # Look for Functions whose name is the lagged version of the field's
+            # NOTE: Here we assume that the user has set this correctly in their
+            #       get_solver method
+            if not hasattr(dep.output, "name"):
+                continue
+            if not dep.output.name() == f"{field}_old":
+                continue
+
+            # Add to the list of candidates
+            candidates.append(dep)
+
+        # Check for existence and uniqueness
+        if len(candidates) == 1:
+            return candidates[0]
+        elif len(candidates) > 1:
+            raise AttributeError(
+                "Cannot determine a unique dependency index for the lagged solution"
+                f" associated with field '{field}'. Candidates: {candidates}."
+            )
+        elif not self.steady:
+            raise AttributeError(
+                f"Solve block for field '{field}' on subinterval {subinterval} has no"
+                " dependencies."
+            )
 
     @PETSc.Log.EventDecorator()
     def solve_forward(self, solver_kwargs: dict = {}, clear_tape: bool = True) -> dict:
@@ -496,14 +550,6 @@ class MeshSeq:
                     "Looks like no solves were written to tape!"
                     " Does the solution depend on the initial condition?"
                 )
-                if "forward_old" in solutions[field]:
-                    fwd_old_idx = self.get_lagged_dependency_index(
-                        field, i, solve_blocks
-                    )
-                else:
-                    fwd_old_idx = None
-                if fwd_old_idx is None and "forward_old" in solutions[field]:
-                    solutions[field].pop("forward_old")
 
                 # Extract solution data
                 sols = solutions[field]
@@ -512,11 +558,19 @@ class MeshSeq:
                         f"More solve blocks than expected"
                         f" ({len(solve_blocks[::stride])} > {num_exports-1})"
                     )
+
+                # Update the solution data based on block dependencies and outputs
                 for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
-                    if fwd_old_idx is not None:
-                        dep = block._dependencies[fwd_old_idx]
+
+                    # Current solution is determined from outputs
+                    out = self._output(field, i, block)
+                    if out is not None:
+                        sols.forward[i][j].assign(out.saved_output)
+
+                    # Lagged solution comes from dependencies
+                    dep = self._dependency(field, i, block)
+                    if dep is not None:
                         sols.forward_old[i][j].assign(dep.saved_output)
-                    sols.forward[i][j].assign(block._outputs[0].saved_output)
 
             # Clear tape
             if clear_tape:

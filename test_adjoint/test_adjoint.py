@@ -139,12 +139,10 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     adj_values_expected = {}
     for field, fs in mesh_seq._fs.items():
         solve_blocks = mesh_seq.get_solve_blocks(field, 0)
-        fwd_old_idx = mesh_seq.get_lagged_dependency_index(field, 0, solve_blocks)
         adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
         if not steady:
-            adj_values_expected[field] = Function(
-                fs[0], val=solve_blocks[0]._dependencies[fwd_old_idx].adj_value
-            )
+            dep = mesh_seq._dependency(field, 0, solve_blocks[0])
+            adj_values_expected[field] = Function(fs[0], val=dep.adj_value)
 
     # Loop over having one or two subintervals
     for N in range(1, 2 if steady else 3):

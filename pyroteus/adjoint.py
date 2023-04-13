@@ -319,14 +319,6 @@ class AdjointMeshSeq(MeshSeq):
                         f" elements ({fs[0].ufl_element()} vs. "
                         f" {solve_blocks[0].function_space.ufl_element()})"
                     )
-                if "forward_old" in solutions[field]:
-                    fwd_old_idx = self.get_lagged_dependency_index(
-                        field, i, solve_blocks
-                    )
-                else:
-                    fwd_old_idx = None
-                if fwd_old_idx is None and "forward_old" in solutions[field]:
-                    solutions[field].pop("forward_old")
 
                 # Detect whether we have a steady problem
                 steady = self.steady or (
@@ -335,22 +327,38 @@ class AdjointMeshSeq(MeshSeq):
                 if steady and "adjoint_next" in sols:
                     sols.pop("adjoint_next")
 
-                # Extract solution data
-                sols = solutions[field]
+                # Check that there are as many solve blocks as expected
                 if len(solve_blocks[::stride]) >= num_exports:
                     self.warning(
-                        "More solve blocks than expected"
-                        f" ({len(solve_blocks[::stride])} > {num_exports-1})"
+                        "More solve blocks than expected:"
+                        f" ({len(solve_blocks[::stride])} > {num_exports-1})."
                     )
-                for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
-                    # Lagged forward solution and adjoint values
-                    if fwd_old_idx is not None:
-                        dep = block._dependencies[fwd_old_idx]
-                        sols.forward_old[i][j].assign(dep.saved_output)
-                        if get_adj_values:
-                            sols.adj_value[i][j].assign(dep.adj_value.function)
 
-                    # Lagged adjoint solution
+                # Update forward and adjoint solution data based on block dependencies
+                # and outputs
+                sols = solutions[field]
+                for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
+
+                    # Current forward solution is determined from outputs
+                    out = self._output(field, i, block)
+                    if out is not None:
+                        sols.forward[i][j].assign(out.saved_output)
+
+                    # Current adjoint solution is determined from the adj_sol attribute
+                    if block.adj_sol is not None:
+                        sols.adjoint[i][j].assign(block.adj_sol)
+
+                    # Lagged forward solution comes from dependencies
+                    dep = self._dependency(field, i, block)
+                    if dep is not None:
+                        sols.forward_old[i][j].assign(dep.saved_output)
+
+                    # Adjoint action also comes from dependencies
+                    if get_adj_values and dep is not None:
+                        sols.adj_value[i][j].assign(dep.adj_value.function)
+
+                    # The adjoint solution at the 'next' timestep is determined from the
+                    # adj_sol attribute of the next solve block
                     if not steady:
                         if j * stride + 1 < num_solve_blocks:
                             if solve_blocks[j * stride + 1].adj_sol is not None:
@@ -366,13 +374,9 @@ class AdjointMeshSeq(MeshSeq):
                                 )
                         else:
                             raise IndexError(
-                                f"Cannot extract solve block {j*stride+1} > {num_solve_blocks}"
+                                "Cannot extract solve block"
+                                f" {j*stride+1} > {num_solve_blocks}."
                             )
-
-                    # Forward and adjoint solution at current timestep
-                    sols.forward[i][j].assign(block._outputs[0].saved_output)
-                    if block.adj_sol is not None:
-                        sols.adjoint[i][j].assign(block.adj_sol)
 
                 # Check non-zero adjoint solution/value
                 if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
