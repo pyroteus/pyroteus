@@ -250,37 +250,57 @@ class MeshSeq:
     def bcs(self) -> Callable:
         return self.get_bcs()
 
-    @PETSc.Log.EventDecorator("pyroteus.MeshSeq.get_checkpoints")
-    def get_checkpoints(self, solver_kwargs: dict = {}) -> list:
+    @PETSc.Log.EventDecorator()
+    def get_checkpoints(
+        self, solver_kwargs: dict = {}, run_final_subinterval: bool = False
+    ) -> list:
         """
-        Solve forward on the sequence of meshes,
-        extracting checkpoints corresponding to
-        the starting fields on each subinterval.
+        Solve forward on the sequence of meshes, extracting checkpoints corresponding
+        to the starting fields on each subinterval.
 
-        :kwarg solver_kwargs: additional keyword
-            arguments which will be passed to
-            the solver
+        :kwarg solver_kwargs: additional keyword arguments which will be passed to the
+            solver
+        :kwarg run_final_subinterval: toggle whether to solve the PDE on the final
+            subinterval
         """
-        solver = self.solver
+        N = len(self)
+
+        # The first checkpoint is the initial condition
         checkpoints = [self.initial_condition]
-        for i in range(len(self)):
-            sols = solver(
-                self, checkpoints[i], *self.time_partition[i], **solver_kwargs
-            )
-            assert issubclass(sols.__class__, dict), "solver should return a dict"
-            assert set(self.fields).issubclass(
-                set(sols.keys())
-            ), "missing fields from solver"
-            assert set(sols.keys()).issubclass(
-                set(self.fields)
-            ), "more solver outputs than fields"
-            if i < len(self) - 1:
-                checkpoints.append(
-                    {
-                        field: project(sols[field], fs[i + 1])
-                        for field, fs in self._fs.items()
-                    }
+
+        # If there is only one subinterval then we are done
+        if N == 1 and not run_final_subinterval:
+            return checkpoints
+
+        # Otherwise, solve each subsequent subinterval, in each case making use of the
+        # previous checkpoint
+        for i in range(N if run_final_subinterval else N - 1):
+            sols = self.solver(i, checkpoints[i], **solver_kwargs)
+            if not isinstance(sols, dict):
+                raise TypeError(
+                    f"Solver should return a dictionary, not '{type(sols)}'."
                 )
+
+            # Check that the output of the solver is as expected
+            fields = set(sols.keys())
+            if not set(self.fields).issubset(fields):
+                diff = set(self.fields).difference(fields)
+                raise ValueError(f"Fields are missing from the solver: {diff}.")
+            if not fields.issubset(set(self.fields)):
+                diff = fields.difference(set(self.fields))
+                raise ValueError(f"Unexpected solver outputs: {diff}.")
+
+            # Transfer between meshes using conservative projection
+            if i < N - 1:
+                checkpoints.append(
+                    AttrDict(
+                        {
+                            field: project(sols[field], fs[i + 1])
+                            for field, fs in self._fs.items()
+                        }
+                    )
+                )
+
         return checkpoints
 
     def get_solve_blocks(

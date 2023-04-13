@@ -109,58 +109,38 @@ class AdjointMeshSeq(MeshSeq):
         return self._get_qoi(self, solution_map, i)
 
     @pyadjoint.no_annotations
-    @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.get_checkpoints")
+    @PETSc.Log.EventDecorator()
     def get_checkpoints(
         self, solver_kwargs: dict = {}, run_final_subinterval: bool = False
     ) -> list:
         """
-        Solve forward on the sequence of meshes,
-        extracting checkpoints corresponding to
-        the starting fields on each subinterval.
+        Solve forward on the sequence of meshes, extracting checkpoints corresponding
+        to the starting fields on each subinterval.
 
         The QoI is also evaluated.
 
-        :kwarg solver_kwargs: additional keyword
-            arguments which will be passed to
-            the solver
-        :kwarg run_final_subinterval: toggle
-            whether to solve the PDE on the
-            final subinterval
+        :kwarg solver_kwargs: additional keyword arguments which will be passed to the
+            solver
+        :kwarg run_final_subinterval: toggle whether to solve the PDE on the final
+            subinterval
         """
-        self.J = 0
-        N = len(self)
 
-        # Solve forward
-        checkpoints = [self.initial_condition]
-        if N == 1 and not run_final_subinterval:
-            return checkpoints
-        for i in range(N if run_final_subinterval else N - 1):
-            sols = self.solver(i, checkpoints[i], **solver_kwargs)
-            assert issubclass(sols.__class__, dict), "solver should return a dict"
-            fields = set(sols.keys())
-            if not set(self.fields).issubset(fields):
-                diff = set(self.fields).difference(fields)
-                raise ValueError(f"Missing fields {diff} from solver")
-            if not fields.issubset(set(self.fields)):
-                diff = fields.difference(set(self.fields))
-                raise ValueError(f"More solver outputs than fields ({diff} unexpected)")
-            if i < N - 1:
-                checkpoints.append(
-                    AttrDict(
-                        {
-                            field: project(sols[field], fs[i + 1])
-                            for field, fs in self._fs.items()
-                        }
-                    )
-                )
+        # In some cases we run over all subintervals to check the QoI that is computed
+        if run_final_subinterval:
+            self.J = 0
+
+        # Generate the checkpoints as in MeshSeq
+        checkpoints = super().get_checkpoints(
+            solver_kwargs=solver_kwargs, run_final_subinterval=run_final_subinterval
+        )
 
         # Account for end time QoI
-        if self.qoi_type in ["end_time", "steady"]:
-            qoi = self.get_qoi(sols, N - 1)
+        if self.qoi_type in ["end_time", "steady"] and run_final_subinterval:
+            qoi = self.get_qoi(checkpoints[-1], len(self) - 1)
             self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
         return checkpoints
 
-    @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.solve_adjoint")
+    @PETSc.Log.EventDecorator()
     def solve_adjoint(
         self,
         solver_kwargs: dict = {},
@@ -211,9 +191,11 @@ class AdjointMeshSeq(MeshSeq):
             solver_kwargs=solver_kwargs,
             run_final_subinterval=test_checkpoint_qoi,
         )
-        if self.warn and test_checkpoint_qoi and np.isclose(float(self.J), 0.0):
+        J_chk = float(self.J)
+        if self.warn and test_checkpoint_qoi and np.isclose(J_chk, 0.0):
             self.warning("Zero QoI. Is it implemented as intended?")
-        J_chk = self.J
+
+        # Reset the QoI to zero
         self.J = 0
 
         # Create arrays to hold exported forward and adjoint solutions
