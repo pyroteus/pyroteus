@@ -14,7 +14,6 @@ from .time_partition import TimePartition
 from .utility import AttrDict, Function, Mesh, MeshGeometry
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
-from functools import wraps
 import matplotlib
 import numpy as np
 from typing import Tuple
@@ -463,38 +462,38 @@ class MeshSeq:
             )
 
     @PETSc.Log.EventDecorator()
-    def solve_forward(self, solver_kwargs: dict = {}, clear_tape: bool = True) -> dict:
+    def solve_forward(self, solver_kwargs: dict = {}) -> AttrDict:
         """
         Solve a forward problem on a sequence of subintervals.
 
-        A dictionary of solution fields is computed, the contents
-        of which give values at all exported timesteps, indexed
-        first by the field label and then by type. The contents
-        of these nested dictionaries are lists which are indexed
-        first by subinterval and then by export. For a given
-        exported timestep, the solution types are:
+        A dictionary of solution fields is computed, the contents of which give values
+        at all exported timesteps, indexed first by the field label and then by type.
+        The contents of these nested dictionaries are nested lists which are indexed
+        first by subinterval and then by export. For a given exported timestep, the
+        solution types are:
 
         * ``'forward'``: the forward solution after taking the
             timestep;
         * ``'forward_old'``: the forward solution before taking
             the timestep.
 
-        :kwarg solver_kwargs: a dictionary providing parameters
-            to the solver. Any keyword arguments for the QoI
-            should be included as a subdict with label 'qoi_kwargs'
-        :kwarg clear_tape: should the tape be cleared at the end
-            of an iteration?
+        :kwarg solver_kwargs: a dictionary providing parameters to the solver. Any
+            keyword arguments for the QoI should be included as a subdict with label
+            'qoi_kwargs'
 
-        :return solution: an :class:`~.AttrDict` containing
-            solution fields and their lagged versions.
+        :return solution: an :class:`~.AttrDict` containing solution fields and their
+            lagged versions.
         """
         from firedrake_adjoint import pyadjoint
 
         num_subintervals = len(self)
         function_spaces = self.function_spaces
         P = self.time_partition
+        solver = self.solver
 
-        # Create arrays to hold exported forward solutions
+        # Create arrays to hold exported forward solutions and their lagged
+        # counterparts
+        labels = ("forward", "forward_old")
         solutions = AttrDict(
             {
                 field: AttrDict(
@@ -506,60 +505,52 @@ class MeshSeq:
                             ]
                             for i, fs in enumerate(function_spaces[field])
                         ]
-                        for label in ("forward", "forward_old")
+                        for label in labels
                     }
                 )
                 for field in self.fields
             }
         )
 
-        # Wrap solver to extract controls
-        solver = self.solver
-
-        @PETSc.Log.EventDecorator("pyroteus.MeshSeq.solve_adjoint.evaluate_fwd")
-        @wraps(solver)
-        def wrapped_solver(i, ic, **kwargs):
-            init = AttrDict(
-                {field: ic[field].copy(deepcopy=True) for field in self.fields}
-            )
-            self.controls = [pyadjoint.Control(init[field]) for field in self.fields]
-            out = solver(i, init, **kwargs)
-            if i < len(self) - 1:
-                for field, fs in function_spaces.items():
-                    out[field] = project(out[field], fs[i + 1])
-            return out
-
         # Clear tape
         tape = pyadjoint.get_working_tape()
         tape.clear_tape()
 
+        # Loop over the subintervals
         checkpoint = self.initial_condition
         for i in range(num_subintervals):
             stride = P.timesteps_per_export[i]
             num_exports = P.exports_per_subinterval[i]
 
             # Annotate tape on current subinterval
-            checkpoint = wrapped_solver(i, checkpoint, **solver_kwargs)
+            checkpoint = solver(i, checkpoint, **solver_kwargs)
 
             # Loop over prognostic variables
             for field, fs in function_spaces.items():
                 # Get solve blocks
                 solve_blocks = self.get_solve_blocks(field, i)
                 num_solve_blocks = len(solve_blocks)
-                assert num_solve_blocks > 0, (
-                    "Looks like no solves were written to tape!"
-                    " Does the solution depend on the initial condition?"
-                )
+                if num_solve_blocks == 0:
+                    raise ValueError(
+                        "Looks like no solves were written to tape!"
+                        " Does the solution depend on the initial condition?"
+                    )
+                if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
+                    raise ValueError(
+                        f"Solve block list for field '{field}' contains mismatching"
+                        f" finite elements: ({fs[0].ufl_element()} vs. "
+                        f" {solve_blocks[0].function_space.ufl_element()})"
+                    )
 
                 # Extract solution data
-                sols = solutions[field]
                 if len(solve_blocks[::stride]) >= num_exports:
                     raise ValueError(
                         f"More solve blocks than expected"
                         f" ({len(solve_blocks[::stride])} > {num_exports-1})"
                     )
 
-                # Update the solution data based on block dependencies and outputs
+                # Update solution data based on block dependencies and outputs
+                sols = solutions[field]
                 for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
 
                     # Current solution is determined from outputs
@@ -572,9 +563,17 @@ class MeshSeq:
                     if dep is not None:
                         sols.forward_old[i][j].assign(dep.saved_output)
 
-            # Clear tape
-            if clear_tape:
-                tape.clear_tape()
+            # Transfer the checkpoint between subintervals
+            if i < num_subintervals - 1:
+                checkpoint = AttrDict(
+                    {
+                        field: project(checkpoint[field], fs[i + 1])
+                        for field, fs in self._fs.items()
+                    }
+                )
+
+            # Clear the tape to reduce the memory footprint
+            tape.clear_tape()
 
         return solutions
 
