@@ -216,6 +216,8 @@ class AdjointMeshSeq(MeshSeq):
         num_subintervals = len(self)
         function_spaces = self.function_spaces
         P = self.time_partition
+        solver = self.solver
+        qoi_kwargs = solver_kwargs.get("qoi_kwargs", {})
 
         # Solve forward to get checkpoints and evaluate QoI
         checkpoints = self.get_checkpoints(
@@ -229,7 +231,8 @@ class AdjointMeshSeq(MeshSeq):
         # Reset the QoI to zero
         self.J = 0
 
-        # Create arrays to hold exported forward and adjoint solutions
+        # Create arrays to hold exported forward and adjoint solutions and their lagged
+        # counterparts, as well as the adjoint actions, if requested
         labels = ("forward", "forward_old", "adjoint")
         if not self.steady:
             labels += ("adjoint_next",)
@@ -253,17 +256,22 @@ class AdjointMeshSeq(MeshSeq):
             }
         )
 
-        # Wrap solver to extract controls
-        solver = self.solver
-
         @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.solve_adjoint.evaluate_fwd")
         @wraps(solver)
-        def wrapped_solver(i, ic, **kwargs):
+        def wrapped_solver(subinterval, ic, **kwargs):
+            """
+            Decorator to allow the solver to stash its initial conditions as controls.
+
+            :arg subinterval: the subinterval index
+            :arg ic: the dictionary of initial condition :class:`~.Functions`
+
+            All keyword arguments are passed to the solver.
+            """
             init = AttrDict(
                 {field: ic[field].copy(deepcopy=True) for field in self.fields}
             )
             self.controls = [pyadjoint.Control(init[field]) for field in self.fields]
-            return solver(i, init, **kwargs)
+            return solver(subinterval, init, **kwargs)
 
         # Clear tape
         tape = pyadjoint.get_working_tape()
@@ -276,19 +284,19 @@ class AdjointMeshSeq(MeshSeq):
             num_exports = P.exports_per_subinterval[i]
 
             # Annotate tape on current subinterval
-            sols = wrapped_solver(i, checkpoints[i], **solver_kwargs)
+            checkpoint = wrapped_solver(i, checkpoints[i], **solver_kwargs)
 
             # Get seed vector for reverse propagation
             if i == num_subintervals - 1:
                 if self.qoi_type in ["end_time", "steady"]:
-                    qoi = self.get_qoi(sols, i)
-                    self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
+                    qoi = self.get_qoi(checkpoint, i)
+                    self.J = qoi(**qoi_kwargs)
                     if self.warn and np.isclose(float(self.J), 0.0):
                         self.warning("Zero QoI. Is it implemented as intended?")
             else:
                 with pyadjoint.stop_annotating():
                     for field, fs in function_spaces.items():
-                        sols[field].block_variable.adj_value = project(
+                        checkpoint[field].block_variable.adj_value = project(
                             seeds[field], fs[i], adjoint=True
                         )
 
@@ -309,23 +317,22 @@ class AdjointMeshSeq(MeshSeq):
                 # Get solve blocks
                 solve_blocks = self.get_solve_blocks(field, i)
                 num_solve_blocks = len(solve_blocks)
-                assert num_solve_blocks > 0, (
-                    "Looks like no solves were written to tape!"
-                    " Does the solution depend on the initial condition?"
-                )
+                if num_solve_blocks == 0:
+                    raise ValueError(
+                        "Looks like no solves were written to tape!"
+                        " Does the solution depend on the initial condition?"
+                    )
                 if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
                     raise ValueError(
-                        f"Solve block list for field {field} contains mismatching"
-                        f" elements ({fs[0].ufl_element()} vs. "
+                        f"Solve block list for field '{field}' contains mismatching"
+                        f" finite elements: ({fs[0].ufl_element()} vs. "
                         f" {solve_blocks[0].function_space.ufl_element()})"
                     )
 
                 # Detect whether we have a steady problem
-                steady = self.steady or (
-                    num_subintervals == 1 and num_solve_blocks == 1
-                )
-                if steady and "adjoint_next" in sols:
-                    sols.pop("adjoint_next")
+                steady = self.steady or num_subintervals == num_solve_blocks == 1
+                if steady and "adjoint_next" in checkpoint:
+                    checkpoint.pop("adjoint_next")
 
                 # Check that there are as many solve blocks as expected
                 if len(solve_blocks[::stride]) >= num_exports:
@@ -379,39 +386,43 @@ class AdjointMeshSeq(MeshSeq):
                             )
 
                 # Check non-zero adjoint solution/value
-                if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
-                    self.warning(
-                        f"Adjoint solution for field {field} on {self.th(i)} subinterval is zero."
-                    )
-                if (
-                    self.warn
-                    and get_adj_values
-                    and np.isclose(norm(sols.adj_value[i][0]), 0.0)
-                ):
-                    self.warning(
-                        f"Adjoint action for field {field} on {self.th(i)} subinterval is zero."
-                    )
+                if self.warn:
+                    if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
+                        self.warning(
+                            f"Adjoint solution for field '{field}' on {self.th(i)}"
+                            " subinterval is zero."
+                        )
+                    if get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
+                        self.warning(
+                            f"Adjoint action for field '{field}' on {self.th(i)}"
+                            " subinterval is zero."
+                        )
 
-            # Get adjoint action
+            # Get adjoint action on each subinterval
             seeds = {
                 field: Function(
                     function_spaces[field][i], val=control.block_variable.adj_value
                 )
                 for field, control in zip(self.fields, self.controls)
             }
-            for field, seed in seeds.items():
-                if self.warn and np.isclose(norm(seed), 0.0):
-                    self.warning(
-                        f"Adjoint action for field {field} on {self.th(i)} subinterval is zero."
-                    )
+            if self.warn:
+                for field, seed in seeds.items():
+                    if np.isclose(norm(seed), 0.0):
+                        self.warning(
+                            f"Adjoint action for field '{field}' on {self.th(i)}"
+                            " subinterval is zero."
+                        )
+
+            # Clear the tape to reduce the memory footprint
             tape.clear_tape()
 
         # Check the QoI value agrees with that due to the checkpointing run
         if self.qoi_type == "time_integrated" and test_checkpoint_qoi:
-            assert np.isclose(J_chk, self.J), (
-                "QoI values computed during checkpointing and annotated"
-                f" run do not match ({J_chk} vs. {self.J})"
-            )
+            if not np.isclose(J_chk, self.J):
+                raise ValueError(
+                    "QoI values computed during checkpointing and annotated"
+                    f" run do not match ({J_chk} vs. {self.J})"
+                )
         return solutions
 
     @staticmethod
