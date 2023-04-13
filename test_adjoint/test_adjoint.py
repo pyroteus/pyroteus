@@ -138,7 +138,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     adj_sols_expected = {}
     adj_values_expected = {}
     for field, fs in mesh_seq._fs.items():
-        solve_blocks = mesh_seq.get_solve_blocks(field)
+        solve_blocks = mesh_seq.get_solve_blocks(field, 0)
         fwd_old_idx = mesh_seq.get_lagged_dependency_index(field, 0, solve_blocks)
         adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
         if not steady:

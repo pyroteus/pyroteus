@@ -141,6 +141,37 @@ class AdjointMeshSeq(MeshSeq):
         return checkpoints
 
     @PETSc.Log.EventDecorator()
+    def get_solve_blocks(
+        self, field: str, subinterval: int, has_adj_sol: bool = True
+    ) -> list:
+        """
+        Get all blocks of the tape corresponding to solve steps for prognostic solution
+        field on a given subinterval.
+
+        :arg field: name of the prognostic solution field
+        :arg subinterval: subinterval index
+        :kwarg has_adj_sol: if ``True``, only blocks with ``adj_sol`` attributes will be
+            considered
+        """
+        solve_blocks = super().get_solve_blocks(field, subinterval)
+        if not has_adj_sol:
+            return solve_blocks
+
+        # Check that adjoint solutions exist
+        if all(block.adj_sol is None for block in solve_blocks):
+            self.warning(
+                "No block has an adjoint solution. Has the adjoint equation been solved?"
+            )
+
+        # Default adjoint solution to zero, rather than None
+        for block in solve_blocks:
+            if block.adj_sol is None:
+                block.adj_sol = Function(
+                    self.function_spaces[field][subinterval], name=field
+                )
+        return solve_blocks
+
+    @PETSc.Log.EventDecorator()
     def solve_adjoint(
         self,
         solver_kwargs: dict = {},
@@ -263,9 +294,7 @@ class AdjointMeshSeq(MeshSeq):
 
             # Update adjoint solver kwargs
             for field in self.fields:
-                for block in self.get_solve_blocks(
-                    field, subinterval=i, has_adj_sol=False
-                ):
+                for block in self.get_solve_blocks(field, i, has_adj_sol=False):
                     block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
@@ -278,7 +307,7 @@ class AdjointMeshSeq(MeshSeq):
             # Loop over prognostic variables
             for field, fs in function_spaces.items():
                 # Get solve blocks
-                solve_blocks = self.get_solve_blocks(field, subinterval=i)
+                solve_blocks = self.get_solve_blocks(field, i)
                 num_solve_blocks = len(solve_blocks)
                 assert num_solve_blocks > 0, (
                     "Looks like no solves were written to tape!"

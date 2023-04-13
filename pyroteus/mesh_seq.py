@@ -3,6 +3,8 @@ Sequences of meshes corresponding to a :class:`~.TimePartition`.
 """
 import firedrake
 from firedrake.petsc import PETSc
+from firedrake.adjoint.solving import get_solve_blocks
+from pyadjoint import get_working_tape
 from .interpolation import project
 from .log import pyrint, debug, warning, logger, DEBUG
 from .options import AdaptParameters
@@ -303,16 +305,15 @@ class MeshSeq:
 
         return checkpoints
 
-    def get_solve_blocks(
-        self, field: str, subinterval: int = 0, has_adj_sol: bool = True
-    ) -> list:
+    @PETSc.Log.EventDecorator()
+    def get_solve_blocks(self, field: str, subinterval: int) -> list:
         """
-        Get all blocks of the tape corresponding to
-        solve steps for prognostic solution ``field``
-        on a given ``subinterval``.
+        Get all blocks of the tape corresponding to solve steps for prognostic solution
+        field on a given subinterval.
+
+        :arg field: name of the prognostic solution field
+        :arg subinterval: subinterval index
         """
-        from firedrake.adjoint.solving import get_solve_blocks
-        from pyadjoint import get_working_tape
 
         # Get all blocks
         blocks = get_working_tape().get_blocks()
@@ -326,42 +327,30 @@ class MeshSeq:
             self.warning("Tape has no solve blocks!")
             return solve_blocks
 
-        # Slice solve blocks by field
+        # Select solve blocks whose tags correspond to the field name
         solve_blocks = [
             block
             for block in solve_blocks
-            if block.tag is not None and field in block.tag
+            if isinstance(block.tag, str) and block.tag.startswith(field)
         ]
         if len(solve_blocks) == 0:
             self.warning(
-                f"No solve blocks associated with field '{field}'.\n"
+                f"No solve blocks associated with field '{field}'."
                 "Has ad_block_tag been used correctly?"
             )
             return solve_blocks
         self.debug(
-            f"Field '{field}' on subinterval {subinterval} has {len(solve_blocks)} solve blocks"
+            f"Field '{field}' on subinterval {subinterval} has {len(solve_blocks)}"
+            " solve blocks."
         )
-
-        # Default adjoint solution to zero, rather than None
-        # TODO: This should be in adjoint subclass
-        if has_adj_sol:
-            if all(block.adj_sol is None for block in solve_blocks):
-                self.warning(
-                    "No block has an adjoint solution. Has the adjoint equation been solved?"
-                )
-            for block in solve_blocks:
-                if block.adj_sol is None:
-                    block.adj_sol = Function(
-                        self.function_spaces[field][subinterval], name=field
-                    )
 
         # Check FunctionSpaces are consistent across solve blocks
         element = solve_blocks[0].function_space.ufl_element()
         for block in solve_blocks:
             if element != block.function_space.ufl_element():
                 raise ValueError(
-                    f"Solve block list for field {field} contains mismatching elements"
-                    f" ({element} vs. {block.function_space.ufl_element()})"
+                    f"Solve block list for field '{field}' contains mismatching elements:"
+                    f" {element} vs. {block.function_space.ufl_element()}."
                 )
 
         # Check the number of timesteps divides the number of solve blocks
@@ -419,7 +408,7 @@ class MeshSeq:
         self._lagged_dep_idx[field] = fwd_old_idx
         return fwd_old_idx
 
-    @PETSc.Log.EventDecorator("pyroteus.MeshSeq.solve_forward")
+    @PETSc.Log.EventDecorator()
     def solve_forward(self, solver_kwargs: dict = {}, clear_tape: bool = True) -> dict:
         """
         Solve a forward problem on a sequence of subintervals.
@@ -501,9 +490,7 @@ class MeshSeq:
             # Loop over prognostic variables
             for field, fs in function_spaces.items():
                 # Get solve blocks
-                solve_blocks = self.get_solve_blocks(
-                    field, subinterval=i, has_adj_sol=False
-                )
+                solve_blocks = self.get_solve_blocks(field, i)
                 num_solve_blocks = len(solve_blocks)
                 assert num_solve_blocks > 0, (
                     "Looks like no solves were written to tape!"
