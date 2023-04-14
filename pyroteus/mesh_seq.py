@@ -332,19 +332,19 @@ class MeshSeq:
             for block in solve_blocks
             if isinstance(block.tag, str) and block.tag.startswith(field)
         ]
-        if len(solve_blocks) == 0:
+        N = len(solve_blocks)
+        if N == 0:
             self.warning(
                 f"No solve blocks associated with field '{field}'."
-                "Has ad_block_tag been used correctly?"
+                " Has ad_block_tag been used correctly?"
             )
             return solve_blocks
         self.debug(
-            f"Field '{field}' on subinterval {subinterval} has {len(solve_blocks)}"
-            " solve blocks."
+            f"Field '{field}' on subinterval {subinterval} has {N} solve blocks."
         )
 
         # Check FunctionSpaces are consistent across solve blocks
-        element = solve_blocks[0].function_space.ufl_element()
+        element = self.function_spaces[field][subinterval].ufl_element()
         for block in solve_blocks:
             if element != block.function_space.ufl_element():
                 raise ValueError(
@@ -352,14 +352,21 @@ class MeshSeq:
                     f" {element} vs. {block.function_space.ufl_element()}."
                 )
 
-        # Check the number of timesteps divides the number of solve blocks
+        # Check that the number of timesteps does not exceed the number of solve blocks
         num_timesteps = self.time_partition[subinterval].num_timesteps
-        ratio = len(solve_blocks) / num_timesteps
+        if num_timesteps > N:
+            raise ValueError(
+                f"Number of timesteps exceeds number of solve blocks for field '{field}'"
+                f" on subinterval {subinterval}: {num_timesteps} > {N}."
+            )
+
+        # Check the number of timesteps is divisible by the number of solve blocks
+        ratio = num_timesteps / N
         if not np.isclose(np.round(ratio), ratio):
             raise ValueError(
-                f"Number of timesteps for field '{field}' does not divide number of solve"
-                f" blocks ({num_timesteps} vs. {len(solve_blocks)}). If you are trying to"
-                " use a multi-stage Runge-Kutta method, then this is not supported."
+                "Number of timesteps is not divisible by number of solve blocks for"
+                f" field '{field}' on subinterval {subinterval}: {num_timesteps} vs."
+                f" {N}."
             )
         return solve_blocks
 
