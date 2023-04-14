@@ -12,36 +12,6 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), "examples"))
 
 
-@pytest.fixture(autouse=True)
-def handle_taping():
-    """
-    **Disclaimer: copied from
-        firedrake/tests/regression/test_adjoint_operators.py
-    """
-    yield
-    import pyadjoint
-
-    tape = pyadjoint.get_working_tape()
-    tape.clear_tape()
-
-
-@pytest.fixture(autouse=True, scope="module")
-def handle_exit_annotation():
-    """
-    Since importing firedrake_adjoint modifies a global variable, we need to
-    pause annotations at the end of the module.
-
-    **Disclaimer: copied from
-        firedrake/tests/regression/test_adjoint_operators.py
-    """
-    yield
-    import pyadjoint
-
-    annotate = pyadjoint.annotate_tape()
-    if annotate:
-        pyadjoint.pause_annotation()
-
-
 # ---------------------------
 # standard tests for pytest
 # ---------------------------

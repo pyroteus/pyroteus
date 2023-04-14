@@ -21,7 +21,7 @@ class TestStringFormatting(unittest.TestCase):
     def test_mesh_seq_time_interval_str(self):
         mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
         got = re.sub("#[0-9]*", "?", str(mesh_seq))
-        assert got == "['<Mesh ?>']"
+        self.assertEqual(got, "['<Mesh ?>']")
 
     def test_mesh_seq_time_partition_str(self):
         meshes = [
@@ -30,12 +30,12 @@ class TestStringFormatting(unittest.TestCase):
         ]
         mesh_seq = MeshSeq(self.time_partition, meshes)
         got = re.sub("#[0-9]*", "?", str(mesh_seq))
-        assert got == "['<Mesh ?>', '<Mesh ?>']"
+        self.assertEqual(got, "['<Mesh ?>', '<Mesh ?>']")
 
     def test_mesh_seq_time_interval_repr(self):
         mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
         expected = "MeshSeq([Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
-        assert re.match(repr(mesh_seq), expected)
+        self.assertTrue(re.match(repr(mesh_seq), expected))
 
     def test_mesh_seq_time_partition_repr(self):
         meshes = [
@@ -48,4 +48,4 @@ class TestStringFormatting(unittest.TestCase):
             "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*), "
             "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
         )
-        assert re.match(repr(mesh_seq), expected)
+        self.assertTrue(re.match(repr(mesh_seq), expected))
