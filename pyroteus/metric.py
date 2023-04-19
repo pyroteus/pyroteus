@@ -503,7 +503,7 @@ def space_time_normalise(
     :kwarg restrict_anisotropy: should maximum anisotropy be enforced?
     """
     if isinstance(metric_parameters, dict):
-        metric_parameters = [metric_parameters]
+        metric_parameters = [metric_parameters for _ in range(len(time_partition))]
     for mp in metric_parameters:
         if not isinstance(mp, dict):
             raise TypeError(
@@ -528,10 +528,7 @@ def space_time_normalise(
 
     # Compute timestep on each subinterval
     assert len(metrics) == len(time_partition)
-    subinterval_timestep = [
-        firedrake.Constant((S.end_time - S.start_time) / S.timestep)
-        for S in time_partition
-    ]
+    subinterval_timestep = [S.timestep for S in time_partition]
 
     # Enforce that the metric is SPD
     for metric in metrics:
@@ -546,14 +543,14 @@ def space_time_normalise(
             detM = ufl.det(metric)
             dX = (ufl.ds if boundary else ufl.dx)(metric.function_space().mesh())
             exponent = 0.5 if np.isinf(p) else (p / (2 * p + d))
-            integral += firedrake.assemble(pow(tau**2 * detM, exponent) * dX)
+            integral += firedrake.assemble(pow(detM, exponent) * dX) * pow(tau, -1)
         global_factor = firedrake.Constant(pow(target / integral, 2 / d))
 
     # Normalise on each subinterval
     for metric, tau, mp in zip(metrics, subinterval_timestep, metric_parameters):
         p = mp["dm_plex_metric_p"]
         metric.set_parameters(mp)
-        metric.normalise(global_factor=pow(tau, -2 / (2 * p + d)) * global_factor)
+        metric.normalise(global_factor=global_factor)
         metric.enforce_spd(**kwargs)
     return metrics
 
