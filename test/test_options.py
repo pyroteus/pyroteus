@@ -169,8 +169,8 @@ class TestMetricParameters(unittest.TestCase):
         mp.export(metric)
         plex = metric._plex
         self.assertEqual(self.defaults["verbosity"], plex.metricGetVerbosity())
-        self.assertEqual(self.defaults["p"], metric.normalisation_order)
-        self.assertEqual(self.defaults["target_complexity"], metric.target_complexity)
+        self.assertEqual(self.defaults["p"], plex.metricGetNormalizationOrder())
+        self.assertEqual(self.defaults["target_complexity"], plex.metricGetTargetComplexity())
         self.assertEqual(self.defaults["h_min"], plex.metricGetMinimumMagnitude())
         self.assertEqual(self.defaults["h_max"], plex.metricGetMaximumMagnitude())
         self.assertEqual(self.defaults["a_max"], plex.metricGetMaximumAnisotropy())
