@@ -109,9 +109,10 @@ This provides the flexibility to use different adaptation routines.
 The function should take as input the :class:`~.MeshSeq` instance
 and the dictionary of solution fields from each timestep. For
 example, it could compute the Hessian of the solution field at each
-timestep using :func:`~.recover_hessian`, ensure that it is a metric
-using :func:`~.hessian_metric` and then combine this information
-using averaging or intersection. In each iteration, the PDE will be
+timestep using :meth:`~.RiemannianMetric.compute_hessian`, ensure that
+it is a metric using :meth:`~.RiemannianMetric.enforce_spd` and then
+combine this information using averaging or intersection.
+In each iteration, the PDE will be
 solved over the sequence of meshes (with data transferred inbetween)
 using :meth:`~.MeshSeq.solve_forward` and a Hessian-metric will be
 constructed on each mesh. All of the meshes are then adapted.

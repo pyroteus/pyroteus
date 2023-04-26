@@ -1,8 +1,4 @@
-import firedrake
 from pyroteus.math import gram_schmidt
-from pyroteus.metric import metric_exponential, metric_logarithm
-import ufl
-from utility import uniform_mesh
 import numpy as np
 import pytest
 
@@ -31,25 +27,3 @@ def test_gram_schmidt_numpy(dim, normalise):
             if not normalise and i == j:
                 continue
             assert np.isclose(np.dot(ui, uj), 1.0 if i == j else 0.0)
-
-
-@pytest.mark.slow
-def test_metric_math(dim):
-    """
-    Check that the metric exponential and
-    metric logarithm are indeed inverses.
-    """
-    mesh = uniform_mesh(dim, 1)
-    P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
-    I = ufl.Identity(dim)
-    M = firedrake.interpolate(2 * I, P0_ten)
-    logM = metric_logarithm(M)
-    expected = firedrake.interpolate(np.log(2) * I, P0_ten)
-    assert np.allclose(logM.dat.data, expected.dat.data)
-    M_ = metric_exponential(logM)
-    assert np.allclose(M.dat.data, M_.dat.data)
-    expM = metric_exponential(M)
-    expected = firedrake.interpolate(np.exp(2) * I, P0_ten)
-    assert np.allclose(expM.dat.data, expected.dat.data)
-    M_ = metric_logarithm(expM)
-    assert np.allclose(M.dat.data, M_.dat.data)

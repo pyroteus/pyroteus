@@ -29,12 +29,12 @@ jobs:
           python-version: 3.8
       - name: Install Pyroteus
         run: |
-          . /home/firedrake/firedrake/bin/activate
+          . /home/firedrake/firedrake-parmmg/bin/activate
           python -m pip install -r requirements.txt
           python -m pip install -e .
       - name: Test Pyroteus
         run: |
-          . /home/firedrake/firedrake/bin/activate
+          . /home/firedrake/firedrake-parmmg/bin/activate
           python $(which firedrake-clean)
           python -m coverage erase
           python -m coverage run -a --source=pyroteus -m pytest -v --durations=20 test
@@ -43,5 +43,5 @@ jobs:
       - name: Lint
         if: ${{ always() }}
         run: |
-          . /home/firedrake/firedrake/bin/activate
+          . /home/firedrake/firedrake-parmmg/bin/activate
           make lint

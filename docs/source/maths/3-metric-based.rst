@@ -107,22 +107,21 @@ volume in Riemannian space. Given a subset
 The concept of angle also carries over, amongst other things.
 
 Metric fields should be defined in Firedrake using
-:class:`firedrake.function.Function`\s from instances of a Lagrange
-:func:`firedrake.functionspace.TensorFunctionSpace` of degree 1,
-i.e. a tensor space that is piecewise linear and continuous. The
-following example code snippet defines a uniform metric and checks
-that it is SPD:
+:class:`firedrake.meshadapt.RiemannianMetric`\s from instances of
+a Lagrange :func:`firedrake.functionspace.TensorFunctionSpace` of
+degree 1, i.e. a tensor space that is piecewise linear and continuous.
+The following example code snippet defines a uniform metric, for example:
 
 .. code-block:: python
 
    from firedrake import *
+   from firedrake.meshadapt import RiemannianMetric
    from pyroteus import *
 
    mesh = UnitSquareMesh(10, 10)
    P1_ten = TensorFunctionSpace(mesh, "CG", 1)
-   metric = Function(P1_ten)
+   metric = RiemannianMetric(P1_ten)
    metric.interpolate(as_matrix([[1, 0], [0, 1]))
-   check_spd(metric)
 
 
 Geometric interpretation
@@ -238,8 +237,8 @@ complexity is expressed using the formula
 and can be interpreted as the volume of the spatial
 domain in metric space (recall the formula for
 volume in Riemannian space). Metric complexity may
-be computed in Pyroteus using the function
-:func:`~.metric_complexity`.
+be computed in Firedrake using the method
+:meth:`~.complexity`.
 The time-dependent extension of metric complexity,
 
 .. math::
@@ -303,8 +302,8 @@ geometry, dimensional scales and other properties
 of the problem, such as the extent to which it is
 multi-scale.
 
-In Pyroteus, normalisation is performed by the
-function :func:`~.space_normalise` in the
+In Firedrake, normalisation is performed by the
+method :meth:`~.normalise` in the
 :math:`L^p` sense:
 
 .. math::
@@ -383,10 +382,8 @@ average in general. See :cite:`PUDG:01` for details.
    Image taken from :cite:`Wallwork:21` with author's permission.
 
 Metric combination may be achieved in Pyroteus using the
-functions :func:`~.metric_average`,
-:func:`~.metric_intersection`, :func:`~.metric_relaxation`
-(generalised average) and simply :func:`~.combine_metrics`,
-which defaults to the metric average.
+function :func:`~.combine_metrics`, which defaults to the
+metric average.
 
 
 Now that a concrete example of a mesh adaptation approach has

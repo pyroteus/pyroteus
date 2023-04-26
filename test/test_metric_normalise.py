@@ -2,97 +2,105 @@
 Test metric normalisation functionality.
 """
 from firedrake import *
+from firedrake.meshadapt import RiemannianMetric
 from pyroteus import *
 from sensors import *
+from utility import uniform_mesh
+from parameterized import parameterized
 import pytest
+import unittest
 
 
-def unit_mesh(sensor, mesh, target, degree, num_iterations=3):
+class TestMetricNormalisation(unittest.TestCase):
     """
-    Obtain a quasi-unit mesh with respect to the
-    Hessian of a given ``sensor`` function, subject
-    to a target metric complexity ``target`` under
-    ``degree`` for :math:`L^p` normalisation,
-    starting from some input ``mesh``.
-
-    :kwarg num_iterations: how many times should
-        mesh adaptation be applied?
+    Unit tests for metric normalisation.
     """
-    try:
-        from firedrake import adapt
-    except ImportError:
-        pytest.skip("Need mesh adaptation capability")
-    for i in range(num_iterations):
-        f = sensor(*mesh.coordinates)
-        H = recover_hessian(f, mesh=mesh)
-        M = hessian_metric(H)
-        space_normalise(M, target, degree)
-        mesh = adapt(mesh, M)
-    return mesh
 
+    def setUp(self):
+        self.time_partition = TimeInterval(1.0, 1.0, "u")
 
-# ---------------------------
-# standard tests for pytest
-# ---------------------------
+    @property
+    def simple_metric(self):
+        mesh = uniform_mesh(2, 1)
+        P1_ten = TensorFunctionSpace(mesh, "CG", 1)
+        return RiemannianMetric(P1_ten)
 
+    def test_normalistion_order_unset_error(self):
+        mp = {"dm_plex_metric_target_complexity": 1.0}
+        with self.assertRaises(ValueError) as cm:
+            space_time_normalise([self.simple_metric], self.time_partition, mp)
+        msg = "Normalisation order 'dm_plex_metric_p' must be set."
+        assert str(cm.exception) == msg
 
-@pytest.fixture(params=[bowl, hyperbolic, multiscale, interweaved])
-def sensor(request):
-    return request.param
+    def test_normalisation_order_invalid_error(self):
+        mp = {"dm_plex_metric_target_complexity": 1.0, "dm_plex_metric_p": 0.0}
+        with self.assertRaises(ValueError) as cm:
+            space_time_normalise([self.simple_metric], self.time_partition, mp)
+        msg = "Normalisation order '0.0' should be one or greater or np.inf."
+        assert str(cm.exception) == msg
 
+    def test_target_complexity_unset_error(self):
+        mp = {"dm_plex_metric_p": 1.0}
+        with self.assertRaises(ValueError) as cm:
+            space_time_normalise([self.simple_metric], self.time_partition, mp)
+        msg = "Target complexity 'dm_plex_metric_target_complexity' must be set."
+        assert str(cm.exception) == msg
 
-@pytest.fixture(params=[1, 2, "inf"])
-def degree(request):
-    return request.param
+    def test_target_complexity_zero_error(self):
+        mp = {"dm_plex_metric_target_complexity": 0.0, "dm_plex_metric_p": 1.0}
+        with self.assertRaises(ValueError) as cm:
+            space_time_normalise([self.simple_metric], self.time_partition, mp)
+        msg = "Target complexity '0.0' is not positive."
+        assert str(cm.exception) == msg
 
+    def test_target_complexity_negative_error(self):
+        mp = {"dm_plex_metric_target_complexity": -1.0, "dm_plex_metric_p": 1.0}
+        with self.assertRaises(ValueError) as cm:
+            space_time_normalise([self.simple_metric], self.time_partition, mp)
+        msg = "Target complexity '-1.0' is not positive."
+        assert str(cm.exception) == msg
 
-def test_space_normalise(sensor, degree, target=1000.0):
-    """
-    Check that normalising a metric in space enables
-    the attainment of a target metric complexity.
+    @pytest.mark.slow
+    @parameterized.expand(
+        [
+            (bowl, 1),
+            (bowl, 2),
+            (bowl, np.inf),
+            (hyperbolic, 1),
+            (hyperbolic, 2),
+            (hyperbolic, np.inf),
+            (multiscale, 1),
+            (multiscale, 2),
+            (multiscale, np.inf),
+            (interweaved, 1),
+            (interweaved, 2),
+            (interweaved, np.inf),
+        ]
+    )
+    def test_consistency(self, sensor, degree):
+        """
+        Check that spatial normalisation and space-time
+        normalisation on a single unit time interval with
+        one timestep return the same metric.
+        """
+        mesh = mesh_for_sensors(2, 100)
+        metric_parameters = {
+            "dm_plex_metric_p": degree,
+            "dm_plex_metric_target_complexity": 1000.0,
+        }
 
-    Note that we should only expect this to be true
-    if the underlying mesh is unit w.r.t. the metric.
-    """
-    dim = 2
-    mesh = mesh_for_sensors(dim, 100)
+        # Construct a Hessian metric
+        P1_ten = TensorFunctionSpace(mesh, "CG", 1)
+        M = RiemannianMetric(P1_ten)
+        M.compute_hessian(sensor(*mesh.coordinates))
+        assert not np.isnan(M.dat.data).any()
+        M_st = M.copy(deepcopy=True)
 
-    # Get a unit mesh for the sensor
-    f = sensor(*mesh.coordinates)
-    mesh = unit_mesh(sensor, mesh, target, degree)
+        # Apply both normalisation strategies
+        M.set_parameters(metric_parameters)
+        M.normalise()
+        space_time_normalise([M_st], self.time_partition, metric_parameters)
+        assert not np.isnan(M_st.dat.data).any()
 
-    # Construct a space-normalised Hessian metric
-    f = sensor(*mesh.coordinates)
-    H = recover_hessian(f, mesh=mesh)
-    M = hessian_metric(H)
-    space_normalise(M, target, degree)
-
-    # Check that the target metric complexity is (approximately) attained
-    if degree == "inf":
-        assert np.isclose(metric_complexity(M), target)
-    else:
-        assert abs(metric_complexity(M) - target) < 0.1 * target
-
-
-@pytest.mark.slow
-def test_consistency(sensor, degree, target=1000.0):
-    """
-    Check that spatial normalisation and space-time
-    normalisation on a single unit time interval with
-    one timestep return the same metric.
-    """
-    dim = 2
-    mesh = mesh_for_sensors(dim, 100)
-
-    # Construct a Hessian metric
-    f = sensor(*mesh.coordinates)
-    H = recover_hessian(f, mesh=mesh)
-    M = hessian_metric(H)
-    M_st = M.copy(deepcopy=True)
-
-    # Apply both normalisation strategies
-    space_normalise(M, target, degree)
-    space_time_normalise([M_st], 1.0, [1.0], target, degree)
-
-    # Check that the metrics coincide
-    assert np.isclose(errornorm(M, M_st), 0.0)
+        # Check that the metrics coincide
+        assert np.isclose(errornorm(M, M_st), 0.0)
