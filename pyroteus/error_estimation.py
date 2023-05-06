@@ -7,6 +7,7 @@ from firedrake import Function, FunctionSpace
 from firedrake.functionspaceimpl import WithGeometry
 from firedrake.petsc import PETSc
 import ufl
+from collections.abc import Iterable
 from typing import Dict, Optional, Union
 
 
@@ -58,60 +59,42 @@ def form2indicator(F) -> Function:
 
 
 @PETSc.Log.EventDecorator()
-def indicator2estimator(indicator: Function, absolute_value: bool = False) -> float:
-    """
-    Deduce the error estimator value
-    associated with a single error
-    indicator field.
-
-    :arg indicator: the error indicator
-        :class:`firedrake.function.Function`
-    :kwarg absolute_value: toggle
-        whether to take the modulus
-        on each element
-    """
-    if absolute_value:
-        indicator.interpolate(abs(indicator))
-    return indicator.vector().gather().sum()
-
-
 def indicators2estimator(
-    indicators: list, time_partition: TimePartition, **kwargs
+    indicators: Iterable, time_partition: TimePartition, absolute_value: bool = False
 ) -> float:
     r"""
-    Deduce the error estimator value
-    associated with error indicator
-    fields defined over a :class:`~.MeshSeq`.
+    Deduce the error estimator value associated with error indicator fields defined over
+    a :class:`~.MeshSeq`.
 
-    :arg indicators: the list of list of
-        error indicator
+    :arg indicators: the list of list of error indicator
         :class:`firedrake.function.Function`\s
-    :arg time_partition: the
-        :class:`~.TimePartition` instance for
-        the problem being solved
+    :arg time_partition: the :class:`~.TimePartition` instance for the problem being
+        solved
+    :kwarg absolute_value: toggle whether to take the modulus on each element
     """
+    if isinstance(indicators, Function) or not isinstance(indicators, Iterable):
+        raise TypeError(
+            f"Expected 'indicators' to be an iterable, not '{type(indicators)}'."
+        )
+    if not isinstance(time_partition, TimePartition):
+        raise TypeError(
+            f"Expected 'time_partition' to be a TimePartition, not '{type(time_partition)}'."
+        )
+    if not isinstance(absolute_value, bool):
+        raise TypeError(
+            f"Expected 'absolute_value' to be a bool, not '{type(absolute_value)}'."
+        )
     estimator = 0
     for by_mesh, dt in zip(indicators, time_partition.timesteps):
-        time_integrated = sum([indicator2estimator(indi, **kwargs) for indi in by_mesh])
-        estimator += dt * time_integrated
+        if isinstance(by_mesh, Function) or not isinstance(by_mesh, Iterable):
+            raise TypeError(
+                f"Expected entries of 'indicators' to be iterables, not '{type(by_mesh)}'."
+            )
+        for indicator in by_mesh:
+            if absolute_value:
+                indicator.interpolate(abs(indicator))
+            estimator += dt * indicator.vector().gather().sum()
     return estimator
-
-
-@PETSc.Log.EventDecorator()
-def form2estimator(F, **kwargs) -> float:
-    """
-    Multiply throughout in a form,
-    assemble as a cellwise error
-    indicator and sum over all
-    mesh elements.
-
-    :arg F: the form
-    :kwarg absolute_value: toggle
-        whether to take the modulus
-        on each element
-    """
-    indicator = form2indicator(F)
-    return indicator2estimator(indicator, **kwargs)
 
 
 @PETSc.Log.EventDecorator()
