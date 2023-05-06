@@ -112,7 +112,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         enrichment_kwargs: dict = {},
         adj_kwargs: dict = {},
         indicator_fn: Callable = get_dwr_indicator,
-    ) -> Tuple[dict, list]:
+    ) -> Tuple[dict, AttrDict]:
         """
         Compute goal-oriented error indicators for each
         subinterval based on solving the adjoint problem
@@ -145,7 +145,9 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 field: [
                     [
                         Function(fs, name=f"{field}_error_indicator")
-                        for _ in range(self.time_partition.exports_per_subinterval[i] - 1)
+                        for _ in range(
+                            self.time_partition.exports_per_subinterval[i] - 1
+                        )
                     ]
                     for i, fs in enumerate(P0_spaces)
                 ]
@@ -193,7 +195,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
                 # Loop over each strongly coupled field
                 for f in self.fields:
-
                     # Update fields
                     transfer(sols[f][FWD][i][j], u[f])
                     transfer(sols[f][FWD_OLD][i][j], u_[f])
