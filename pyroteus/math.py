@@ -118,7 +118,7 @@ def construct_orthonormal_basis(v, dim=None, seed=0):
     :kwarg seed: seed for random number generator
     """
     np.random.seed(seed)
-    dim = dim or v.ufl_domain().topological_dimension()
+    dim = dim or ufl.domain.extract_unique_domain(v).topological_dimension()
     if dim == 2:
         return [ufl.perp(v)]
     elif dim > 2:

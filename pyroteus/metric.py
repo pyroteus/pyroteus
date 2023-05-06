@@ -7,6 +7,7 @@ from firedrake.meshadapt import RiemannianMetric
 from .interpolation import clement_interpolant
 from collections.abc import Iterable
 from typing import List, Optional, Tuple, Union
+import ufl
 
 
 __all__ = [
@@ -154,7 +155,7 @@ def isotropic_metric(
         :class:`firedrake.meshadapt.RiemannianMetric`
     """
     target_space = kwargs.get("target_space")
-    mesh = error_indicator.ufl_domain()
+    mesh = ufl.domain.extract_unique_domain(error_indicator)
     dim = mesh.topological_dimension()
     assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
     target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
@@ -266,7 +267,7 @@ def anisotropic_dwr_metric(
         raise ValueError(
             f"Target complexity must be positive, not {target_complexity}."
         )
-    mesh = error_indicator.ufl_domain()
+    mesh = ufl.domain.extract_unique_domain(error_indicator)
     dim = mesh.topological_dimension()
     if dim not in (2, 3):
         raise ValueError(f"Spatial dimension {dim} not supported. Must be 2 or 3.")
@@ -357,7 +358,7 @@ def weighted_hessian_metric(
         error_indicators = [error_indicators]
     if not isinstance(hessians, Iterable):
         hessians = [hessians]
-    mesh = hessians[0].ufl_domain()
+    mesh = ufl.domain.extract_unique_domain(hessians[0])
     dim = mesh.topological_dimension()
     if dim not in (2, 3):
         raise ValueError(f"Spatial dimension {dim:d} not supported. Must be 2 or 3.")
