@@ -4,14 +4,16 @@ Tools to automate goal-oriented error estimation.
 from .time_partition import TimePartition
 import firedrake
 from firedrake import Function, FunctionSpace
+from firedrake.functionspaceimpl import WithGeometry
 from firedrake.petsc import PETSc
 import ufl
+from typing import Dict, Optional, Union
 
 
 __all__ = ["get_dwr_indicator"]
 
 
-@PETSc.Log.EventDecorator("pyroteus.form2indicator")
+@PETSc.Log.EventDecorator()
 def form2indicator(F) -> Function:
     """
     Multiply throughout in a form and
@@ -60,7 +62,7 @@ def form2indicator(F) -> Function:
     return indicator
 
 
-@PETSc.Log.EventDecorator("pyroteus.indicator2estimator")
+@PETSc.Log.EventDecorator()
 def indicator2estimator(indicator: Function, absolute_value: bool = False) -> float:
     """
     Deduce the error estimator value
@@ -100,7 +102,7 @@ def indicators2estimator(
     return estimator
 
 
-@PETSc.Log.EventDecorator("pyroteus.form2estimator")
+@PETSc.Log.EventDecorator()
 def form2estimator(F, **kwargs) -> float:
     """
     Multiply throughout in a form,
@@ -117,46 +119,64 @@ def form2estimator(F, **kwargs) -> float:
     return indicator2estimator(indicator, **kwargs)
 
 
-@PETSc.Log.EventDecorator("pyroteus.get_dwr_indicator")
-def get_dwr_indicator(F, adjoint_error: Function, **kwargs) -> Function:
+@PETSc.Log.EventDecorator()
+def get_dwr_indicator(
+    F, adjoint_error: Function, test_space: Optional[Union[WithGeometry, Dict]] = None
+) -> Function:
     """
-    Generate a dual weighted residual (DWR)
-    error indicator, given a form and an
-    approximation of the error in the adjoint
-    solution.
+    Generate a dual weighted residual (DWR) error indicator, given a form and an
+    approximation of the error in the adjoint solution.
 
     :arg F: the form
-    :arg adjoint_error: the approximation to
-        the adjoint error, either as a single
-        :class:`firedrake.function.Function`,
-        or in a dictionary
+    :arg adjoint_error: the approximation to the adjoint error, either as a single
+        :class:`firedrake.function.Function`, or in a dictionary
     :kwarg test_space: the
-        :class:`firedrake.functionspaceimpl.FunctionSpace`
-        that the test function lives in, or an
-        appropriate dictionary
+        :class:`firedrake.functionspaceimpl.FunctionSpace` that the test function lives
+        in, or an appropriate dictionary
     """
-    test_space = kwargs.get("test_space")
     mapping = {}
+    if not isinstance(F, ufl.form.Form):
+        raise TypeError(f"Expected 'F' to be a Form, not '{type(F)}'.")
+
+    # Process input for adjoint_error as a dictionary
     if isinstance(adjoint_error, Function):
-        fs = test_space or adjoint_error.function_space()
-        if F.ufl_domain() != fs.mesh():
+        name = adjoint_error.name()
+        if test_space is None:
+            test_space = {name: adjoint_error.function_space()}
+        adjoint_error = {name: adjoint_error}
+    elif not isinstance(adjoint_error, dict):
+        raise TypeError(
+            f"Expected 'adjoint_error' to be a Function or dict, not '{type(adjoint_error)}'."
+        )
+
+    # Process input for test_space as a dictionary
+    if test_space is None:
+        test_space = {key: err.function_space() for key, err in adjoint_error.items()}
+    elif isinstance(test_space, WithGeometry):
+        if len(adjoint_error.keys()) != 1:
+            raise ValueError("Inconsistent input for 'adjoint_error' and 'test_space'.")
+        test_space = {key: test_space for key in adjoint_error}
+    elif not isinstance(test_space, dict):
+        raise TypeError(
+            f"Expected 'test_space' to be a FunctionSpace or dict, not '{type(test_space)}'."
+        )
+
+    # Construct the mapping for each component
+    for key, err in adjoint_error.items():
+        if key not in test_space:
+            raise ValueError(f"Key '{key}' does not exist in the test space provided.")
+        fs = test_space[key]
+        if not isinstance(fs, WithGeometry):
+            raise TypeError(
+                f"Expected 'test_space['{key}']' to be a FunctionSpace, not '{type(fs)}'."
+            )
+        if F.ufl_domain() != err.function_space().mesh():
             raise ValueError(
                 "Meshes underlying the form and adjoint error do not match."
             )
-        mapping[firedrake.TestFunction(fs)] = adjoint_error
-    elif isinstance(adjoint_error, dict):
-        if test_space is None:
-            test_space = {
-                key: err.function_space() for key, err in adjoint_error.items()
-            }
-        for key, err in adjoint_error.items():
-            if F.ufl_domain() != test_space[key].ufl_domain():
-                raise ValueError(
-                    "Meshes underlying the form and adjoint error do not match."
-                )
-            mapping[firedrake.TestFunction(test_space[key])] = err
-    else:
-        raise TypeError(
-            f"adjoint_error should be Function or dict, not {type(adjoint_error)}"
-        )
+        if F.ufl_domain() != fs.mesh():
+            raise ValueError("Meshes underlying the form and test space do not match.")
+        mapping[firedrake.TestFunction(fs)] = err
+
+    # Apply the mapping
     return form2indicator(ufl.replace(F, mapping))
