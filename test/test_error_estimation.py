@@ -1,12 +1,16 @@
 from firedrake import *
-from pyroteus.error_estimation import form2indicator, indicators2estimator
+from pyroteus.error_estimation import (
+    form2indicator,
+    indicators2estimator,
+    get_dwr_indicator,
+)
 from pyroteus.time_partition import TimeInstant, TimePartition
 import unittest
 
 
-class TestForm2Indicator(unittest.TestCase):
+class ErrorEstimationTestCase(unittest.TestCase):
     """
-    Unit tests for :func:`form2indicator`.
+    Base class for error estimation testing.
     """
 
     def setUp(self):
@@ -14,7 +18,14 @@ class TestForm2Indicator(unittest.TestCase):
         self.fs = FunctionSpace(self.mesh, "CG", 1)
         self.trial = TrialFunction(self.fs)
         self.test = TestFunction(self.fs)
-        self.one = Function(self.fs).assign(1)
+        self.one = Function(self.fs, name="Uno")
+        self.one.assign(1)
+
+
+class TestForm2Indicator(ErrorEstimationTestCase):
+    """
+    Unit tests for :func:`form2indicator`.
+    """
 
     def test_form_type_error(self):
         with self.assertRaises(TypeError) as cm:
@@ -42,17 +53,10 @@ class TestForm2Indicator(unittest.TestCase):
         self.assertAlmostEqual(indicator.dat.data[1], 0.5)
 
 
-class TestIndicators2Estimator(unittest.TestCase):
+class TestIndicators2Estimator(ErrorEstimationTestCase):
     """
     Unit tests for :func:`indicators2estimator`.
     """
-
-    def setUp(self):
-        self.mesh = UnitSquareMesh(1, 1)
-        self.fs = FunctionSpace(self.mesh, "CG", 1)
-        self.trial = TrialFunction(self.fs)
-        self.test = TestFunction(self.fs)
-        self.one = Function(self.fs).assign(1)
 
     def test_indicators_type_error1(self):
         time_instant = TimeInstant("field")
@@ -153,6 +157,127 @@ class TestIndicators2Estimator(unittest.TestCase):
             {"field1": [[indicator]], "field2": [[indicator]]}, time_instant
         )
         self.assertAlmostEqual(estimator, 2.0)
+
+
+class TestGetDWRIndicator(ErrorEstimationTestCase):
+    """
+    Unit tests for :func:`get_dwr_indicator`.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.two = Function(self.fs, name="Dos")
+        self.two.assign(2)
+
+    def test_form_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            get_dwr_indicator(self.one, self.one)
+        msg = "Expected 'F' to be a Form, not '<class 'firedrake.function.Function'>'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_adjoint_error_type_error(self):
+        F = self.one * self.test * dx
+        adjoint_error = 1
+        with self.assertRaises(TypeError) as cm:
+            get_dwr_indicator(F, adjoint_error)
+        msg = "Expected 'adjoint_error' to be a Function or dict, not '<class 'int'>'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_test_space_type_error1(self):
+        F = self.one * self.test * dx
+        with self.assertRaises(TypeError) as cm:
+            get_dwr_indicator(F, self.one, test_space=self.one)
+        msg = (
+            "Expected 'test_space' to be a FunctionSpace or dict,"
+            " not '<class 'firedrake.function.Function'>'."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_inconsistent_input_error(self):
+        F = self.one * self.test * dx
+        adjoint_error = {"field1": self.one, "field2": self.one}
+        with self.assertRaises(ValueError) as cm:
+            get_dwr_indicator(F, adjoint_error, test_space=self.fs)
+        msg = "Inconsistent input for 'adjoint_error' and 'test_space'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_inconsistent_test_space_error(self):
+        F = self.one * self.test * dx
+        adjoint_error = {"field": self.one}
+        test_space = {"f": self.fs}
+        with self.assertRaises(ValueError) as cm:
+            get_dwr_indicator(F, adjoint_error, test_space=test_space)
+        msg = "Key 'field' does not exist in the test space provided."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_test_space_type_error2(self):
+        F = self.one * self.test * dx
+        adjoint_error = {"field": self.one}
+        test_space = {"field": self.one}
+        with self.assertRaises(TypeError) as cm:
+            get_dwr_indicator(F, adjoint_error, test_space=test_space)
+        msg = (
+            "Expected 'test_space['field']' to be a FunctionSpace,"
+            " not '<class 'firedrake.function.Function'>'."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_inconsistent_mesh_error1(self):
+        F = self.one * self.test * dx
+        adjoint_error = Function(FunctionSpace(UnitTriangleMesh(), "CG", 1))
+        with self.assertRaises(ValueError) as cm:
+            get_dwr_indicator(F, adjoint_error)
+        msg = "Meshes underlying the form and adjoint error do not match."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_inconsistent_mesh_error2(self):
+        F = self.one * self.test * dx
+        test_space = FunctionSpace(UnitTriangleMesh(), "CG", 1)
+        with self.assertRaises(ValueError) as cm:
+            get_dwr_indicator(F, self.one, test_space=test_space)
+        msg = "Meshes underlying the form and test space do not match."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_convert_neither(self):
+        F = self.one * self.test * dx
+        adjoint_error = {"field": self.two}
+        test_space = {"field": self.one.function_space()}
+        indicator = get_dwr_indicator(F, adjoint_error, test_space)
+        self.assertAlmostEqual(indicator.dat.data[0], 1)
+        self.assertAlmostEqual(indicator.dat.data[1], 1)
+
+    def test_convert_both(self):
+        F = self.one * self.test * dx
+        adjoint_error = self.two
+        test_space = self.one.function_space()
+        indicator = get_dwr_indicator(F, adjoint_error, test_space)
+        self.assertAlmostEqual(indicator.dat.data[0], 1)
+        self.assertAlmostEqual(indicator.dat.data[1], 1)
+
+    def test_convert_test_space(self):
+        F = self.one * self.test * dx
+        adjoint_error = {"field": self.two}
+        test_space = self.one.function_space()
+        indicator = get_dwr_indicator(F, adjoint_error, test_space)
+        self.assertAlmostEqual(indicator.dat.data[0], 1)
+        self.assertAlmostEqual(indicator.dat.data[1], 1)
+
+    def test_convert_adjoint_error(self):
+        F = self.one * self.test * dx
+        adjoint_error = self.two
+        test_space = {"Dos": self.one.function_space()}
+        indicator = get_dwr_indicator(F, adjoint_error, test_space)
+        self.assertAlmostEqual(indicator.dat.data[0], 1)
+        self.assertAlmostEqual(indicator.dat.data[1], 1)
+
+    def test_convert_adjoint_error_mismatch(self):
+        F = self.one * self.test * dx
+        adjoint_error = self.one
+        test_space = {"field": self.one.function_space()}
+        with self.assertRaises(ValueError) as cm:
+            get_dwr_indicator(F, adjoint_error, test_space=test_space)
+        msg = "Key 'Uno' does not exist in the test space provided."
+        self.assertEqual(str(cm.exception), msg)
 
 
 if __name__ == "__main__":
