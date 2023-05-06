@@ -170,7 +170,9 @@ class TestMetricParameters(unittest.TestCase):
         plex = metric._plex
         self.assertEqual(self.defaults["verbosity"], plex.metricGetVerbosity())
         self.assertEqual(self.defaults["p"], plex.metricGetNormalizationOrder())
-        self.assertEqual(self.defaults["target_complexity"], plex.metricGetTargetComplexity())
+        self.assertEqual(
+            self.defaults["target_complexity"], plex.metricGetTargetComplexity()
+        )
         self.assertEqual(self.defaults["h_min"], plex.metricGetMinimumMagnitude())
         self.assertEqual(self.defaults["h_max"], plex.metricGetMaximumMagnitude())
         self.assertEqual(self.defaults["a_max"], plex.metricGetMaximumAnisotropy())
@@ -191,6 +193,15 @@ class TestMetricParameters(unittest.TestCase):
         self.assertEqual(
             self.defaults["num_parmmg_iterations"], plex.metricGetNumIterations()
         )
+
+    def test_export_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            MetricParameters().export(1)
+        msg = (
+            "<class 'pyroteus.options.MetricParameters'> can only be exported to"
+            " RiemannianMetric, not '<class 'int'>'."
+        )
+        self.assertEqual(str(cm.exception), msg)
 
 
 class TestGoalOrientedParameters(unittest.TestCase):
