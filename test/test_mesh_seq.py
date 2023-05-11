@@ -37,7 +37,7 @@ class TestStringFormatting(unittest.TestCase):
         expected = "MeshSeq([Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
         self.assertTrue(re.match(repr(mesh_seq), expected))
 
-    def test_mesh_seq_time_partition_repr(self):
+    def test_mesh_seq_time_partition_2_repr(self):
         meshes = [
             UnitSquareMesh(1, 1, diagonal="left"),
             UnitSquareMesh(1, 1, diagonal="right"),
@@ -46,6 +46,21 @@ class TestStringFormatting(unittest.TestCase):
         expected = (
             "MeshSeq(["
             "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*), "
+            "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
+        )
+        self.assertTrue(re.match(repr(mesh_seq), expected))
+
+    def test_mesh_seq_time_partition_3_repr(self):
+        meshes = [
+            UnitSquareMesh(1, 1, diagonal="left"),
+            UnitSquareMesh(1, 1, diagonal="right"),
+            UnitSquareMesh(1, 1, diagonal="left"),
+        ]
+        mesh_seq = MeshSeq(self.time_partition, meshes)
+        expected = (
+            "MeshSeq(["
+            "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*), "
+            "..."
             "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
         )
         self.assertTrue(re.match(repr(mesh_seq), expected))
