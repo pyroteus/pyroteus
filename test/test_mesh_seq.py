@@ -3,7 +3,8 @@ Testing for the mesh sequence objects.
 """
 from pyroteus.mesh_seq import MeshSeq
 from pyroteus.time_partition import TimePartition, TimeInterval
-from firedrake import UnitCubeMesh, UnitSquareMesh
+from firedrake import UnitCubeMesh, UnitSquareMesh, UnitTriangleMesh
+import numpy as np
 import re
 import unittest
 
@@ -53,6 +54,24 @@ class TestGeneric(unittest.TestCase):
             mesh_seq.get_solver()
         msg = "'get_solver' needs implementing."
         self.assertEqual(str(cm.exception), msg)
+
+    def test_element_convergence_lt_miniter(self):
+        mesh_seq = MeshSeq(self.time_interval, [UnitTriangleMesh()])
+        mesh_seq.check_element_count_convergence()
+        self.assertFalse(mesh_seq.converged)
+
+    def test_element_convergence_true(self):
+        mesh_seq = MeshSeq(self.time_interval, [UnitTriangleMesh()])
+        mesh_seq.element_counts = np.ones((mesh_seq.params.miniter + 1, 1))
+        mesh_seq.check_element_count_convergence()
+        self.assertTrue(mesh_seq.converged)
+
+    def test_element_convergence_false(self):
+        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
+        mesh_seq.element_counts = np.ones((mesh_seq.params.miniter + 1, 1))
+        mesh_seq.element_counts[-1] = 2
+        mesh_seq.check_element_count_convergence()
+        self.assertFalse(mesh_seq.converged)
 
 
 class TestStringFormatting(TestGeneric):
