@@ -67,7 +67,7 @@ class MeshSeq:
         self.element_counts = [self.count_elements()]
         dim = np.array([mesh.topological_dimension() for mesh in self.meshes])
         if dim.min() != dim.max():
-            raise ValueError("Meshes must all have the same topological dimension")
+            raise ValueError("Meshes must all have the same topological dimension.")
         self.dim = dim.min()
         if logger.level == DEBUG:
             for i, mesh in enumerate(self.meshes):
@@ -174,7 +174,7 @@ class MeshSeq:
 
     def get_function_spaces(self, mesh: MeshGeometry) -> Callable:
         if self._get_function_spaces is None:
-            raise NotImplementedError("get_function_spaces needs implementing")
+            raise NotImplementedError("'get_function_spaces' needs implementing.")
         return self._get_function_spaces(mesh)
 
     def get_initial_condition(self) -> dict:
@@ -184,12 +184,12 @@ class MeshSeq:
 
     def get_form(self) -> Callable:
         if self._get_form is None:
-            raise NotImplementedError("get_form needs implementing")
+            raise NotImplementedError("'get_form' needs implementing.")
         return self._get_form(self)
 
     def get_solver(self) -> Callable:
         if self._get_solver is None:
-            raise NotImplementedError("get_solver needs implementing")
+            raise NotImplementedError("'get_solver' needs implementing.")
         return self._get_solver(self)
 
     def get_bcs(self) -> Callable:
@@ -385,7 +385,6 @@ class MeshSeq:
         # Loop through the solve block's outputs
         candidates = []
         for out in solve_block._outputs:
-
             # Look for Functions with matching function spaces
             if not isinstance(out.output, Function):
                 continue
@@ -434,7 +433,6 @@ class MeshSeq:
         # Loop through the solve block's dependencies
         candidates = []
         for dep in solve_block._dependencies:
-
             # Look for Functions with matching function spaces
             if not isinstance(dep.output, Function):
                 continue
@@ -559,7 +557,6 @@ class MeshSeq:
                 # Update solution data based on block dependencies and outputs
                 sols = solutions[field]
                 for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
-
                     # Current solution is determined from outputs
                     out = self._output(field, i, block)
                     if out is not None:
