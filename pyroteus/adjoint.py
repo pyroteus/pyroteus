@@ -345,7 +345,6 @@ class AdjointMeshSeq(MeshSeq):
                 # and outputs
                 sols = solutions[field]
                 for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
-
                     # Current forward solution is determined from outputs
                     out = self._output(field, i, block)
                     if out is not None:
@@ -452,5 +451,5 @@ class AdjointMeshSeq(MeshSeq):
             return
         qoi_ = self.qoi_values[-2]
         qoi = self.qoi_values[-1]
-        if abs(qoi - qoi_) < P.qoi_rtol * abs(qoi_):
-            self.converged = True
+        if abs(qoi - qoi_) > P.qoi_rtol * abs(qoi_):
+            self.converged = False
