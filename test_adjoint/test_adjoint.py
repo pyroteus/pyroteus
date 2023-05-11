@@ -7,9 +7,37 @@ import pytest
 import importlib
 import os
 import sys
+import unittest
 
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "examples"))
+
+# ---------------------------
+# unit tests
+# ---------------------------
+
+
+class TestAdjointMeshSeqGeneric(unittest.TestCase):
+    """
+    Generic unit tests for :class:`AdjointMeshSeq`.
+    """
+
+    def setUp(self):
+        self.time_interval = TimeInterval(1.0, [0.5], ["field"])
+        self.meshes = [UnitTriangleMesh()]
+
+    def test_qoi_type_error(self):
+        with self.assertRaises(ValueError) as cm:
+            AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="blah")
+        msg = "QoI type 'blah' not recognised."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_get_qoi_notimplemented_error(self):
+        mesh_seq = AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="end_time")
+        with self.assertRaises(NotImplementedError) as cm:
+            mesh_seq.get_qoi({}, 0)
+        msg = "'get_qoi' needs implementing."
+        self.assertEqual(str(cm.exception), msg)
 
 
 # ---------------------------
