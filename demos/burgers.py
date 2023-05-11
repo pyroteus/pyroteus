@@ -22,6 +22,7 @@
 
 from firedrake import *
 from pyroteus import *
+from demo_plotting import plot_snapshots
 
 # In this problem, we have a single prognostic variable,
 # :math:`\mathbf u`. Its name is recorded in a list of

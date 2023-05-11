@@ -27,6 +27,7 @@
 
 from firedrake import *
 from pyroteus_adjoint import *
+from demo_plotting import plot_snapshots, plot_indicator_snapshots
 
 # We solve the advection-diffusion problem in :math:`\mathbb P1` space. ::
 
@@ -203,7 +204,9 @@ axes.set_title("Adjoint solution")
 fig.savefig("point-discharge-adjoint.jpg")
 plot_kwargs["norm"] = mcolors.LogNorm()
 plot_kwargs["locator"] = ticker.LogLocator()
-fig, axes, tcs = plot_indicator_snapshots(indicators, time_partition, "c", **plot_kwargs)
+fig, axes, tcs = plot_indicator_snapshots(
+    indicators, time_partition, "c", **plot_kwargs
+)
 cbar = fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
 axes.set_title("Error indicator")
 fig.savefig("point-discharge-indicator.jpg")

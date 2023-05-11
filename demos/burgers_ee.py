@@ -26,6 +26,7 @@
 
 from firedrake import *
 from pyroteus_adjoint import *
+from demo_plotting import plot_indicator_snapshots
 
 # Redefine the ``fields`` variable and the getter functions as in the first
 # adjoint Burgers demo. ::

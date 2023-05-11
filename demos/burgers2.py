@@ -11,6 +11,7 @@
 
 from firedrake import *
 from pyroteus_adjoint import *
+from demo_plotting import plot_snapshots
 
 # Redefine the ``fields`` variable from the previous demo, as well as all the getter
 # functions. ::

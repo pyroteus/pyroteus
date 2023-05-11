@@ -12,6 +12,7 @@
 
 from firedrake import *
 from pyroteus_adjoint import *
+from demo_plotting import plot_snapshots
 
 # For ease, the field list and functions for obtaining the
 # function spaces, forms, solvers, and initial conditions

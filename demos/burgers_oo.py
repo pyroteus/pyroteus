@@ -19,6 +19,7 @@
 
 from firedrake import *
 from pyroteus_adjoint import *
+from demo_plotting import plot_snapshots
 
 
 class BurgersMeshSeq(AdjointMeshSeq):

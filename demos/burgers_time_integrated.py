@@ -11,6 +11,7 @@
 
 from firedrake import *
 from pyroteus_adjoint import *
+from demo_plotting import plot_snapshots
 
 # Redefine the ``get_initial_condition``, ``get_function_spaces``,
 # and ``get_form`` functions as in the first Burgers demo. ::
