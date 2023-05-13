@@ -2,7 +2,7 @@ import numpy as np
 import ufl
 
 
-__all__ = ["bessi0", "bessk0", "gram_schmidt", "construct_orthonormal_basis"]
+__all__ = ["bessi0", "bessk0", "gram_schmidt", "construct_basis"]
 
 
 def recursive_polynomial(x, coeffs):
@@ -150,23 +150,40 @@ def gram_schmidt(*vectors, normalise=False):
     return u
 
 
-def construct_orthonormal_basis(v, dim=None, seed=0):
+def construct_basis(vector, normalise=True, seed=0):
     """
-    Starting from a single vector in UFL, construct
-    a set of vectors which are orthonormal w.r.t. it.
+    Construct a basis from a given vector.
 
-    :arg v: the vector
-    :kwarg dim: its dimension
+    :arg vector: the starting vector
+    :kwargs normalise: do we want an orthonormal basis?
     :kwarg seed: seed for random number generator
     """
     np.random.seed(seed)
-    dim = dim or ufl.domain.extract_unique_domain(v).topological_dimension()
-    if dim == 2:
-        return [ufl.perp(v)]
-    elif dim > 2:
-        vectors = [
-            ufl.as_vector(np.random.rand(dim)) for i in range(dim - 1)
-        ]  # (arbitrary)
-        return gram_schmidt(v, *vectors, normalise=True)[1:]  # (orthonormal)
+    is_numpy = isinstance(vector, np.ndarray)
+    if is_numpy:
+        from numpy import dot
+
+        if len(vector.shape) > 1:
+            raise ValueError(
+                f"Expected a vector, got an array of shape {vector.shape}."
+            )
+        as_vector = np.array
+        dim = vector.shape[0]
     else:
-        raise ValueError(f"Dimension {dim} not supported.")
+        from ufl import as_vector, dot
+
+        dim = ufl.domain.extract_unique_domain(vector).topological_dimension()
+
+    if dim == 0:
+        raise ValueError("Dimension 0 not supported.")
+    vectors = [vector]
+    while len(vectors) < dim:
+        v = as_vector(np.random.rand(dim))
+        if is_numpy and np.allclose(vector / dot(vector, vector), v / dot(v, v)):
+            np.random.seed(seed + 100)
+            continue
+            # TODO: Add a similar check in the UFL case
+        vectors.append(v)
+
+    # Apply Gram-Schmidt to the set of vectors generated
+    return gram_schmidt(*vectors, normalise=normalise)
