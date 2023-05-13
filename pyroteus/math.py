@@ -3,7 +3,7 @@ import ufl
 import ufl.core.expr
 
 
-__all__ = ["bessi0", "bessk0", "gram_schmidt", "construct_orthonormal_basis"]
+__all__ = ["bessi0", "bessk0", "gram_schmidt", "construct_basis"]
 
 
 def recursive_polynomial(x, coeffs):
@@ -160,23 +160,37 @@ def gram_schmidt(*vectors, normalise=False):
     return u
 
 
-def construct_orthonormal_basis(v, dim=None, seed=0):
+def construct_basis(vector, normalise=True):
     """
-    Starting from a single vector in UFL, construct
-    a set of vectors which are orthonormal w.r.t. it.
+    Construct a basis from a given vector.
 
-    :arg v: the vector
-    :kwarg dim: its dimension
-    :kwarg seed: seed for random number generator
+    :arg vector: the starting vector
+    :kwargs normalise: do we want an orthonormal basis?
     """
-    np.random.seed(seed)
-    dim = dim or ufl.domain.extract_unique_domain(v).topological_dimension()
-    if dim == 2:
-        return [ufl.perp(v)]
-    elif dim > 2:
-        vectors = [
-            ufl.as_vector(np.random.rand(dim)) for i in range(dim - 1)
-        ]  # (arbitrary)
-        return gram_schmidt(v, *vectors, normalise=True)[1:]  # (orthonormal)
+    is_numpy = isinstance(vector, np.ndarray)
+    if is_numpy:
+        from numpy import dot
+
+        if len(vector.shape) > 1:
+            raise ValueError(
+                f"Expected a vector, got an array of shape {vector.shape}."
+            )
+        as_vector = np.array
+        dim = vector.shape[0]
     else:
+        from ufl import as_vector, dot
+
+        dim = ufl.domain.extract_unique_domain(vector).topological_dimension()
+
+    if dim not in (2, 3):
         raise ValueError(f"Dimension {dim} not supported.")
+    vectors = [vector]
+
+    # Generate some arbitrary vectors and apply Gram-Schmidt
+    if dim == 2:
+        vectors.append(as_vector((-vector[1], vector[0])))
+    else:
+        vectors.append(as_vector((vector[1], vector[2], vector[0])))
+        vectors.append(as_vector((vector[2], vector[0], vector[1])))
+        # TODO: Account for the case where all three components match
+    return gram_schmidt(*vectors, normalise=normalise)
