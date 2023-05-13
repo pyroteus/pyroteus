@@ -37,6 +37,8 @@ def bessi0(x):
     else:
         from ufl import abs, exp, sqrt
 
+        # TODO: Check that valid UFL types are used
+
     ax = abs(x)
     x1 = (x / 3.75) ** 2
     coeffs1 = (
@@ -86,6 +88,8 @@ def bessk0(x):
         from ufl import exp, ln, sqrt
         from ufl import conditional as where
 
+        # TODO: Check that valid UFL types are used
+
     x1 = x * x / 4.0
     coeffs1 = (
         -0.57721566,
@@ -131,8 +135,6 @@ def gram_schmidt(*vectors, normalise=False):
     else:
         from ufl import dot, sqrt
 
-        # TODO: Check that valid UFL types are used
-
     def proj(x, y):
         return dot(x, y) / dot(x, x) * x
 
@@ -172,6 +174,7 @@ def construct_basis(vector, normalise=True, seed=0):
     else:
         from ufl import as_vector, dot
 
+        # TODO: Check that valid UFL types are used
         dim = ufl.domain.extract_unique_domain(vector).topological_dimension()
 
     if dim == 0:
