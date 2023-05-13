@@ -1,6 +1,65 @@
-from pyroteus.math import gram_schmidt
+from pyroteus.math import bessk0, bessi0, recursive_polynomial, gram_schmidt
 import numpy as np
+from parameterized import parameterized
 import pytest
+import scipy as sp
+import unittest
+
+
+class TestBessel(unittest.TestCase):
+    """
+    Unit tests for Bessel functions.
+    """
+
+    @parameterized.expand([1, 2, 3, (np.array([1, 2]),)])
+    def test_recursive_polynomial0(self, a):
+        x0 = 1
+        p = recursive_polynomial(a, (x0,))
+        self.assertEqual(p, x0)
+
+    @parameterized.expand([1, 2, 3, (np.array([1, 2]),)])
+    def test_recursive_polynomial1(self, a):
+        x0, x1 = 1, -1
+        p = recursive_polynomial(a, (x0, x1))
+        self.assertTrue(np.allclose(p, x0 + a * x1))
+
+    @parameterized.expand([1, 2, 3, (np.array([1, 2]),)])
+    def test_recursive_polynomial2(self, a):
+        x0, x1, x2 = 1, -1, 1
+        p = recursive_polynomial(a, (x0, x1, x2))
+        self.assertTrue(np.allclose(p, x0 + a * (x1 + a * x2)))
+
+    def test_bessi0_numpy_divbyzero_error(self):
+        with self.assertRaises(ValueError) as cm:
+            bessi0(np.array([1, 0]))
+        msg = "Cannot divide by zero."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_bessi0_ufl_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            bessi0(UnitTriangleMesh())
+        msg = "Expected UFL Expr, not '<class 'firedrake.mesh.MeshGeometry'>'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_bessi0_numpy(self):
+        x = np.array([1, 2, 3])
+        self.assertTrue(np.allclose(bessi0(x), sp.special.i0(x)))
+
+    def test_bessk0_numpy_nonpositive_error(self):
+        with self.assertRaises(ValueError) as cm:
+            bessk0(np.array([1, -1]))
+        msg = "Cannot take the logarithm of a non-positive number."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_bessk0_ufl_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            bessk0(UnitTriangleMesh())
+        msg = "Expected UFL Expr, not '<class 'firedrake.mesh.MeshGeometry'>'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_bessk0_numpy(self):
+        x = np.array([1, 2, 3])
+        self.assertTrue(np.allclose(bessk0(x), sp.special.k0(x)))
 
 
 @pytest.fixture(params=[2, 3])
