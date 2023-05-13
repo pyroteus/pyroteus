@@ -161,7 +161,7 @@ def recover_boundary_hessian(
         :func:`firedrake.functionspace.TensorFunctionSpace`
         in which the metric will exist
     """
-    from pyroteus.math import construct_orthonormal_basis
+    from pyroteus.math import construct_basis
     from pyroteus.metric import get_metric_kernel
 
     d = mesh.topological_dimension()
@@ -169,8 +169,9 @@ def recover_boundary_hessian(
 
     # Apply Gram-Schmidt to get tangent vectors
     n = ufl.FacetNormal(mesh)
-    s = construct_orthonormal_basis(n)
-    ns = ufl.as_vector([n, *s])
+    ns = construct_basis(n)
+    s = ns[1:]
+    ns = ufl.as_vector(ns)
 
     # Setup
     P1 = FunctionSpace(mesh, "CG", 1)
@@ -191,7 +192,6 @@ def recover_boundary_hessian(
     }
 
     if method.upper() == "L2":
-
         # Arbitrary value on domain interior
         a = v * Hs * ufl.dx
         L = v * h * ufl.dx
