@@ -161,8 +161,7 @@ class TestRecoveryBowl(unittest.TestCase):
         H = recover_boundary_hessian(f, mesh, method="L2")
 
         # Check its directional derivatives in boundaries are zero
-        S = construct_orthonormal_basis(FacetNormal(mesh))
-        for s in S:
+        for s in construct_basis(FacetNormal(mesh))[1:]:
             dHds = abs(assemble(dot(div(H), s) * ds))
             assert dHds < 2.0e-08, "Non-zero tangential derivative"
 
@@ -176,8 +175,7 @@ class TestRecoveryBowl(unittest.TestCase):
         H = recover_boundary_hessian(f, mesh, method="Clement")
 
         # Check its directional derivatives in boundaries are zero
-        S = construct_orthonormal_basis(FacetNormal(mesh))
-        for s in S:
+        for s in construct_basis(FacetNormal(mesh))[1:]:
             dHds = abs(assemble(dot(div(H), s) * ds))
             assert dHds < 2.0e-08, "Non-zero tangential derivative"
 
