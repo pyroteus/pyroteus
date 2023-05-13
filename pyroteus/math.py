@@ -111,29 +111,42 @@ def bessk0(x):
     return where(x <= 2, expr1, expr2)
 
 
-def gram_schmidt(*v, normalise=False):
+def gram_schmidt(*vectors, normalise=False):
     """
     Given some vectors, construct an orthogonal basis
     using Gram-Schmidt orthogonalisation.
 
-    :args v: the vectors to orthogonalise
+    :args vectors: the vectors to orthogonalise
     :kwargs normalise: do we want an orthonormal basis?
     """
-    if isinstance(v[0], np.ndarray):
+    if isinstance(vectors[0], np.ndarray):
         from numpy import dot, sqrt
+
+        # Check that vector types match
+        for i, vi in enumerate(vectors[1:]):
+            if not isinstance(vi, type(vectors[0])):
+                raise TypeError(
+                    f"Inconsistent vector types: '{type(vectors[0])}' vs. '{type(vi)}'."
+                )
     else:
         from ufl import dot, sqrt
-    u = []
+
+        # TODO: Check that valid UFL types are used
 
     def proj(x, y):
         return dot(x, y) / dot(x, x) * x
 
-    for i, vi in enumerate(v):
+    # Apply Gram-Schmidt algorithm
+    u = []
+    for i, vi in enumerate(vectors):
         if i > 0:
             vi -= sum([proj(uj, vi) for uj in u])
         u.append(vi / sqrt(dot(vi, vi)) if normalise else vi)
-    if isinstance(v[0], np.ndarray):
+
+    # Ensure consistency of outputs
+    if isinstance(vectors[0], np.ndarray):
         u = [np.array(ui) for ui in u]
+
     return u
 
 
