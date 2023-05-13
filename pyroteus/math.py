@@ -180,6 +180,12 @@ def construct_basis(vector, normalise=True, seed=0):
     if dim == 0:
         raise ValueError("Dimension 0 not supported.")
     vectors = [vector]
+
+    # TODO: Avoid using this different code path in 2D case
+    if dim == 2:
+        vectors.append(as_vector((-vector[1], vector[0])))
+
+    # Apply Gram-Schmidt to a random set of vectors
     while len(vectors) < dim:
         v = as_vector(np.random.rand(dim))
         if is_numpy and np.allclose(vector / dot(vector, vector), v / dot(v, v)):
