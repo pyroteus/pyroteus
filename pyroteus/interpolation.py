@@ -8,7 +8,7 @@ from firedrake.petsc import PETSc
 from petsc4py import PETSc as petsc4py
 from pyop2 import op2
 import numpy as np
-from typing import Optional
+from typing import Optional, Union
 import ufl
 
 
@@ -153,80 +153,79 @@ def clement_interpolant(
 
 def project(
     source: Function,
-    target_space: FunctionSpace,
+    target_space: Union[FunctionSpace, Function],
     adjoint: bool = False,
     **kwargs,
-) -> Function:
+) -> Function:  # TODO: Add unit tests
     """
-    Overload :func:`firedrake.projection.project` to account
-    for the case of two mixed function spaces defined on
-    different meshes and for the adjoint projection
-    operator.
+    Overload :func:`firedrake.projection.project` to account for the case of two mixed
+    function spaces defined on different meshes and for the adjoint projection operator.
 
-    Extra keyword arguments are passed to
-    :func:`firedrake.projection.project`.
+    Extra keyword arguments are passed to :func:`firedrake.projection.project`.
 
-    :arg source: the :class:`firedrake.function.Function`
-        to be projected
-    :arg target_space: the
-        :class:`firedrake.functionspaceimpl.FunctionSpace`
-        which we seek to project into
-    :kwarg adjoint: apply the transposed projection
-        operator?
+    :arg source: the :class:`firedrake.function.Function` to be projected
+    :arg target_space: the :class:`firedrake.functionspaceimpl.FunctionSpace` which we
+        seek to project into
+    :kwarg adjoint: apply the transposed projection operator?
     """
     if not isinstance(source, Function):
-        raise NotImplementedError("Can only currently project Functions")  # TODO
-    source_space = source.function_space()
+        raise NotImplementedError("Can only currently project Functions.")  # TODO
+    Vs = source.function_space()
     if isinstance(target_space, Function):
         target = target_space
-        target_space = target.function_space()
+        Vt = target.function_space()
     else:
-        target = Function(target_space)
-    if ufl.domain.extract_unique_domain(source) == ufl.domain.extract_unique_domain(
-        target
-    ):
-        if source_space == target_space:
-            target.assign(source)
-        else:
-            target.project(source, **kwargs)
-        return target
-    else:
-        return mesh2mesh_project(source, target, adjoint=adjoint, **kwargs)
+        Vt = target_space
+        target = Function(Vt)
+
+    # Account for the case where the meshes match
+    Hs = ufl.domain.extract_unique_domain(source)
+    Ht = ufl.domain.extract_unique_domain(target)
+    if Hs == Ht:
+        if Vs == Vt:
+            return target.assign(source)
+        elif not adjoint:
+            return target.project(source, **kwargs)
+
+    # Check validity of function spaces
+    space1, space2 = ("target", "source") if adjoint else ("source", "target")
+    if hasattr(Vs, "num_sub_spaces"):
+        if not hasattr(Vt, "num_sub_spaces"):
+            raise ValueError(
+                f"{space1} space has multiple components but {space2} space does not.".capitalize()
+            )
+        if Vs.num_sub_spaces() != Vt.num_sub_spaces():
+            raise ValueError(
+                f"Inconsistent numbers of components in {space1} and {space2} spaces:"
+                f" {Vs.num_sub_spaces()} vs. {Vt.num_sub_spaces()}."
+            )
+    elif hasattr(Vt, "num_sub_spaces"):
+        raise ValueError(
+            f"{space2} space has multiple components but {space1} space does not.".capitalize()
+        )
+
+    # Apply projector
+    return (_project_adjoint if adjoint else _project)(source, target, **kwargs)
 
 
-@PETSc.Log.EventDecorator("pyroteus.mesh2mesh_project")
-def mesh2mesh_project(
-    source: Function,
-    target: Function,
-    adjoint: bool = False,
-    **kwargs,
-) -> Function:
+@PETSc.Log.EventDecorator("pyroteus.interpolation.project")
+def _project(source: Function, target: Function, **kwargs) -> Function:
     """
-    Apply a mesh-to-mesh conservative projection to some
-    ``source``, mapping to a ``target``.
+    Apply a mesh-to-mesh conservative projection to some source
+    :class:`firedrake.function.Function`, mapping to a target
+    :class:`firedrake.function.Function`.
 
     This function extends to the case of mixed spaces.
 
     Extra keyword arguments are passed to Firedrake's
-    ``project`` function.
+    :func:`firedrake.projection.project`` function.
 
-    :arg source: the :class:`firedrake.function.Function`
-        to be projected
-    :arg target: the :class:`firedrake.function.Function`
-        which we seek to project onto
-    :kwarg adjoint: apply the transposed projection
-        operator?
+    :arg source: the `Function` to be projected
+    :arg target: the `Function` which we seek to project onto
     """
-    if adjoint:
-        return mesh2mesh_project_adjoint(source, target)
-    source_space = source.function_space()
     assert isinstance(target, Function)
-    target_space = target.function_space()
-    if source_space == target_space:
-        target.assign(source)
-    elif hasattr(target_space, "num_sub_spaces"):
-        assert hasattr(source_space, "num_sub_spaces")
-        assert target_space.num_sub_spaces() == source_space.num_sub_spaces()
+    if hasattr(target.function_space(), "num_sub_spaces"):
+        assert hasattr(source.function_space(), "num_sub_spaces")
         for s, t in zip(source.subfunctions, target.subfunctions):
             t.project(s, **kwargs)
     else:
@@ -234,47 +233,35 @@ def mesh2mesh_project(
     return target
 
 
-@PETSc.Log.EventDecorator("pyroteus.mesh2mesh_project_adjoint")
-def mesh2mesh_project_adjoint(
-    target_b: Function, source_b: Function, **kwargs
-) -> Function:
+@PETSc.Log.EventDecorator("pyroteus.interpolation.project_adjoint")
+def _project_adjoint(target_b: Function, source_b: Function, **kwargs) -> Function:
     """
-    Apply the adjoint of a mesh-to-mesh conservative
-    projection to some seed ``target_b``, mapping to
-    ``source_b``.
+    Apply the adjoint of a mesh-to-mesh conservative projection to some seed
+    :class:`firedrake.function.Function`, mapping to an output
+    :class:`firedrake.function.Function`.
 
-    The notation used here is in terms of the adjoint of
-    ``mesh2mesh_project``. However, this function may also
-    be interpreted as a projector in its own right,
+    The notation used here is in terms of the adjoint of standard projection.
+    However, this function may also be interpreted as a projector in its own right,
     mapping ``target_b`` to ``source_b``.
 
-    Extra keyword arguments are passed to
-    :func:`firedrake.projection.project`.
+    Extra keyword arguments are passed to :func:`firedrake.projection.project`.
 
-    :arg target_b: seed :class:`firedrake.function.Function`
-        from the target space of the forward projection
-    :arg source_b: the :class:`firedrake.function.Function`
-        from the source space of the forward projection
+    :arg target_b: seed :class:`firedrake.function.Function` from the target space of
+        the forward projection
+    :arg source_b: the :class:`firedrake.function.Function` from the source space of
+        the forward projection
     """
     from firedrake.supermeshing import assemble_mixed_mass_matrix
 
-    target_space = target_b.function_space()
+    Vt = target_b.function_space()
     assert isinstance(source_b, Function)
-    source_space = source_b.function_space()
+    Vs = source_b.function_space()
 
     # Get subspaces
-    if source_space == target_space:
-        source_b.assign(target_b)
-        return source_b
-    elif hasattr(source_space, "num_sub_spaces"):
-        if not hasattr(target_space, "num_sub_spaces"):
-            raise ValueError(f"Incompatible spaces {source_space} and {target_space}")
-        if not target_space.num_sub_spaces() == source_space.num_sub_spaces():
-            raise ValueError(f"Incompatible spaces {source_space} and {target_space}")
+    if hasattr(Vs, "num_sub_spaces"):
+        assert hasattr(Vt, "num_sub_spaces")
         target_b_split = target_b.subfunctions
         source_b_split = source_b.subfunctions
-    elif hasattr(target_space, "num_sub_spaces"):
-        raise ValueError(f"Incompatible spaces {source_space} and {target_space}")
     else:
         target_b_split = [target_b]
         source_b_split = [source_b]
@@ -283,9 +270,7 @@ def mesh2mesh_project_adjoint(
     for i, (t_b, s_b) in enumerate(zip(target_b_split, source_b_split)):
         ksp = petsc4py.KSP().create()
         ksp.setOperators(assemble_mass_matrix(t_b.function_space()))
-        mixed_mass = assemble_mixed_mass_matrix(
-            t_b.function_space(), s_b.function_space()
-        )
+        mixed_mass = assemble_mixed_mass_matrix(Vt[i], Vs[i])
         with t_b.dat.vec_ro as tb, s_b.dat.vec_wo as sb:
             residual = tb.copy()
             ksp.solveTranspose(tb, residual)
