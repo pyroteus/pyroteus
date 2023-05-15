@@ -1,5 +1,6 @@
 import numpy as np
 import ufl
+import ufl.core.expr
 
 
 __all__ = ["bessi0", "bessk0", "gram_schmidt", "construct_orthonormal_basis"]
@@ -30,14 +31,18 @@ def bessi0(x):
     Code taken from :cite:`VVP+:92`.
     """
     if isinstance(x, np.ndarray):
-        from numpy import abs, exp, sqrt
-
         if np.isclose(x, 0).any():
             raise ValueError("Cannot divide by zero.")
+        exp = np.exp
+        sqrt = np.sqrt
+        ax = np.abs(x)
     else:
-        from ufl import abs, exp, sqrt
+        if not isinstance(x, ufl.core.expr.Expr):
+            raise TypeError(f"Expected UFL Expr, not '{type(x)}'.")
+        exp = ufl.exp
+        sqrt = ufl.sqrt
+        ax = ufl.as_ufl(abs(x))
 
-    ax = abs(x)
     x1 = (x / 3.75) ** 2
     coeffs1 = (
         1.0,
@@ -77,14 +82,19 @@ def bessk0(x):
     Code taken from :cite:`VVP+:92`.
     """
     if isinstance(x, np.ndarray):
-        from numpy import log as ln
-        from numpy import exp, sqrt, where
-
         if (x <= 0).any():
             raise ValueError("Cannot take the logarithm of a non-positive number.")
+        ln = np.log
+        exp = np.exp
+        sqrt = np.sqrt
+        where = np.where
     else:
-        from ufl import exp, ln, sqrt
-        from ufl import conditional as where
+        if not isinstance(x, ufl.core.expr.Expr):
+            raise TypeError(f"Expected UFL Expr, not '{type(x)}'.")
+        ln = ufl.ln
+        exp = ufl.exp
+        sqrt = ufl.sqrt
+        where = ufl.conditional
 
     x1 = x * x / 4.0
     coeffs1 = (
