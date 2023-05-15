@@ -179,9 +179,9 @@ def project(
         target = Function(Vt)
 
     # Account for the case where the meshes match
-    Hs = ufl.domain.extract_unique_domain(source)
-    Ht = ufl.domain.extract_unique_domain(target)
-    if Hs == Ht:
+    source_mesh = ufl.domain.extract_unique_domain(source)
+    target_mesh = ufl.domain.extract_unique_domain(target)
+    if source_mesh == target_mesh:
         if Vs == Vt:
             return target.assign(source)
         elif not adjoint:
