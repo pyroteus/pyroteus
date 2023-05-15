@@ -130,16 +130,20 @@ def gram_schmidt(*vectors, normalise=False):
     :kwargs normalise: do we want an orthonormal basis?
     """
     if isinstance(vectors[0], np.ndarray):
-        from numpy import dot, sqrt
-
-        # Check that vector types match
-        for i, vi in enumerate(vectors[1:]):
-            if not isinstance(vi, type(vectors[0])):
-                raise TypeError(
-                    f"Inconsistent vector types: '{type(vectors[0])}' vs. '{type(vi)}'."
-                )
+        expected = np.ndarray
+        dot = np.dot
+        sqrt = np.sqrt
     else:
-        from ufl import dot, sqrt
+        expected = ufl.core.expr.Expr
+        dot = ufl.dot
+        sqrt = ufl.sqrt
+
+    # Check that vector types match
+    for i, vi in enumerate(vectors[1:]):
+        if not isinstance(vi, expected):
+            raise TypeError(
+                f"Inconsistent vector types: '{expected}' vs. '{type(vi)}'."
+            )
 
         # TODO: Check that valid UFL types are used
 
@@ -169,18 +173,19 @@ def construct_basis(vector, normalise=True):
     """
     is_numpy = isinstance(vector, np.ndarray)
     if is_numpy:
-        from numpy import dot
-
         if len(vector.shape) > 1:
             raise ValueError(
                 f"Expected a vector, got an array of shape {vector.shape}."
             )
         as_vector = np.array
         dim = vector.shape[0]
+        dot = np.dot
     else:
-        from ufl import as_vector, dot
-
+        if not isinstance(vector, ufl.core.expr.Expr):
+            raise TypeError(f"Expected UFL Expr, not '{type(vector)}'.")
+        as_vector = ufl.as_vector
         dim = ufl.domain.extract_unique_domain(vector).topological_dimension()
+        dot = ufl.dot
 
     if dim not in (2, 3):
         raise ValueError(f"Dimension {dim} not supported.")
