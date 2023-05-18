@@ -1,122 +1,146 @@
 """
 Driver functions for mesh-to-mesh data transfer.
 """
-from .utility import assemble_mass_matrix, QualityMeasure, Function, FunctionSpace
+from .quality import QualityMeasure
+from .utility import assemble_mass_matrix, Function, FunctionSpace
 import firedrake
 from firedrake.petsc import PETSc
 from petsc4py import PETSc as petsc4py
 from pyop2 import op2
-import ufl
 import numpy as np
+from typing import Optional
+import ufl
 
 
 __all__ = ["clement_interpolant", "project"]
 
 
-@PETSc.Log.EventDecorator("pyroteus.clement_interpolant")
-def clement_interpolant(source: Function, **kwargs) -> Function:
+@PETSc.Log.EventDecorator()
+def clement_interpolant(
+    source: Function,
+    target_space: Optional[FunctionSpace] = None,
+    boundary: bool = False,
+) -> Function:
     r"""
-    Compute the Clement interpolant of a :math:`\mathbb P0`
-    source field, i.e. take the volume average over
-    neighbouring cells at each vertex. See :cite:`Cle:75`.
+    Compute the Clement interpolant of a :math:`\mathbb P0` source field, i.e. take the
+    volume average over neighbouring cells at each vertex. See :cite:`Cle:75`.
 
     :arg source: the :math:`\mathbb P0` source field
-    :kwarg target_space: the :math:`\mathbb P1` space to
-        interpolate into
-    :boundary_tag: optional boundary tag to compute the
-        Clement interpolant over.
+    :kwarg target_space: the :math:`\mathbb P1` space to interpolate into
+    :kwarg boundary: interpolate over boundary facets or cells?
     """
-    target_space = kwargs.get("target_space")
-    boundary_tag = kwargs.get("boundary_tag")
-    V = source.function_space()
-    assert V.ufl_element().family() == "Discontinuous Lagrange"
-    assert V.ufl_element().degree() == 0
-    rank = len(V.ufl_element().value_shape())
-    mesh = V.mesh()
+
+    # Process source space
+    Vs = source.function_space()
+    Vs_e = Vs.ufl_element()
+    if not (Vs_e.family() == "Discontinuous Lagrange" and Vs_e.degree() == 0):
+        raise ValueError("Source function provided must be from a P0 space.")
+    rank = len(Vs_e.value_shape())
+    if rank not in (0, 1, 2):
+        raise ValueError(f"Rank-{rank + 1} tensors are not supported.")
+    mesh = Vs.mesh()
     dim = mesh.topological_dimension()
-    P1 = FunctionSpace(mesh, "CG", 1)
-    dX = ufl.dx if boundary_tag is None else ufl.ds(boundary_tag)
-    if target_space is None:
+
+    # Process target space
+    Vt = target_space
+    if Vt is None:
         if rank == 0:
-            target_space = P1
+            Vt = FunctionSpace(mesh, "CG", 1)
         elif rank == 1:
-            target_space = firedrake.VectorFunctionSpace(mesh, "CG", 1)
-        elif rank == 2:
-            target_space = firedrake.TensorFunctionSpace(mesh, "CG", 1)
+            Vt = firedrake.VectorFunctionSpace(mesh, "CG", 1)
         else:
-            raise ValueError(f"Rank-{rank} tensors are not supported.")
+            Vt = firedrake.TensorFunctionSpace(mesh, "CG", 1)
+    Vt_e = Vt.ufl_element()
+    if not (Vt_e.family() == "Lagrange" and Vt_e.degree() == 1):
+        raise ValueError("Target space provided must be P1.")
+    target = Function(Vt)
+
+    # Scalar P0 and P1 spaces to hold volumes, etc.
+    P0 = FunctionSpace(mesh, "DG", 0)
+    P1 = FunctionSpace(mesh, "CG", 1)
+
+    # Determine target domain
+    if rank == 0:
+        tdomain = "{[i]: 0 <= i < t.dofs}"
+    elif rank == 1:
+        tdomain = f"{{[i, j]: 0 <= i < t.dofs and 0 <= j < {dim}}}"
     else:
-        assert target_space.ufl_element().family() == "Lagrange"
-        assert target_space.ufl_element().degree() == 1
-    target = Function(target_space)
+        tdomain = (
+            f"{{[i, j, k]: 0 <= i < t.dofs and 0 <= j < {dim} and 0 <= k < {dim}}}"
+        )
 
     # Compute the patch volume at each vertex
-    if boundary_tag is None:
-        P0 = FunctionSpace(mesh, "DG", 0)
-        dx = ufl.dx(domain=mesh)
-        volume = firedrake.assemble(firedrake.TestFunction(P0) * dx)
-    else:
-        volume = QualityMeasure(mesh, python=True)("facet_area")
-    patch_volume = Function(P1)
-    kernel = "for (int i=0; i < p.dofs; i++) p[i] += v[0];"
-    keys = {
-        "v": (volume, op2.READ),
-        "p": (patch_volume, op2.INC),
-    }
-    firedrake.par_loop(kernel, dX, keys)
+    if not boundary:
+        dX = ufl.dx(domain=mesh)
+        volume = QualityMeasure(mesh, python=True)("volume")
 
-    # Volume average
-    keys = {
-        "s": (source, op2.READ),
-        "v": (volume, op2.READ),
-        "t": (target, op2.INC),
-    }
-    if rank == 0:
-        firedrake.par_loop(
-            """
-            for (int i=0; i < t.dofs; i++) {
-              t[i] += s[0]*v[0];
-            }
-            """,
-            dX,
-            keys,
-        )
-    elif rank == 1:
-        firedrake.par_loop(
-            """
-            int d = %d;
-            for (int i=0; i < t.dofs; i++) {
-              for (int j=0; j < d; j++) {
-                t[i*d + j] += s[j]*v[0];
-              }
-            }
-            """
-            % dim,
-            dX,
-            keys,
-        )
-    elif rank == 2:
-        firedrake.par_loop(
-            """
-            int d = %d;
-            int Nd = d*d;
-            for (int i=0; i < t.dofs; i++) {
-              for (int j=0; j < d; j++) {
-                for (int k=0; k < d; k++) {
-                  t[i*Nd + j*d + k] += s[j*d + k]*v[0];
-                }
-              }
-            }
-            """
-            % dim,
-            dX,
-            keys,
-        )
+        # Compute patch volume
+        patch_volume = Function(P1)
+        domain = "{[i]: 0 <= i < patch.dofs}"
+        instructions = "patch[i] = patch[i] + vol[0]"
+        keys = {"vol": (volume, op2.READ), "patch": (patch_volume, op2.RW)}
+        firedrake.par_loop((domain, instructions), dX, keys, is_loopy_kernel=True)
+
+        # Take weighted average
+        if rank == 0:
+            instructions = "t[i] = t[i] + v[0] * s[0]"
+        elif rank == 1:
+            instructions = "t[i, j] = t[i, j] + v[0] * s[0, j]"
+        else:
+            instructions = f"t[i, {dim} * j + k] = t[i, {dim} * j + k] + v[0] * s[0, {dim} * j + k]"
+        keys = {
+            "s": (source, op2.READ),
+            "v": (volume, op2.READ),
+            "t": (target, op2.RW),
+        }
+        firedrake.par_loop((tdomain, instructions), dX, keys, is_loopy_kernel=True)
     else:
-        raise ValueError(f"Rank-{rank} tensors are not supported.")
+        dX = ufl.ds(domain=mesh)
+
+        # Indicate appropriate boundary
+        bnd_indicator = Function(P1)
+        firedrake.DirichletBC(P1, 1, "on_boundary").apply(bnd_indicator)
+
+        # Determine facet area for boundary edges
+        v = firedrake.TestFunction(P0)
+        u = firedrake.TrialFunction(P0)
+        bnd_volume = Function(P0)
+        mass_term = v * u * dX
+        rhs = v * ufl.FacetArea(mesh) * dX
+        sp = {"snes_type": "ksponly", "ksp_type": "preonly", "pc_type": "jacobi"}
+        firedrake.solve(mass_term == rhs, bnd_volume, solver_parameters=sp)
+
+        # Compute patch volume
+        patch_volume = Function(P1)
+        domain = "{[i]: 0 <= i < patch.dofs}"
+        instructions = "patch[i] = patch[i] + indicator[i] * bnd_vol[0]"
+        keys = {
+            "bnd_vol": (bnd_volume, op2.READ),
+            "indicator": (bnd_indicator, op2.READ),
+            "patch": (patch_volume, op2.RW),
+        }
+        firedrake.par_loop((domain, instructions), dX, keys, is_loopy_kernel=True)
+
+        # Take weighted average
+        if rank == 0:
+            instructions = "t[i] = t[i] + v[0] * b[i] * s[0]"
+        elif rank == 1:
+            instructions = "t[i, j] = t[i, j] + v[0] * b[i] * s[0, j]"
+        else:
+            instructions = f"t[i, {dim} * j + k] = t[i, {dim} * j + k] + v[0] * b[i] * s[0, {dim} * j + k]"
+        keys = {
+            "s": (source, op2.READ),
+            "v": (bnd_volume, op2.READ),
+            "b": (bnd_indicator, op2.READ),
+            "t": (target, op2.RW),
+        }
+        firedrake.par_loop((tdomain, instructions), dX, keys, is_loopy_kernel=True)
+
+    # Divide by patch volume and ensure finite
     target.interpolate(target / patch_volume)
-    if boundary_tag is not None:
-        target.dat.data_with_halos[:] = np.nan_to_num(target.dat.data_with_halos)
+    target.dat.data_with_halos[:] = np.nan_to_num(
+        target.dat.data_with_halos, posinf=0, neginf=0
+    )
     return target
 
 
