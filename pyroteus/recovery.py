@@ -16,33 +16,13 @@ def recover_hessian(f: Function, method: str = "L2", **kwargs) -> Function:
 
     :arg f: the scalar field whose Hessian we seek to recover
     :kwarg method: recovery method
+
+    All other keyword arguments are passed to the chosen recovery routine.
     """
     if method.upper() == "L2":
         g, H = double_l2_projection(f, **kwargs)
-
     elif method.capitalize() == "Clement":
-        mesh = kwargs.get("mesh") or f.function_space().mesh()
-        family = f.ufl_element().family()
-        degree = f.ufl_element().degree()
-        msg = "Clement can only be used to compute gradients of"
-        if family not in ("Lagrange", "Discontinuous Lagrange"):
-            raise ValueError(f"{msg} Lagrange fields.")
-        if degree == 0:
-            raise ValueError(f"{msg} fields of degree > 0.")
-
-        # Recover gradient
-        gradf = ufl.grad(f)
-        if degree == 1:
-            V = firedrake.VectorFunctionSpace(mesh, "DG", 0)
-            g = clement_interpolant(firedrake.interpolate(gradf, V))
-        else:
-            V = firedrake.VectorFunctionSpace(mesh, "DG", 1)
-            g = firedrake.project(gradf, V)
-
-        # Recover Hessian
-        W = firedrake.TensorFunctionSpace(mesh, "DG", 0)
-        H = clement_interpolant(firedrake.interpolate(ufl.grad(g), W))
-
+        g, H = double_clement(f, **kwargs)
     elif method.upper() == "ZZ":
         raise NotImplementedError(
             "Zienkiewicz-Zhu recovery not yet implemented."
@@ -50,6 +30,39 @@ def recover_hessian(f: Function, method: str = "L2", **kwargs) -> Function:
     else:
         raise ValueError(f"Recovery method '{method}' not recognised.")
     return H
+
+
+@PETSc.Log.EventDecorator()
+def double_clement(f: Function):
+    r"""
+    Recover the gradient and Hessian of a scalar field using two applications of
+    Clement interpolation.
+
+    :arg f: the scalar field whose derivatives we seek to recover
+    """
+    msg = "Clement can only be used to compute gradients of"
+    if not isinstance(f, Function):
+        raise ValueError(f"{msg} Functions.")
+    family = f.ufl_element().family()
+    degree = f.ufl_element().degree()
+    if family not in ("Lagrange", "Discontinuous Lagrange"):
+        raise ValueError(f"{msg} Lagrange fields.")
+    if degree == 0:
+        raise ValueError(f"{msg} fields of degree > 0.")
+    mesh = f.function_space().mesh()
+
+    # Recover gradient
+    gradf = ufl.grad(f)
+    V = firedrake.VectorFunctionSpace(mesh, "DG", min(1, degree - 1))
+    if degree == 1:
+        g = clement_interpolant(firedrake.interpolate(gradf, V))
+    else:
+        g = firedrake.project(gradf, V)
+
+    # Recover Hessian
+    W = firedrake.TensorFunctionSpace(mesh, "DG", 0)
+    H = clement_interpolant(firedrake.interpolate(ufl.grad(g), W))
+    return g, H
 
 
 @PETSc.Log.EventDecorator("pyroteus.double_l2_projection")
