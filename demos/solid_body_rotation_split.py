@@ -111,5 +111,8 @@ if os.environ.get("PYROTEUS_REGRESSION_TEST") is None:
 # final cone is expected to be non-zero. Run the example again
 # to see how the adjoint solutions differ for each field.
 #
+# In the `next demo <./gray_scott.py.html>`__, we move on from advection-diffusion
+# equations to solving a system of advection-diffusion-reaction equations.
+#
 # This tutorial can be dowloaded as a
 # `Python script <solid_body_rotation_split.py>`__.

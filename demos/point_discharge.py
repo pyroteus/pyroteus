@@ -203,7 +203,9 @@ axes.set_title("Adjoint solution")
 fig.savefig("point-discharge-adjoint.jpg")
 plot_kwargs["norm"] = mcolors.LogNorm()
 plot_kwargs["locator"] = ticker.LogLocator()
-fig, axes, tcs = plot_indicator_snapshots(indicators, time_partition, "c", **plot_kwargs)
+fig, axes, tcs = plot_indicator_snapshots(
+    indicators, time_partition, "c", **plot_kwargs
+)
 cbar = fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
 axes.set_title("Error indicator")
 fig.savefig("point-discharge-indicator.jpg")
@@ -231,9 +233,5 @@ fig.savefig("point-discharge-indicator.jpg")
 # .. figure:: point-discharge-indicator.jpg
 #    :figwidth: 80%
 #    :align: center
-#
-# In the `next demo <./gray_scott.py.html>`__, we move on from solving an
-# advection-diffusion equation to solving a system of advection-diffusion-reaction
-# equations.
 #
 # This tutorial can be dowloaded as a `Python script <point_discharge.py>`__.
