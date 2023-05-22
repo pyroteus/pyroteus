@@ -26,9 +26,17 @@ class TestRecoverySetup(unittest.TestCase):
         V = FunctionSpace(self.mesh, family, degree)
         return Function(V).assign(1.0)
 
+    def test_clement_function_error(self):
+        f = bowl(*SpatialCoordinate(self.mesh))
+        kwargs = dict(method="Clement")
+        with self.assertRaises(ValueError) as cm:
+            recover_hessian(f, **kwargs)
+        msg = "Clement can only be used to compute gradients of Functions."
+        self.assertEqual(str(cm.exception), msg)
+
     def test_clement_space_error(self):
         f = self.get_func_ones("RT", 1)
-        kwargs = dict(method="Clement", mesh=self.mesh)
+        kwargs = dict(method="Clement")
         with self.assertRaises(ValueError) as cm:
             recover_hessian(f, **kwargs)
         msg = "Clement can only be used to compute gradients of Lagrange fields."
@@ -36,7 +44,7 @@ class TestRecoverySetup(unittest.TestCase):
 
     def test_clement_degree_error(self):
         f = self.get_func_ones("DG", 0)
-        kwargs = dict(method="Clement", mesh=self.mesh)
+        kwargs = dict(method="Clement")
         with self.assertRaises(ValueError) as cm:
             recover_hessian(f, **kwargs)
         msg = "Clement can only be used to compute gradients of fields of degree > 0."
@@ -44,7 +52,7 @@ class TestRecoverySetup(unittest.TestCase):
 
     def test_zz_notimplemented_error(self):
         f = self.get_func_ones("CG", 1)
-        kwargs = dict(method="ZZ", mesh=self.mesh)
+        kwargs = dict(method="ZZ")
         with self.assertRaises(NotImplementedError) as cm:
             recover_hessian(f, **kwargs)
         msg = "Zienkiewicz-Zhu recovery not yet implemented."
@@ -52,7 +60,7 @@ class TestRecoverySetup(unittest.TestCase):
 
     def test_unrecognised_interior_method_error(self):
         f = self.get_func_ones("CG", 1)
-        kwargs = dict(method="some_method", mesh=self.mesh)
+        kwargs = dict(method="some_method")
         with self.assertRaises(ValueError) as cm:
             recover_hessian(f, **kwargs)
         msg = "Recovery method 'some_method' not recognised."
