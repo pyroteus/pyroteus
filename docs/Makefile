@@ -33,7 +33,7 @@ copy_demos:
 	cp source/demos/*.jpg $(BUILDDIR)/html/demos
 	cp source/demos/*.bib $(BUILDDIR)/html/demos
 	install -d $(BUILDDIR)/html/maths
-	mkdir $(BUILDDIR)/html/_images
+	mkdir -p $(BUILDDIR)/html/_images
 	cp source/maths/images/*.jpg $(BUILDDIR)/html/_images
 
 SPHINX_TARGETS = html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub \
