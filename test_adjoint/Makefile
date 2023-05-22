@@ -2,7 +2,7 @@ all: run
 
 run:
 	@echo "Running all adjoint tests..."
-	@python3 -m pytest -v .
+	@python3 -m pytest -v --durations=10 .
 	@echo "Done."
 
 clean:
