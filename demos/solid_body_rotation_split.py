@@ -63,16 +63,17 @@ def get_qoi_split(mesh_seq, sols, index):
     return get_qoi(mesh_seq, sols, index, field="slot_cyl")
 
 
-# Then we can set up the :class:`AdjointMeshSeq` much
-# as before and plot the outputs in the same way. ::
+# Then we can set up the :class:`AdjointMeshSeq` much as before and plot the outputs
+# in the same way. ::
 
-end_time = 2 * pi
 dt = pi / 300
+test = os.environ.get("PYROTEUS_REGRESSION_TEST") is not None
+end_time = pi / 4 if test else 2 * pi
 time_partition = TimeInterval(
     end_time,
     dt,
     fields,
-    timesteps_per_export=20,
+    timesteps_per_export=25,
 )
 mesh_seq = AdjointMeshSeq(
     time_partition,

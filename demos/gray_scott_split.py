@@ -135,7 +135,7 @@ def get_qoi(mesh_seq, sols, index):
 
 
 test = os.environ.get("PYROTEUS_REGRESSION_TEST") is not None
-end_time = 500.0 if test else 2000.0
+end_time = 10.0 if test else 2000.0
 dt = [0.0001, 0.001, 0.01, 0.1, (end_time - 1) / end_time]
 num_subintervals = 5
 dt_per_export = [10, 9, 9, 9, 10]

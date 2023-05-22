@@ -94,6 +94,21 @@ def get_initial_condition(mesh_seq, field="c"):
     return {field: interpolate(bell + cone + slot_cyl, fs)}
 
 
+# Now let's set up the time interval of interest. The `"PYROTEUS_REGRESSION_TEST"` flag
+# can be ignored here and in subsequent demos; it is used to cut down the runtime in
+# Pyroteus' continuous integration suite. ::
+
+test = os.environ.get("PYROTEUS_REGRESSION_TEST") is not None
+end_time = pi / 4 if test else 2 * pi
+dt = pi / 300
+fields = ["c"]
+time_partition = TimeInterval(
+    end_time,
+    dt,
+    fields,
+    timesteps_per_export=25,
+)
+
 # For the purposes of plotting, we set up a :class:`MeshSeq` with
 # only the :meth:`get_function_spaces` and :meth:`get_initial_condition`
 # methods implemented. ::
@@ -101,15 +116,6 @@ def get_initial_condition(mesh_seq, field="c"):
 import matplotlib.pyplot as plt
 
 
-end_time = 2 * pi
-dt = pi / 300
-fields = ["c"]
-time_partition = TimeInterval(
-    end_time,
-    dt,
-    fields,
-    timesteps_per_export=20,
-)
 mesh_seq = MeshSeq(
     time_partition,
     mesh,
