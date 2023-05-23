@@ -85,4 +85,11 @@ earlier ones.
     :maxdepth: 1
 
     Error estimation for Burgers equation <demos/burgers_ee.py>
-    Point discharge with diffusion <demos/point_discharge.py>
+    Point discharge with diffusion <demos/point_discharge2d.py>
+
+*Mesh adaptation*
+
+.. toctree::
+    :maxdepth: 1
+
+    Hessian-based mesh adaptation for a 2D steady-state problem <demos/point_discharge2d-hessian.py>

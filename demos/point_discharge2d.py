@@ -194,13 +194,13 @@ fig, axes, tcs = plot_snapshots(
 )
 fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
 axes.set_title("Forward solution")
-fig.savefig("point-discharge-forward.jpg")
+fig.savefig("point_discharge2d-forward.jpg")
 fig, axes, tcs = plot_snapshots(
     solutions, time_partition, "c", "adjoint", **plot_kwargs
 )
 fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
 axes.set_title("Adjoint solution")
-fig.savefig("point-discharge-adjoint.jpg")
+fig.savefig("point_discharge2d-adjoint.jpg")
 plot_kwargs["norm"] = mcolors.LogNorm()
 plot_kwargs["locator"] = ticker.LogLocator()
 fig, axes, tcs = plot_indicator_snapshots(
@@ -208,12 +208,12 @@ fig, axes, tcs = plot_indicator_snapshots(
 )
 cbar = fig.colorbar(tcs[0][0], orientation="horizontal", pad=0.2)
 axes.set_title("Error indicator")
-fig.savefig("point-discharge-indicator.jpg")
+fig.savefig("point_discharge2d-indicator.jpg")
 
 # The forward solution is driven by a point source, which is advected from
 # left to right and diffused uniformly in all directions.
 #
-# .. figure:: point-discharge-forward.jpg
+# .. figure:: point_discharge2d-forward.jpg
 #    :figwidth: 80%
 #    :align: center
 #
@@ -221,7 +221,7 @@ fig.savefig("point-discharge-indicator.jpg")
 # `receiver` and is advected from right to left. It is also diffused uniformly
 # in all directions.
 #
-# .. figure:: point-discharge-adjoint.jpg
+# .. figure:: point_discharge2d-adjoint.jpg
 #    :figwidth: 80%
 #    :align: center
 #
@@ -230,8 +230,11 @@ fig.savefig("point-discharge-indicator.jpg")
 # error come from these parts of the domain. By contrast, the contributions
 # from downstream regions are negligible.
 #
-# .. figure:: point-discharge-indicator.jpg
+# .. figure:: point_discharge2d-indicator.jpg
 #    :figwidth: 80%
 #    :align: center
 #
-# This tutorial can be dowloaded as a `Python script <point_discharge.py>`__.
+# In the `next tutorial <./point_discharge2d-hessian.py.html>`__ we will apply
+# metric-based mesh adaptation to the point discharge test case considered here.
+#
+# This tutorial can be dowloaded as a `Python script <point_discharge2d.py>`__.
