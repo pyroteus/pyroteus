@@ -580,3 +580,5 @@ class MeshSeq:
                 break
         if not self.converged:
             pyrint(f"Failed to converge in {P.maxiter} iterations")
+
+        return sols
