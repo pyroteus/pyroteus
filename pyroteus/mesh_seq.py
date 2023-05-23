@@ -559,9 +559,9 @@ class MeshSeq:
         P = self.params
         self.element_counts = [self.count_elements()]
         self.converged = False
-        for fp_iteration in range(P.maxiter):
+        for self.fp_iteration in range(P.maxiter):
             if update_params is not None:
-                update_params(P, fp_iteration)
+                update_params(P, self.fp_iteration)
 
             # Solve the forward problem over all meshes
             sols = self.solve_forward(solver_kwargs=solver_kwargs)
@@ -575,7 +575,7 @@ class MeshSeq:
             if self.converged:
                 pyrint(
                     "Terminated due to element count convergence"
-                    f" after {fp_iteration+1} iterations"
+                    f" after {self.fp_iteration+1} iterations"
                 )
                 break
         if not self.converged:
