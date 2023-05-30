@@ -135,27 +135,40 @@ class MeshSeq:
             function
         :return: matplotlib figure and axes for the plots
         """
+        from matplotlib.pyplot import subplots
+
         if self.dim != 2:
             raise ValueError("MeshSeq plotting only supported in 2D")
-        fig = kwargs.get("fig")
-        axes = kwargs.get("axes")
-        kwargs.setdefault("interior_kw", {"edgecolor": "k"})
-        kwargs.setdefault("boundary_kw", {"edgecolor": "k"})
-        if fig is None and axes is None:
-            from matplotlib.pyplot import subplots
 
+        # Process kwargs
+        fig = kwargs.pop("fig", None)
+        axes = kwargs.pop("axes", None)
+        interior_kw = {"edgecolor": "k"}
+        interior_kw.update(kwargs.pop("interior_kw", {}))
+        boundary_kw = {"edgecolor": "k"}
+        boundary_kw.update(kwargs.pop("boundary_kw", {}))
+        kwargs["interior_kw"] = interior_kw
+        kwargs["boundary_kw"] = boundary_kw
+        if fig is None or axes is None:
             n = len(self)
-            size = (5 * n, 5)
-            fig, axes = subplots(ncols=n, nrows=1, figsize=size)
-        i = 0
-        for axis in axes:
+            fig, axes = subplots(ncols=n, nrows=1, figsize=(5 * n, 5))
+
+        # Loop over all axes and plot the meshes
+        k = 0
+        if not isinstance(axes, Iterable):
+            axes = [axes]
+        for i, axis in enumerate(axes):
             if not isinstance(axis, Iterable):
                 axis = [axis]
             for ax in axis:
-                ax.set_title(f"MeshSeq[{i}]")
-                firedrake.triplot(self.meshes[i], axes=ax, **kwargs)
+                ax.set_title(f"MeshSeq[{k}]")
+                firedrake.triplot(self.meshes[k], axes=ax, **kwargs)
                 ax.axis(False)
-                i += 1
+                k += 1
+            if len(axis) == 1:
+                axes[i] = axis[0]
+        if len(axes) == 1:
+            axes = axes[0]
         return fig, axes
 
     def get_function_spaces(self, mesh: MeshGeometry) -> Callable:
@@ -466,7 +479,6 @@ class MeshSeq:
 
             # Loop over prognostic variables
             for field, fs in function_spaces.items():
-
                 # Get solve blocks
                 solve_blocks = self.get_solve_blocks(
                     field, subinterval=i, has_adj_sol=False
@@ -547,9 +559,9 @@ class MeshSeq:
         P = self.params
         self.element_counts = [self.count_elements()]
         self.converged = False
-        for fp_iteration in range(P.maxiter):
+        for self.fp_iteration in range(P.maxiter):
             if update_params is not None:
-                update_params(P, fp_iteration)
+                update_params(P, self.fp_iteration)
 
             # Solve the forward problem over all meshes
             sols = self.solve_forward(solver_kwargs=solver_kwargs)
@@ -563,8 +575,10 @@ class MeshSeq:
             if self.converged:
                 pyrint(
                     "Terminated due to element count convergence"
-                    f" after {fp_iteration+1} iterations"
+                    f" after {self.fp_iteration+1} iterations"
                 )
                 break
         if not self.converged:
             pyrint(f"Failed to converge in {P.maxiter} iterations")
+
+        return sols
