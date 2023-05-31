@@ -65,6 +65,7 @@ class MeshSeq:
         if not isinstance(self.meshes, Iterable):
             self.meshes = [Mesh(initial_meshes) for subinterval in self.subintervals]
         self.element_counts = [self.count_elements()]
+        self.vertex_counts = [self.count_vertices()]
         dim = np.array([mesh.topological_dimension() for mesh in self.meshes])
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension.")
@@ -122,6 +123,9 @@ class MeshSeq:
 
     def count_elements(self) -> list:
         return [mesh.num_cells() for mesh in self]  # TODO: make parallel safe
+
+    def count_vertices(self) -> list:
+        return [mesh.num_vertices() for mesh in self]  # TODO: make parallel safe
 
     def plot(
         self, **kwargs
