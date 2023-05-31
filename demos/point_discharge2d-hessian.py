@@ -247,4 +247,7 @@ plt.close()
 # curvature in the solution field. Moreover, it is anisotropic, with the orientation of
 # anisotropic elements aligned with the contours of the solution field.
 #
+# In the `next demo <./point_discharge2d-goal_oriented.py.html>`__, we consider the same
+# problem again, but using *goal-oriented* mesh adaptation.
+#
 # This demo can also be accessed as a `Python script <point_discharge2d-hessian.py>`__.
