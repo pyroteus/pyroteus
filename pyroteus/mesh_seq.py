@@ -603,51 +603,52 @@ class MeshSeq:
         for ne_, ne in zip(elems_, elems):
             if abs(ne - ne_) > P.element_rtol * ne_:
                 self.converged = False
+        if self.converged:
+            pyrint(
+                "Terminated due to element count convergence after"
+                f" {self.fp_iteration+1} iterations."
+            )
+        return self.converged
 
-    @PETSc.Log.EventDecorator("pyroteus.MeshSeq.fixed_point_iteration")
+    @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
         self, adaptor: Callable, solver_kwargs: dict = {}, **kwargs
     ):
         r"""
-        Apply goal-oriented mesh adaptation using
-        a fixed point iteration loop.
+        Apply goal-oriented mesh adaptation using a fixed point iteration loop.
 
-        :arg adaptor: function for adapting the mesh sequence.
-            Its arguments are the :class:`~.MeshSeq` instance and
-            the dictionary of solution
-            :class:`firedrake.function.Function`\s
-        :kwarg update_params: function for updating
-            :attr:`~.MeshSeq.params` at each iteration. Its
-            arguments are the parameter class and the fixed point
+        :arg adaptor: function for adapting the mesh sequence. Its arguments are the
+            :class:`~.MeshSeq` instance and the dictionary of solution
+            :class:`firedrake.function.Function`\s. It should return ``True`` if the
+            convergence criteria checks are to be skipped for this iteration. Otherwise,
+            it should return ``False``.
+        :kwarg update_params: function for updating :attr:`~.MeshSeq.params` at each
+            iteration. Its arguments are the parameter class and the fixed point
             iteration
-        :kwarg solver_kwargs: a dictionary providing parameters
-            to the solver
+        :kwarg solver_kwargs: a dictionary providing parameters to the solver
         """
         update_params = kwargs.get("update_params")
-        P = self.params
         self.element_counts = [self.count_elements()]
+        self.vertex_counts = [self.count_vertices()]
         self.converged = False
-        for self.fp_iteration in range(P.maxiter):
+
+        for self.fp_iteration in range(self.params.maxiter):
             if update_params is not None:
-                update_params(P, self.fp_iteration)
+                update_params(self.params, self.fp_iteration)
 
             # Solve the forward problem over all meshes
             sols = self.solve_forward(solver_kwargs=solver_kwargs)
 
-            # Adapt meshes and log element counts
-            adaptor(self, sols)
+            # Adapt meshes, logging element and vertex counts
+            skip = adaptor(self, sols)
             self.element_counts.append(self.count_elements())
             self.vertex_counts.append(self.count_vertices())
 
             # Check for element count convergence
-            self.check_element_count_convergence()
-            if self.converged:
-                pyrint(
-                    "Terminated due to element count convergence"
-                    f" after {self.fp_iteration+1} iterations"
-                )
+            if not skip and self.check_element_count_convergence():
                 break
+
         if not self.converged:
-            pyrint(f"Failed to converge in {P.maxiter} iterations")
+            pyrint(f"Failed to converge in {self.params.maxiter} iterations.")
 
         return sols

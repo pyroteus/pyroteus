@@ -236,8 +236,14 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         ee = self.estimator_values[-1]
         if abs(ee - ee_) < P.estimator_rtol * abs(ee_):
             self.converged = True
+        if self.converged:
+            pyrint(
+                "Terminated due to error estimator convergence after"
+                f" {self.fp_iteration+1} iterations."
+            )
+        return self.converged
 
-    @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.fixed_point_iteration")
+    @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
         self,
         adaptor: Callable,
@@ -247,36 +253,33 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         **kwargs,
     ):
         r"""
-        Apply goal-oriented mesh adaptation using
-        a fixed point iteration loop.
+        Apply goal-oriented mesh adaptation using a fixed point iteration loop.
 
-        :arg adaptor: function for adapting the mesh sequence.
-            Its arguments are the :class:`~.MeshSeq` instance, the
-            dictionary of solution
-            :class:`firedrake.function.Function`\s and the
-            list of error indicators
-        :kwarg update_params: function for updating
-            :attr:`~.GoalOrientedMeshSeq.params` at each
-            iteration. Its arguments are the parameter class and
-            the fixed point iteration
-        :kwarg enrichment_kwargs: keyword arguments to pass
-            to the global enrichment method
-        :kwarg adj_kwargs: keyword arguments to pass to the
-            adjoint solver
-        :kwarg indicator_fn: function for error indication,
-            which takes the form, adjoint error and enriched
-            space(s) as arguments
+        :arg adaptor: function for adapting the mesh sequence. Its arguments are the
+            :class:`~.MeshSeq` instance, the dictionary of solution
+            :class:`firedrake.function.Function`\s and the list of error indicators.
+            It should return ``True`` if the convergence criteria checks are to be
+            skipped for this iteration. Otherwise, it should return ``False``.
+        :kwarg update_params: function for updating :attr:`~.GoalOrientedMeshSeq.params`
+            at each iteration. Its arguments are the parameter class and the fixed point
+            iteration
+        :kwarg enrichment_kwargs: keyword arguments to pass to the global enrichment
+            method
+        :kwarg adj_kwargs: keyword arguments to pass to the adjoint solver
+        :kwarg indicator_fn: function for error indication, which takes the form, adjoint
+            error and enriched space(s) as arguments
         """
         update_params = kwargs.get("update_params")
-        P = self.params
         self.element_counts = [self.count_elements()]
+        self.vertex_counts = [self.count_vertices()]
         self.qoi_values = []
         self.estimator_values = []
         self.converged = False
-        msg = "Terminated due to {:s} convergence after {:d} iterations"
-        for fp_iteration in range(P.maxiter):
+        skip = False
+
+        for self.fp_iteration in range(self.params.maxiter):
             if update_params is not None:
-                update_params(P, fp_iteration)
+                update_params(self.params, self.fp_iteration)
 
             # Indicate errors over all meshes
             sols, indicators = self.indicate_errors(
@@ -290,28 +293,25 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             #       an optional return condition so that we
             #       can avoid unnecessary extra solves
             self.qoi_values.append(self.J)
-            self.check_qoi_convergence()
-            if self.converged:
-                pyrint(msg.format("QoI", fp_iteration + 1))
+            if not skip and self.check_qoi_convergence():
                 break
 
             # Check for error estimator convergence
             ee = indicators2estimator(indicators, self.time_partition)
             self.estimator_values.append(ee)
-            self.check_estimator_convergence()
-            if self.converged:
-                pyrint(msg.format("error estimator", fp_iteration + 1))
+            if not skip and self.check_estimator_convergence():
                 break
 
             # Adapt meshes and log element counts
-            adaptor(self, sols, indicators)
+            skip = adaptor(self, sols, indicators)
             self.element_counts.append(self.count_elements())
             self.vertex_counts.append(self.count_vertices())
 
             # Check for element count convergence
-            self.check_element_count_convergence()
-            if self.converged:
-                pyrint(msg.format("element count", fp_iteration + 1))
+            if not skip and self.check_element_count_convergence():
                 break
+
         if not self.converged:
-            pyrint(f"Failed to converge in {P.maxiter} iterations")
+            pyrint(f"Failed to converge in {self.params.maxiter} iterations.")
+
+        return sols
