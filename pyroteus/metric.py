@@ -177,15 +177,13 @@ def isotropic_metric(
                     f" space, not {family} of degree {degree}"
                 )
             error_indicator = clement_interpolant(error_indicator)
-    if interpolant in ("Clement", "interpolate"):
-        metric.interpolate(abs(error_indicator) * ufl.Identity(dim))
-    elif interpolant in ("L2", "project"):
+    if interpolant in ("L2", "project"):
         error_indicator = firedrake.project(
             error_indicator, FunctionSpace(mesh, "CG", 1)
         )
-        metric.interpolate(abs(error_indicator) * ufl.Identity(dim))
-    else:
-        raise ValueError(f"Interpolant {interpolant} not recognised")
+    elif interpolant not in ("Clement", "interpolate"):
+        raise ValueError(f"Interpolant '{interpolant}' not recognised.")
+    metric.interpolate(abs(error_indicator) * ufl.Identity(dim))
     return metric
 
 
