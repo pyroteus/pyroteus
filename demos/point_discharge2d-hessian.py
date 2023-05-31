@@ -147,7 +147,7 @@ plt.close()
 # For this first example, we compute a metric by recovering the Hessian of the
 # approximate solution field, and scaling it according to a desired *metric complexity*
 # using :math:`L^p` normalisation. The normalised metric is used to adapt the mesh,
-# which we print the element count of and plot. ::
+# which we print the vertex count of and plot. ::
 
 
 def adaptor(mesh_seq, solutions):
@@ -169,7 +169,7 @@ def adaptor(mesh_seq, solutions):
     # Normalise the metric according to the target complexity and then adapt the mesh
     metric.normalise()
     mesh_seq[0] = adapt(mesh_seq[0], metric)
-    pyrint(f"Iteration {iteration + 1}: {mesh_seq.element_counts[-1][0]} elements")
+    pyrint(f"Iteration {iteration + 1}: {mesh_seq.vertex_counts[-1][0]} vertices")
 
     # Plot each intermediate adapted mesh
     fig, axes = plt.subplots(figsize=(10, 2))
