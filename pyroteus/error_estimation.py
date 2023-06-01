@@ -15,11 +15,17 @@ __all__ = ["get_dwr_indicator"]
 
 
 @PETSc.Log.EventDecorator()
-def form2indicator(F) -> Function:
-    """
-    Multiply throughout in a form and assemble as a cellwise error indicator.
+def form2indicator(F: ufl.form.Form) -> Function:
+    r"""
+    Given a 0-form, multiply the integrand of each of its integrals by a
+    :math:`\mathbb P0` test function and reassemble to give an element-wise error
+    indicator.
 
-    :arg F: the form
+    Note that a 0-form does not contain any :class:`firedrake.ufl_expr.TestFunction`\s
+    or :class:`firedrake.ufl_expr.TrialFunction`\s.
+
+    :arg F: the 0-form
+    :return: the corresponding error indicator field
     """
     if not isinstance(F, ufl.form.Form):
         raise TypeError(f"Expected 'F' to be a Form, not '{type(F)}'.")
@@ -110,15 +116,21 @@ def indicators2estimator(
 def get_dwr_indicator(
     F, adjoint_error: Function, test_space: Optional[Union[WithGeometry, Dict]] = None
 ) -> Function:
-    """
-    Generate a dual weighted residual (DWR) error indicator, given a form and an
-    approximation of the error in the adjoint solution.
+    r"""
+    Given a 1-form and an approximation of the error in the adjoint solution, compute a
+    dual weighted residual (DWR) error indicator.
+
+    Note that each term of a 1-form contains only one
+    :class:`firedrake.ufl_expr.TestFunction`. The 1-form most commonly corresponds to the
+    variational form of a PDE. If the PDE is linear, it should be written as in the
+    nonlinear case (i.e., with the solution field in place of any
+    :class:`firedrake.ufl_expr.TrialFunction`\s.
 
     :arg F: the form
     :arg adjoint_error: the approximation to the adjoint error, either as a single
         :class:`firedrake.function.Function`, or in a dictionary
     :kwarg test_space: the
-        :class:`firedrake.functionspaceimpl.FunctionSpace` that the test function lives
+        :class:`firedrake.functionspaceimpl.WithGeometry` that the test function lives
         in, or an appropriate dictionary
     """
     mapping = {}
