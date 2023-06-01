@@ -337,7 +337,14 @@ def anisotropic_dwr_metric(
         metric.project(P0_metric)
     else:
         raise ValueError(f"Interpolant {interpolant} not recognised")
-    metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
+
+    # Rescale to enforce that the target complexity is met
+    mp = {
+        "dm_plex_metric_target_complexity": target_complexity,
+        "dm_plex_metric_p": np.inf,
+    }
+    metric.set_parameters(mp)
+    metric.normalise()
     return metric
 
 
