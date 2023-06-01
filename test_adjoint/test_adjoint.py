@@ -181,8 +181,11 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         # Check adjoint solutions at initial time match
         for field in time_partition.fields:
             adj_sol_expected = adj_sols_expected[field]
+            expected_norm = norm(adj_sol_expected)
+            if np.isclose(expected_norm, 0.0):
+                raise ValueError("'Expected' norm at t=0 is unexpectedly zero.")
             adj_sol_computed = solutions[field].adjoint[0][0]
-            err = errornorm(adj_sol_expected, adj_sol_computed) / norm(adj_sol_expected)
+            err = errornorm(adj_sol_expected, adj_sol_computed) / expected_norm
             if not np.isclose(err, 0.0):
                 raise ValueError(
                     f"Adjoint solutions do not match at t=0 (error {err:.4e}.)"
@@ -254,22 +257,26 @@ def plot_solutions(problem, qoi_type, debug=True):
             to_plot = []
             for field in time_partition.fields:
                 sol = solutions[field][label][0][k]
-                to_plot += [sol] if not hasattr(sol, "split") else list(sol.split())
+                to_plot += (
+                    [sol] if not hasattr(sol, "subfunctions") else list(sol.subfunctions)
+                )
             outfiles[label].write(*to_plot)
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(prog="test/test_adjoint.py")
-    parser.add_argument("problem")
-    parser.add_argument("qoi_type")
-    parser.add_argument("-plot")
+    parser = argparse.ArgumentParser(
+        prog="test/test_adjoint.py",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("problem", type=str)
+    parser.add_argument("qoi_type", type=str)
+    parser.add_argument("--plot", action="store_true")
     args = parser.parse_args()
     assert args.qoi_type in ("end_time", "time_integrated", "steady")
     assert args.problem in all_problems
-    plot = bool(args.plot or False)
-    if plot:
+    if args.plot:
         plot_solutions(args.problem, args.qoi_type, debug=True)
     else:
         test_adjoint_same_mesh(args.problem, args.qoi_type, debug=True)
