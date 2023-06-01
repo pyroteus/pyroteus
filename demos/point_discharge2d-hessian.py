@@ -91,7 +91,12 @@ def get_solver(mesh_seq):
 
 
 # Take a relatively coarse initial mesh, a :class:`TimeInstant` (since we have a
-# steady-state problem), and put everything together in a :class:`MeshSeq`.
+# steady-state problem), and put everything together in a :class:`MeshSeq`. For this
+# demo, we also create a :class:`MetricParameters` object and set the `element_rtol`
+# parameter to 0.005. This means that the fixed point iteration will terminate if the
+# element count changes by less than 0.5% between iterations. ::
+
+params = MetricParameters({"element_rtol": 0.005})
 
 mesh = RectangleMesh(50, 10, 50, 10)
 time_partition = TimeInstant(fields)
@@ -102,6 +107,7 @@ mesh_seq = MeshSeq(
     get_form=get_form,
     get_bcs=get_bcs,
     get_solver=get_solver,
+    parameters=params,
 )
 
 # Give the initial mesh, we can plot it, solve the PDE on it, and plot the resulting
@@ -147,7 +153,9 @@ plt.close()
 # For this first example, we compute a metric by recovering the Hessian of the
 # approximate solution field, and scaling it according to a desired *metric complexity*
 # using :math:`L^p` normalisation. The normalised metric is used to adapt the mesh,
-# which we print the vertex count of and plot. ::
+# which we print the obtained metric complexity and DoF count of the adapted mesh. Since
+# the solution is sought in :math:`\mathbb P1` space, the DoF count is just the vertex
+# count. ::
 
 
 def adaptor(mesh_seq, solutions):
@@ -160,16 +168,21 @@ def adaptor(mesh_seq, solutions):
     # Recover the Hessian of the current solution
     metric.compute_hessian(c)
 
-    # Ramp the target metric complexity from 200 to 1000 over the first few iterations
-    base, target, iteration = 200, 1000, mesh_seq.fp_iteration
-    target = ramp_complexity(base, target, iteration)
-    mp = {"dm_plex_metric_target_complexity": target}
+    # Ramp the target metric complexity from 400 to 1000 over the first few iterations
+    base, target, iteration = 400, 1000, mesh_seq.fp_iteration
+    mp = {"dm_plex_metric_target_complexity": ramp_complexity(base, target, iteration)}
     metric.set_parameters(mp)
 
     # Normalise the metric according to the target complexity and then adapt the mesh
     metric.normalise()
+    complexity = metric.complexity()
     mesh_seq[0] = adapt(mesh_seq[0], metric)
-    pyrint(f"Iteration {iteration + 1}: {mesh_seq.vertex_counts[-1][0]} vertices")
+    num_dofs = mesh_seq.vertex_counts[-1][0]
+    num_elem = mesh_seq.element_counts[-1][0]
+    pyrint(
+        f"{iteration + 1:2d}, complexity: {complexity:4.0f}"
+        f", dofs: {num_dofs:4d}, elements: {num_elem:4d}"
+    )
 
     # Plot each intermediate adapted mesh
     fig, axes = plt.subplots(figsize=(10, 2))
@@ -178,12 +191,31 @@ def adaptor(mesh_seq, solutions):
     fig.savefig(f"point_discharge2d-hessian_mesh{iteration + 1}.jpg")
     plt.close()
 
+    # If the target complexity has not been reached, skip to the next iteration
+    return complexity < 0.95 * target
+
 
 # With the adaptor function defined, we can call the fixed point iteration method, which
 # iteratively solves the PDE and calls the adaptor until one of the convergence criteria
 # are met. ::
 
 solutions = mesh_seq.fixed_point_iteration(adaptor)
+
+# Mesh adaptation often gives slightly different results on difference machines. However,
+# the output should look something like
+#
+# .. code-block:: console
+#
+#     1, complexity:  433, dofs:  561, elements: 1000
+#     2, complexity:  630, dofs:  618, elements: 1161
+#     3, complexity:  825, dofs:  898, elements: 1725
+#     4, complexity: 1023, dofs: 1128, elements: 2180
+#     5, complexity: 1020, dofs: 1336, elements: 2592
+#     6, complexity: 1022, dofs: 1354, elements: 2629
+#     7, complexity: 1022, dofs: 1362, elements: 2643
+#    Terminated due to element count convergence after 7 iterations
+#
+# We can plot the final mesh and the corresponding solution as follows. ::
 
 fig, axes = plt.subplots(figsize=(10, 2))
 mesh_seq.plot(fig=fig, axes=axes, interior_kw=interior_kw)
