@@ -306,6 +306,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Adapt meshes and log element counts
             adaptor(self, sols, indicators)
             self.element_counts.append(self.count_elements())
+            self.vertex_counts.append(self.count_vertices())
 
             # Check for element count convergence
             self.check_element_count_convergence()
