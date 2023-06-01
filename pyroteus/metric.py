@@ -25,6 +25,17 @@ __all__ = [
 ]
 
 
+class P0Metric(RiemannianMetric):
+    r"""
+    Subclass of :class:`RiemannianMetric` which allows use of :math:`\mathbb P0` space.
+    """
+
+    def _check_space(self):
+        el = self.function_space().ufl_element()
+        if (el.family(), el.degree()) != ("Discontinuous Lagrange", 0):
+            raise ValueError(f"P0Metric should be in P0 space, not '{el}'.")
+
+
 def get_metric_kernel(func: str, dim: int) -> op2.Kernel:
     """
     Helper function to easily pass Eigen kernels
@@ -83,7 +94,7 @@ def compute_eigendecomposition(
 @PETSc.Log.EventDecorator()
 def assemble_eigendecomposition(
     evectors: Function, evalues: Function
-) -> RiemannianMetric:
+) -> Union[RiemannianMetric, P0Metric]:
     """
     Assemble a matrix from its eigenvectors and
     eigenvalues.
@@ -120,7 +131,12 @@ def assemble_eigendecomposition(
             f" {fe_ten.degree()} vs. {fe_vec.degree()}."
         )
     dim = V_ten.mesh().topological_dimension()
-    M = RiemannianMetric(V_ten)
+    if (fe_vec.family(), fe_vec.degree()) == ("Lagrange", 1):
+        M = RiemannianMetric(V_ten)
+    elif (fe_vec.family(), fe_vec.degree()) == ("Discontinuous Lagrange", 0):
+        M = P0Metric(V_ten)
+    else:
+        raise ValueError  # TODO: msg
     op2.par_loop(
         get_metric_kernel("set_eigendecomposition", dim),
         V_ten.node_set,
@@ -259,8 +275,7 @@ def anisotropic_dwr_metric(
     if isinstance(hessian, list):  # FIXME: This is hacky
         hessian = hessian[0]
     target_complexity = kwargs.get("target_complexity", None)
-    # min_eigenvalue = kwargs.get("min_eigenvalue", 1.0e-05)
-    # TODO: why was this ^^^ here?
+    min_eigenvalue = kwargs.get("min_eigenvalue", 1.0e-05)
     if target_complexity <= 0.0:
         raise ValueError(
             f"Target complexity must be positive, not {target_complexity}."
@@ -275,7 +290,7 @@ def anisotropic_dwr_metric(
             f"Convergence rate must be at least one, not {convergence_rate}."
         )
     P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
-    P0_metric = RiemannianMetric(P0_ten)
+    P0_metric = P0Metric(P0_ten)
 
     # Get reference element volume
     K_hat = 1 / 2 if dim == 2 else 1 / 6
@@ -296,17 +311,17 @@ def anisotropic_dwr_metric(
         P0_metric.project(hessian)
         P0_metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
 
-        # Compute stretching factors, in ascending order
+        # Compute stretching factors (in ascending order), multiplied by K_ratio
         evectors, evalues = compute_eigendecomposition(P0_metric, reorder=True)
-        # lmin = max(evalues.vector().gather().min(), min_eigenvalue)
-        # TODO: why was this ^^^ here?
-        S = abs(evalues / pow(np.prod(evalues), 1 / dim))
+        lmin = max(evalues.vector().gather().min(), min_eigenvalue)
+        scaling = 1 / pow(np.prod(evalues), 1 / dim)
+        modified_evalues = [
+            ufl.max_value(K_ratio * abs(scaling * e), lmin) for e in evalues
+        ]
 
         # Assemble metric with modified eigenvalues
-        evalues.interpolate(K_ratio * S)
+        evalues.interpolate(ufl.as_vector(modified_evalues))
         v = evalues.vector().gather()
-        # lmin = max(v.min(), min_eigenvalue)
-        # TODO: why was this ^^^ here?
         if np.isnan(v).any():
             raise ValueError("At least one modified stretching factor is not finite.")
         P0_metric.assign(assemble_eigendecomposition(evectors, evalues))
