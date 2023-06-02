@@ -451,5 +451,6 @@ class AdjointMeshSeq(MeshSeq):
             return
         qoi_ = self.qoi_values[-2]
         qoi = self.qoi_values[-1]
+        self.converged = True
         if abs(qoi - qoi_) > P.qoi_rtol * abs(qoi_):
             self.converged = False
