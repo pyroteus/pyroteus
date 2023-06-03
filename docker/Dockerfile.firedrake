@@ -1,0 +1,34 @@
+FROM firedrakeproject/firedrake:latest
+
+MAINTAINER Joe Wallwork <joe.wallwork@outlook.com>
+
+USER firedrake
+WORKDIR /home/firedrake
+
+# Reconfigure PETSc with Mmg and ParMmg
+RUN bash -c "cd petsc; \
+	git fetch; \
+	git checkout jwallwork23/parmmg-rebased; \
+	cp default/lib/petsc/conf/reconfigure-default.py .; \
+	sed -i '30i \ \ \ \ '\''--download-parmmg'\'',' reconfigure-default.py; \
+	sed -i '30i \ \ \ \ '\''--download-mmg'\'',' reconfigure-default.py; \
+	./reconfigure-default.py"
+
+# Rebuild PETSc
+RUN bash -c "cd petsc; \
+	make all"
+
+# Rebuild Firedrake
+RUN bash -c "source firedrake/bin/activate; \
+	cd firedrake/src/firedrake; \
+	git fetch; \
+	git switch jwallwork23/parmmg-metric-based; \
+	firedrake-update"
+
+# Install Pyroteus
+RUN bash -c "source firedrake/bin/activate; \
+	cd firedrake/src; \
+	git clone https://github.com/pyroteus/pyroteus.git; \
+	cd pyroteus; \
+	python3 -m pip install -r requirements.txt; \
+	python3 -m pip install -e ."
