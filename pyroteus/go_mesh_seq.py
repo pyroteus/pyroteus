@@ -231,7 +231,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self.converged = False
         if len(self.estimator_values) < max(2, P.miniter):
             return
-        self.converged = True
         ee_ = self.estimator_values[-2]
         ee = self.estimator_values[-1]
         if abs(ee - ee_) < P.estimator_rtol * abs(ee_):
