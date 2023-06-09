@@ -87,12 +87,11 @@ class MeshSeq:
         self._get_solver = kwargs.get("get_solver")
         self._get_bcs = kwargs.get("get_bcs")
         self.params = kwargs.get("parameters")
+        self.steady = time_partition.steady
         if self.params is None:
             self.params = AdaptParameters()
         self.warn = kwargs.get("warnings", True)
         self.sections = [{} for mesh in self]
-        if not hasattr(self, "steady"):
-            self.steady = False
 
     def __str__(self) -> str:
         return f"{[str(mesh) for mesh in self.meshes]}"

@@ -143,6 +143,10 @@ class TimePartition:
             dtype=np.int32,
         )
         self.debug("exports_per_subinterval")
+        self.steady = (
+            self.num_subintervals == 1 and self.timesteps_per_subinterval[0] == 1
+        )
+        self.debug("steady")
         debug(100 * "-")
 
     def debug(self, attr: str):

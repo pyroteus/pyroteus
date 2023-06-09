@@ -102,7 +102,6 @@ mesh_seq = MeshSeq(
     get_form=get_form,
     get_bcs=get_bcs,
     get_solver=get_solver,
-    qoi_type="steady",
 )
 
 # Give the initial mesh, we can plot it, solve the PDE on it, and plot the resulting
