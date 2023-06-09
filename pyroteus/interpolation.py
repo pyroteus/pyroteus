@@ -144,10 +144,6 @@ def clement_interpolant(
     return target
 
 
-# --- Linear interpolation
-
-# TODO
-
 # --- Conservative interpolation by supermesh projection
 
 
@@ -156,7 +152,7 @@ def project(
     target_space: Union[FunctionSpace, Function],
     adjoint: bool = False,
     **kwargs,
-) -> Function:  # TODO: Add unit tests
+) -> Function:
     """
     Overload :func:`firedrake.projection.project` to account for the case of two mixed
     function spaces defined on different meshes and for the adjoint projection operator.
