@@ -29,14 +29,17 @@ class TestAdjointMeshSeqGeneric(unittest.TestCase):
     def test_qoi_type_error(self):
         with self.assertRaises(ValueError) as cm:
             AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="blah")
-        msg = "QoI type 'blah' not recognised."
+        msg = (
+            "QoI type 'blah' not recognised. "
+            "Choose from 'end_time', 'time_integrated', or 'steady'."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_get_qoi_notimplemented_error(self):
         mesh_seq = AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="end_time")
         with self.assertRaises(NotImplementedError) as cm:
             mesh_seq.get_qoi({}, 0)
-        msg = "'get_qoi' needs implementing."
+        msg = "'get_qoi' is not implemented."
         self.assertEqual(str(cm.exception), msg)
 
     def test_qoi_convergence_lt_miniter(self):
@@ -272,7 +275,9 @@ def plot_solutions(problem, qoi_type, debug=True):
             for field in time_partition.fields:
                 sol = solutions[field][label][0][k]
                 to_plot += (
-                    [sol] if not hasattr(sol, "subfunctions") else list(sol.subfunctions)
+                    [sol]
+                    if not hasattr(sol, "subfunctions")
+                    else list(sol.subfunctions)
                 )
             outfiles[label].write(*to_plot)
 
