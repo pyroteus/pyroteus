@@ -19,11 +19,9 @@ __all__ = ["AdjointMeshSeq", "annotate_qoi"]
 
 def annotate_qoi(get_qoi: Callable) -> Callable:
     """
-    Decorator that ensures QoIs are annotated
-    properly.
+    Decorator that ensures QoIs are annotated properly.
 
-    Should be applied to the
-    :meth:`~.AdjointMeshSeq.get_qoi` method.
+    Should be applied to the :meth:`~.AdjointMeshSeq.get_qoi` method.
     """
 
     @wraps(get_qoi)
@@ -64,21 +62,18 @@ def annotate_qoi(get_qoi: Callable) -> Callable:
 
 class AdjointMeshSeq(MeshSeq):
     """
-    An extension of :class:`~.MeshSeq` to account for
-    solving adjoint problems on a sequence of meshes.
+    An extension of :class:`~.MeshSeq` to account for solving adjoint problems on a
+    sequence of meshes.
 
-    For time-dependent quantities of interest, the
-    solver should access and modify
+    For time-dependent quantities of interest, the solver should access and modify
     :attr:`~AdjointMeshSeq.J`, which holds the QoI value.
     """
 
     def __init__(self, time_partition: TimePartition, initial_meshes: list, **kwargs):
         """
-        :kwarg get_qoi: a function, with two arguments,
-            a :class:`~.AdjointMeshSeq`, which returns
-            a function of either one or two variables,
-            corresponding to either an end time or time
-            integrated quantity of interest, respectively,
+        :kwarg get_qoi: a function, with two arguments, a :class:`~.AdjointMeshSeq`,
+            which returns a function of either one or two variables, corresponding to
+            either an end time or time integrated quantity of interest, respectively,
             as well as an index for the :class:`~.MeshSeq`
         """
         if kwargs.get("parameters") is None:
