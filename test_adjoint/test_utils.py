@@ -25,7 +25,7 @@ class TestAdjointUtils(unittest.TestCase):
 
             return qoi
 
-        get_qoi(self.mesh_seq("steady"), {}, 0)
+        get_qoi(self.mesh_seq("end_time"), {}, 0)
 
     def test_annotate_qoi_1arg(self):
         @annotate_qoi
@@ -59,8 +59,8 @@ class TestAdjointUtils(unittest.TestCase):
             return qoi
 
         with self.assertRaises(ValueError) as cm:
-            get_qoi(self.mesh_seq("steady"), {}, 0)
-        msg = "Expected qoi_type to be 'time_integrated', not 'steady'."
+            get_qoi(self.mesh_seq("end_time"), {}, 0)
+        msg = "Expected qoi_type to be 'time_integrated', not 'end_time'."
         assert str(cm.exception) == msg
 
     def test_annotate_qoi_2args_error(self):
@@ -74,6 +74,12 @@ class TestAdjointUtils(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             get_qoi(self.mesh_seq("time_integrated"), {}, 0)
         assert str(cm.exception) == "QoI should have 0 or 1 args, not 2."
+
+    def test_annotate_qoi_not_steady(self):
+        with self.assertRaises(ValueError) as cm:
+            self.mesh_seq("steady")
+        msg = "QoI type is set to 'steady' but the time partition is not steady."
+        assert str(cm.exception) == msg
 
     def test_qoi_type_error(self):
         with self.assertRaises(ValueError) as cm:
