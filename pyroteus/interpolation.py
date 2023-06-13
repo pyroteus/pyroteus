@@ -79,7 +79,7 @@ def clement_interpolant(
         domain = "{[i]: 0 <= i < patch.dofs}"
         instructions = "patch[i] = patch[i] + vol[0]"
         keys = {"vol": (volume, op2.READ), "patch": (patch_volume, op2.RW)}
-        firedrake.par_loop((domain, instructions), dX, keys, is_loopy_kernel=True)
+        firedrake.par_loop((domain, instructions), dX, keys)
 
         # Take weighted average
         if rank == 0:
@@ -93,7 +93,7 @@ def clement_interpolant(
             "v": (volume, op2.READ),
             "t": (target, op2.RW),
         }
-        firedrake.par_loop((tdomain, instructions), dX, keys, is_loopy_kernel=True)
+        firedrake.par_loop((tdomain, instructions), dX, keys)
     else:
         dX = ufl.ds(domain=mesh)
 
@@ -119,7 +119,7 @@ def clement_interpolant(
             "indicator": (bnd_indicator, op2.READ),
             "patch": (patch_volume, op2.RW),
         }
-        firedrake.par_loop((domain, instructions), dX, keys, is_loopy_kernel=True)
+        firedrake.par_loop((domain, instructions), dX, keys)
 
         # Take weighted average
         if rank == 0:
@@ -134,7 +134,7 @@ def clement_interpolant(
             "b": (bnd_indicator, op2.READ),
             "t": (target, op2.RW),
         }
-        firedrake.par_loop((tdomain, instructions), dX, keys, is_loopy_kernel=True)
+        firedrake.par_loop((tdomain, instructions), dX, keys)
 
     # Divide by patch volume and ensure finite
     target.interpolate(target / patch_volume)
