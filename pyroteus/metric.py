@@ -94,7 +94,7 @@ def compute_eigendecomposition(
 @PETSc.Log.EventDecorator()
 def assemble_eigendecomposition(
     evectors: Function, evalues: Function
-) -> Union[RiemannianMetric, P0Metric]:
+) -> RiemannianMetric:
     """
     Assemble a matrix from its eigenvectors and
     eigenvalues.
