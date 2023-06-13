@@ -136,7 +136,10 @@ def assemble_eigendecomposition(
     elif (fe_vec.family(), fe_vec.degree()) == ("Discontinuous Lagrange", 0):
         M = P0Metric(V_ten)
     else:
-        raise ValueError  # TODO: msg
+        raise ValueError(
+            "Can only work with RiemannianMetrics defined in P1 space or P0 space, not"
+            f"{fe_vec}."
+        )
     op2.par_loop(
         get_metric_kernel("set_eigendecomposition", dim),
         V_ten.node_set,
