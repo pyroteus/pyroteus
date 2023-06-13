@@ -95,6 +95,7 @@ class AdjointMeshSeq(MeshSeq):
         self.J = 0
         self.controls = None
         self.qoi_values = []
+        self.fp_iteration = 0
 
     @property
     @pyadjoint.no_annotations
@@ -294,7 +295,6 @@ class AdjointMeshSeq(MeshSeq):
 
             # Loop over prognostic variables
             for field, fs in function_spaces.items():
-
                 # Get solve blocks
                 solve_blocks = self.get_solve_blocks(field, subinterval=i)
                 num_solve_blocks = len(solve_blocks)
@@ -332,7 +332,6 @@ class AdjointMeshSeq(MeshSeq):
                         f" ({len(solve_blocks[::stride])} > {num_exports-1})"
                     )
                 for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
-
                     # Lagged forward solution and adjoint values
                     if fwd_old_idx is not None:
                         dep = block._dependencies[fwd_old_idx]
