@@ -261,7 +261,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             skipped for this iteration. Otherwise, it should return ``False``.
         :kwarg update_params: function for updating :attr:`~.GoalOrientedMeshSeq.params`
             at each iteration. Its arguments are the parameter class and the fixed point
-            iteration
+            iteration number
         :kwarg enrichment_kwargs: keyword arguments to pass to the global enrichment
             method
         :kwarg adj_kwargs: keyword arguments to pass to the adjoint solver
