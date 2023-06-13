@@ -6,24 +6,6 @@ import ufl.core.expr
 __all__ = ["bessi0", "bessk0", "gram_schmidt", "construct_basis"]
 
 
-def recursive_polynomial(x, coeffs):
-    r"""
-    Compute the polynomial
-
-    ..math::
-        a_0 + x (a_1 + x (a_2 + \dots + x a_n)),
-
-    with coefficients :math:`a_0,\dots,a_n` in a recursive manner.
-
-    :arg x: value at which to evaluate the polynomial
-    :arg coeffs: tuple of coefficients defining the polynomial
-    """
-    p = coeffs[0]
-    if len(coeffs) > 1:
-        p += x * recursive_polynomial(x, coeffs[1:])
-    return p
-
-
 def bessi0(x):
     """
     Modified Bessel function of the first kind.
@@ -36,12 +18,14 @@ def bessi0(x):
         exp = np.exp
         sqrt = np.sqrt
         ax = np.abs(x)
+        where = np.where
     else:
         if not isinstance(x, ufl.core.expr.Expr):
             raise TypeError(f"Expected UFL Expr, not '{type(x)}'.")
         exp = ufl.exp
         sqrt = ufl.sqrt
         ax = ufl.as_ufl(abs(x))
+        where = ufl.conditional
 
     x1 = (x / 3.75) ** 2
     coeffs1 = (
@@ -66,13 +50,19 @@ def bessi0(x):
         3.92377e-3,
     )
 
-    expr1 = recursive_polynomial(x1, coeffs1)
-    expr2 = exp(ax) / sqrt(ax) * recursive_polynomial(x2, coeffs2)
+    p1 = [0]
+    for c in reversed(coeffs1[1:]):
+        p1 = np.polymul([1, 0], np.polyadd(p1, c))
+    p1 = np.poly1d(np.polyadd([coeffs1[0]], p1))
+    expr1 = p1(x1)
 
-    if isinstance(x, np.ndarray):
-        return np.where(ax < 3.75, expr1, expr2)
-    else:
-        return ufl.conditional(ax < 3.75, expr1, expr2)
+    p2 = [0]
+    for c in reversed(coeffs2[1:]):
+        p2 = np.polymul([1, 0], np.polyadd(p2, c))
+    p2 = np.poly1d(np.polyadd([coeffs2[0]], p2))
+    expr2 = exp(ax) / sqrt(ax) * p2(x2)
+
+    return where(ax < 3.75, expr1, expr2)
 
 
 def bessk0(x):
@@ -116,8 +106,19 @@ def bessk0(x):
         -2.51540e-3,
         5.3208e-4,
     )
-    expr1 = -ln(x / 2.0) * bessi0(x) + recursive_polynomial(x1, coeffs1)
-    expr2 = exp(-x) / sqrt(x) * recursive_polynomial(x2, coeffs2)
+
+    p1 = [0]
+    for c in reversed(coeffs1[1:]):
+        p1 = np.polymul([1, 0], np.polyadd(p1, c))
+    p1 = np.poly1d(np.polyadd([coeffs1[0]], p1))
+    expr1 = -ln(0.5 * x) * bessi0(x) + p1(x1)
+
+    p2 = [0]
+    for c in reversed(coeffs2[1:]):
+        p2 = np.polymul([1, 0], np.polyadd(p2, c))
+    p2 = np.poly1d(np.polyadd([coeffs2[0]], p2))
+    expr2 = exp(-x) / sqrt(x) * p2(x2)
+
     return where(x <= 2, expr1, expr2)
 
 

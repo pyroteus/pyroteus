@@ -1,11 +1,5 @@
 from firedrake import UnitTriangleMesh
-from pyroteus.math import (
-    bessk0,
-    bessi0,
-    construct_basis,
-    gram_schmidt,
-    recursive_polynomial,
-)
+from pyroteus.math import *
 import numpy as np
 from parameterized import parameterized
 import scipy as sp
@@ -17,24 +11,6 @@ class TestBessel(unittest.TestCase):
     """
     Unit tests for Bessel functions.
     """
-
-    @parameterized.expand([1, 2, 3, (np.array([1, 2]),)])
-    def test_recursive_polynomial0(self, a):
-        x0 = 1
-        p = recursive_polynomial(a, (x0,))
-        self.assertEqual(p, x0)
-
-    @parameterized.expand([1, 2, 3, (np.array([1, 2]),)])
-    def test_recursive_polynomial1(self, a):
-        x0, x1 = 1, -1
-        p = recursive_polynomial(a, (x0, x1))
-        self.assertTrue(np.allclose(p, x0 + a * x1))
-
-    @parameterized.expand([1, 2, 3, (np.array([1, 2]),)])
-    def test_recursive_polynomial2(self, a):
-        x0, x1, x2 = 1, -1, 1
-        p = recursive_polynomial(a, (x0, x1, x2))
-        self.assertTrue(np.allclose(p, x0 + a * (x1 + a * x2)))
 
     def test_bessi0_numpy_divbyzero_error(self):
         with self.assertRaises(ValueError) as cm:
