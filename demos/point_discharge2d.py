@@ -76,7 +76,7 @@ def get_form(mesh_seq):
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
 
-        # Stabilisation parameter
+        # SUPG stabilisation parameter
         unorm = sqrt(dot(u, u))
         tau = 0.5 * h / unorm
         tau = min_value(tau, unorm * h / (6 * D))
