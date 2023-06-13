@@ -128,6 +128,37 @@ def check_empty_tape(request):
     request.addfinalizer(fin)
 
 
+@pytest.fixture(autouse=True)
+def handle_taping():
+    """
+    **Disclaimer: copied from
+        firedrake/tests/regression/test_adjoint_operators.py
+    """
+    yield
+    import pyadjoint
+
+    tape = pyadjoint.get_working_tape()
+    tape.clear_tape()
+    if not pyadjoint.annotate_tape():
+        pyadjoint.continue_annotation()
+
+
+@pytest.fixture(autouse=True, scope="module")
+def handle_exit_annotation():
+    """
+    Since importing firedrake_adjoint modifies a global variable, we need to
+    pause annotations at the end of the module.
+
+    **Disclaimer: copied from
+        firedrake/tests/regression/test_adjoint_operators.py
+    """
+    yield
+    import pyadjoint
+
+    if pyadjoint.annotate_tape():
+        pyadjoint.pause_annotation()
+
+
 def pytest_runtest_teardown(item, nextitem):
     """
     Clear caches after running a test

@@ -19,11 +19,9 @@ __all__ = ["AdjointMeshSeq", "annotate_qoi"]
 
 def annotate_qoi(get_qoi: Callable) -> Callable:
     """
-    Decorator that ensures QoIs are annotated
-    properly.
+    Decorator that ensures QoIs are annotated properly.
 
-    Should be applied to the
-    :meth:`~.AdjointMeshSeq.get_qoi` method.
+    Should be applied to the :meth:`~.AdjointMeshSeq.get_qoi` method.
     """
 
     @wraps(get_qoi)
@@ -64,21 +62,18 @@ def annotate_qoi(get_qoi: Callable) -> Callable:
 
 class AdjointMeshSeq(MeshSeq):
     """
-    An extension of :class:`~.MeshSeq` to account for
-    solving adjoint problems on a sequence of meshes.
+    An extension of :class:`~.MeshSeq` to account for solving adjoint problems on a
+    sequence of meshes.
 
-    For time-dependent quantities of interest, the
-    solver should access and modify
+    For time-dependent quantities of interest, the solver should access and modify
     :attr:`~AdjointMeshSeq.J`, which holds the QoI value.
     """
 
     def __init__(self, time_partition: TimePartition, initial_meshes: list, **kwargs):
         """
-        :kwarg get_qoi: a function, with two arguments,
-            a :class:`~.AdjointMeshSeq`, which returns
-            a function of either one or two variables,
-            corresponding to either an end time or time
-            integrated quantity of interest, respectively,
+        :kwarg get_qoi: a function, with two arguments, a :class:`~.AdjointMeshSeq`,
+            which returns a function of either one or two variables, corresponding to
+            either an end time or time integrated quantity of interest, respectively,
             as well as an index for the :class:`~.MeshSeq`
         """
         if kwargs.get("parameters") is None:
@@ -89,8 +84,15 @@ class AdjointMeshSeq(MeshSeq):
                 f"QoI type '{self.qoi_type}' not recognised."
                 " Choose from 'end_time', 'time_integrated', or 'steady'."
             )
-        self.steady = self.qoi_type == "steady"
         super().__init__(time_partition, initial_meshes, **kwargs)
+        if self.qoi_type == "steady" and not self.steady:
+            raise ValueError(
+                "QoI type is set to 'steady' but the time partition is not steady."
+            )
+        elif self.qoi_type != "steady" and self.steady:
+            raise ValueError(
+                f"Time partition is steady but the QoI type is set to '{self.qoi_type}'."
+            )
         self._get_qoi = kwargs.get("get_qoi")
         self.J = 0
         self.controls = None
@@ -109,58 +111,69 @@ class AdjointMeshSeq(MeshSeq):
         return self._get_qoi(self, solution_map, i)
 
     @pyadjoint.no_annotations
-    @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.get_checkpoints")
+    @PETSc.Log.EventDecorator()
     def get_checkpoints(
         self, solver_kwargs: dict = {}, run_final_subinterval: bool = False
     ) -> list:
         """
-        Solve forward on the sequence of meshes,
-        extracting checkpoints corresponding to
-        the starting fields on each subinterval.
+        Solve forward on the sequence of meshes, extracting checkpoints corresponding
+        to the starting fields on each subinterval.
 
         The QoI is also evaluated.
 
-        :kwarg solver_kwargs: additional keyword
-            arguments which will be passed to
-            the solver
-        :kwarg run_final_subinterval: toggle
-            whether to solve the PDE on the
-            final subinterval
+        :kwarg solver_kwargs: additional keyword arguments which will be passed to the
+            solver
+        :kwarg run_final_subinterval: toggle whether to solve the PDE on the final
+            subinterval
         """
-        self.J = 0
-        N = len(self)
 
-        # Solve forward
-        checkpoints = [self.initial_condition]
-        if N == 1 and not run_final_subinterval:
-            return checkpoints
-        for i in range(N if run_final_subinterval else N - 1):
-            sols = self.solver(i, checkpoints[i], **solver_kwargs)
-            assert issubclass(sols.__class__, dict), "solver should return a dict"
-            fields = set(sols.keys())
-            if not set(self.fields).issubset(fields):
-                diff = set(self.fields).difference(fields)
-                raise ValueError(f"Missing fields {diff} from solver")
-            if not fields.issubset(set(self.fields)):
-                diff = fields.difference(set(self.fields))
-                raise ValueError(f"More solver outputs than fields ({diff} unexpected)")
-            if i < N - 1:
-                checkpoints.append(
-                    AttrDict(
-                        {
-                            field: project(sols[field], fs[i + 1])
-                            for field, fs in self._fs.items()
-                        }
-                    )
-                )
+        # In some cases we run over all subintervals to check the QoI that is computed
+        if run_final_subinterval:
+            self.J = 0
+
+        # Generate the checkpoints as in MeshSeq
+        checkpoints = super().get_checkpoints(
+            solver_kwargs=solver_kwargs, run_final_subinterval=run_final_subinterval
+        )
 
         # Account for end time QoI
-        if self.qoi_type in ["end_time", "steady"]:
-            qoi = self.get_qoi(sols, N - 1)
+        if self.qoi_type in ["end_time", "steady"] and run_final_subinterval:
+            qoi = self.get_qoi(checkpoints[-1], len(self) - 1)
             self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
         return checkpoints
 
-    @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.solve_adjoint")
+    @PETSc.Log.EventDecorator()
+    def get_solve_blocks(
+        self, field: str, subinterval: int, has_adj_sol: bool = True
+    ) -> list:
+        """
+        Get all blocks of the tape corresponding to solve steps for prognostic solution
+        field on a given subinterval.
+
+        :arg field: name of the prognostic solution field
+        :arg subinterval: subinterval index
+        :kwarg has_adj_sol: if ``True``, only blocks with ``adj_sol`` attributes will be
+            considered
+        """
+        solve_blocks = super().get_solve_blocks(field, subinterval)
+        if not has_adj_sol:
+            return solve_blocks
+
+        # Check that adjoint solutions exist
+        if all(block.adj_sol is None for block in solve_blocks):
+            self.warning(
+                "No block has an adjoint solution. Has the adjoint equation been solved?"
+            )
+
+        # Default adjoint solution to zero, rather than None
+        for block in solve_blocks:
+            if block.adj_sol is None:
+                block.adj_sol = Function(
+                    self.function_spaces[field][subinterval], name=field
+                )
+        return solve_blocks
+
+    @PETSc.Log.EventDecorator()
     def solve_adjoint(
         self,
         solver_kwargs: dict = {},
@@ -205,18 +218,23 @@ class AdjointMeshSeq(MeshSeq):
         num_subintervals = len(self)
         function_spaces = self.function_spaces
         P = self.time_partition
+        solver = self.solver
+        qoi_kwargs = solver_kwargs.get("qoi_kwargs", {})
 
         # Solve forward to get checkpoints and evaluate QoI
         checkpoints = self.get_checkpoints(
             solver_kwargs=solver_kwargs,
             run_final_subinterval=test_checkpoint_qoi,
         )
-        if self.warn and test_checkpoint_qoi and np.isclose(float(self.J), 0.0):
+        J_chk = float(self.J)
+        if self.warn and test_checkpoint_qoi and np.isclose(J_chk, 0.0):
             self.warning("Zero QoI. Is it implemented as intended?")
-        J_chk = self.J
+
+        # Reset the QoI to zero
         self.J = 0
 
-        # Create arrays to hold exported forward and adjoint solutions
+        # Create arrays to hold exported forward and adjoint solutions and their lagged
+        # counterparts, as well as the adjoint actions, if requested
         labels = ("forward", "forward_old", "adjoint")
         if not self.steady:
             labels += ("adjoint_next",)
@@ -240,17 +258,22 @@ class AdjointMeshSeq(MeshSeq):
             }
         )
 
-        # Wrap solver to extract controls
-        solver = self.solver
-
         @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.solve_adjoint.evaluate_fwd")
         @wraps(solver)
-        def wrapped_solver(i, ic, **kwargs):
+        def wrapped_solver(subinterval, ic, **kwargs):
+            """
+            Decorator to allow the solver to stash its initial conditions as controls.
+
+            :arg subinterval: the subinterval index
+            :arg ic: the dictionary of initial condition :class:`~.Functions`
+
+            All keyword arguments are passed to the solver.
+            """
             init = AttrDict(
                 {field: ic[field].copy(deepcopy=True) for field in self.fields}
             )
             self.controls = [pyadjoint.Control(init[field]) for field in self.fields]
-            return solver(i, init, **kwargs)
+            return solver(subinterval, init, **kwargs)
 
         # Clear tape
         tape = pyadjoint.get_working_tape()
@@ -263,27 +286,25 @@ class AdjointMeshSeq(MeshSeq):
             num_exports = P.exports_per_subinterval[i]
 
             # Annotate tape on current subinterval
-            sols = wrapped_solver(i, checkpoints[i], **solver_kwargs)
+            checkpoint = wrapped_solver(i, checkpoints[i], **solver_kwargs)
 
             # Get seed vector for reverse propagation
             if i == num_subintervals - 1:
                 if self.qoi_type in ["end_time", "steady"]:
-                    qoi = self.get_qoi(sols, i)
-                    self.J = qoi(**solver_kwargs.get("qoi_kwargs", {}))
+                    qoi = self.get_qoi(checkpoint, i)
+                    self.J = qoi(**qoi_kwargs)
                     if self.warn and np.isclose(float(self.J), 0.0):
                         self.warning("Zero QoI. Is it implemented as intended?")
             else:
                 with pyadjoint.stop_annotating():
                     for field, fs in function_spaces.items():
-                        sols[field].block_variable.adj_value = project(
+                        checkpoint[field].block_variable.adj_value = project(
                             seeds[field], fs[i], adjoint=True
                         )
 
             # Update adjoint solver kwargs
             for field in self.fields:
-                for block in self.get_solve_blocks(
-                    field, subinterval=i, has_adj_sol=False
-                ):
+                for block in self.get_solve_blocks(field, i, has_adj_sol=False):
                     block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
@@ -296,50 +317,56 @@ class AdjointMeshSeq(MeshSeq):
             # Loop over prognostic variables
             for field, fs in function_spaces.items():
                 # Get solve blocks
-                solve_blocks = self.get_solve_blocks(field, subinterval=i)
+                solve_blocks = self.get_solve_blocks(field, i)
                 num_solve_blocks = len(solve_blocks)
-                assert num_solve_blocks > 0, (
-                    "Looks like no solves were written to tape!"
-                    " Does the solution depend on the initial condition?"
-                )
+                if num_solve_blocks == 0:
+                    raise ValueError(
+                        "Looks like no solves were written to tape!"
+                        " Does the solution depend on the initial condition?"
+                    )
                 if fs[0].ufl_element() != solve_blocks[0].function_space.ufl_element():
                     raise ValueError(
-                        f"Solve block list for field {field} contains mismatching"
-                        f" elements ({fs[0].ufl_element()} vs. "
+                        f"Solve block list for field '{field}' contains mismatching"
+                        f" finite elements: ({fs[0].ufl_element()} vs. "
                         f" {solve_blocks[0].function_space.ufl_element()})"
                     )
-                if "forward_old" in solutions[field]:
-                    fwd_old_idx = self.get_lagged_dependency_index(
-                        field, i, solve_blocks
-                    )
-                else:
-                    fwd_old_idx = None
-                if fwd_old_idx is None and "forward_old" in solutions[field]:
-                    solutions[field].pop("forward_old")
 
                 # Detect whether we have a steady problem
-                steady = self.steady or (
-                    num_subintervals == 1 and num_solve_blocks == 1
-                )
-                if steady and "adjoint_next" in sols:
-                    sols.pop("adjoint_next")
+                steady = self.steady or num_subintervals == num_solve_blocks == 1
+                if steady and "adjoint_next" in checkpoint:
+                    checkpoint.pop("adjoint_next")
 
-                # Extract solution data
-                sols = solutions[field]
+                # Check that there are as many solve blocks as expected
                 if len(solve_blocks[::stride]) >= num_exports:
                     self.warning(
-                        "More solve blocks than expected"
-                        f" ({len(solve_blocks[::stride])} > {num_exports-1})"
+                        "More solve blocks than expected:"
+                        f" ({len(solve_blocks[::stride])} > {num_exports-1})."
                     )
-                for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
-                    # Lagged forward solution and adjoint values
-                    if fwd_old_idx is not None:
-                        dep = block._dependencies[fwd_old_idx]
-                        sols.forward_old[i][j].assign(dep.saved_output)
-                        if get_adj_values:
-                            sols.adj_value[i][j].assign(dep.adj_value.function)
 
-                    # Lagged adjoint solution
+                # Update forward and adjoint solution data based on block dependencies
+                # and outputs
+                sols = solutions[field]
+                for j, block in zip(range(num_exports - 1), solve_blocks[::stride]):
+                    # Current forward solution is determined from outputs
+                    out = self._output(field, i, block)
+                    if out is not None:
+                        sols.forward[i][j].assign(out.saved_output)
+
+                    # Current adjoint solution is determined from the adj_sol attribute
+                    if block.adj_sol is not None:
+                        sols.adjoint[i][j].assign(block.adj_sol)
+
+                    # Lagged forward solution comes from dependencies
+                    dep = self._dependency(field, i, block)
+                    if dep is not None:
+                        sols.forward_old[i][j].assign(dep.saved_output)
+
+                    # Adjoint action also comes from dependencies
+                    if get_adj_values and dep is not None:
+                        sols.adj_value[i][j].assign(dep.adj_value.function)
+
+                    # The adjoint solution at the 'next' timestep is determined from the
+                    # adj_sol attribute of the next solve block
                     if not steady:
                         if j * stride + 1 < num_solve_blocks:
                             if solve_blocks[j * stride + 1].adj_sol is not None:
@@ -355,48 +382,48 @@ class AdjointMeshSeq(MeshSeq):
                                 )
                         else:
                             raise IndexError(
-                                f"Cannot extract solve block {j*stride+1} > {num_solve_blocks}"
+                                "Cannot extract solve block"
+                                f" {j*stride+1} > {num_solve_blocks}."
                             )
 
-                    # Forward and adjoint solution at current timestep
-                    sols.forward[i][j].assign(block._outputs[0].saved_output)
-                    if block.adj_sol is not None:
-                        sols.adjoint[i][j].assign(block.adj_sol)
-
                 # Check non-zero adjoint solution/value
-                if self.warn and np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
-                    self.warning(
-                        f"Adjoint solution for field {field} on {self.th(i)} subinterval is zero."
-                    )
-                if (
-                    self.warn
-                    and get_adj_values
-                    and np.isclose(norm(sols.adj_value[i][0]), 0.0)
-                ):
-                    self.warning(
-                        f"Adjoint action for field {field} on {self.th(i)} subinterval is zero."
-                    )
+                if self.warn:
+                    if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
+                        self.warning(
+                            f"Adjoint solution for field '{field}' on {self.th(i)}"
+                            " subinterval is zero."
+                        )
+                    if get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
+                        self.warning(
+                            f"Adjoint action for field '{field}' on {self.th(i)}"
+                            " subinterval is zero."
+                        )
 
-            # Get adjoint action
+            # Get adjoint action on each subinterval
             seeds = {
                 field: Function(
                     function_spaces[field][i], val=control.block_variable.adj_value
                 )
                 for field, control in zip(self.fields, self.controls)
             }
-            for field, seed in seeds.items():
-                if self.warn and np.isclose(norm(seed), 0.0):
-                    self.warning(
-                        f"Adjoint action for field {field} on {self.th(i)} subinterval is zero."
-                    )
+            if self.warn:
+                for field, seed in seeds.items():
+                    if np.isclose(norm(seed), 0.0):
+                        self.warning(
+                            f"Adjoint action for field '{field}' on {self.th(i)}"
+                            " subinterval is zero."
+                        )
+
+            # Clear the tape to reduce the memory footprint
             tape.clear_tape()
 
         # Check the QoI value agrees with that due to the checkpointing run
         if self.qoi_type == "time_integrated" and test_checkpoint_qoi:
-            assert np.isclose(J_chk, self.J), (
-                "QoI values computed during checkpointing and annotated"
-                f" run do not match ({J_chk} vs. {self.J})"
-            )
+            if not np.isclose(J_chk, self.J):
+                raise ValueError(
+                    "QoI values computed during checkpointing and annotated"
+                    f" run do not match ({J_chk} vs. {self.J})"
+                )
         return solutions
 
     @staticmethod
@@ -426,5 +453,6 @@ class AdjointMeshSeq(MeshSeq):
             return
         qoi_ = self.qoi_values[-2]
         qoi = self.qoi_values[-1]
-        if abs(qoi - qoi_) < P.qoi_rtol * abs(qoi_):
-            self.converged = True
+        self.converged = True
+        if abs(qoi - qoi_) > P.qoi_rtol * abs(qoi_):
+            self.converged = False

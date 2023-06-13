@@ -92,7 +92,7 @@ def get_form(mesh_seq):
 def get_solver(mesh_seq):
     def solver(index, ic):
         function_space = mesh_seq.function_spaces["u"][index]
-        u = Function(function_space)
+        u = Function(function_space, name="u")
 
         # Initialise 'lagged' solution
         u_ = Function(function_space, name="u_old")

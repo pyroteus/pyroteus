@@ -7,39 +7,58 @@ import pytest
 import importlib
 import os
 import sys
+import unittest
 
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "examples"))
 
+# ---------------------------
+# unit tests
+# ---------------------------
 
-@pytest.fixture(autouse=True)
-def handle_taping():
+
+class TestAdjointMeshSeqGeneric(unittest.TestCase):
     """
-    **Disclaimer: copied from
-        firedrake/tests/regression/test_adjoint_operators.py
+    Generic unit tests for :class:`AdjointMeshSeq`.
     """
-    yield
-    import pyadjoint
 
-    tape = pyadjoint.get_working_tape()
-    tape.clear_tape()
+    def setUp(self):
+        self.time_interval = TimeInterval(1.0, [0.5], ["field"])
+        self.meshes = [UnitTriangleMesh()]
 
+    def test_qoi_type_error(self):
+        with self.assertRaises(ValueError) as cm:
+            AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="blah")
+        msg = (
+            "QoI type 'blah' not recognised. "
+            "Choose from 'end_time', 'time_integrated', or 'steady'."
+        )
+        self.assertEqual(str(cm.exception), msg)
 
-@pytest.fixture(autouse=True, scope="module")
-def handle_exit_annotation():
-    """
-    Since importing firedrake_adjoint modifies a global variable, we need to
-    pause annotations at the end of the module.
+    def test_get_qoi_notimplemented_error(self):
+        mesh_seq = AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="end_time")
+        with self.assertRaises(NotImplementedError) as cm:
+            mesh_seq.get_qoi({}, 0)
+        msg = "'get_qoi' is not implemented."
+        self.assertEqual(str(cm.exception), msg)
 
-    **Disclaimer: copied from
-        firedrake/tests/regression/test_adjoint_operators.py
-    """
-    yield
-    import pyadjoint
+    def test_qoi_convergence_lt_miniter(self):
+        mesh_seq = AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="end_time")
+        mesh_seq.check_qoi_convergence()
+        self.assertFalse(mesh_seq.converged)
 
-    annotate = pyadjoint.annotate_tape()
-    if annotate:
-        pyadjoint.pause_annotation()
+    def test_qoi_convergence_true(self):
+        mesh_seq = AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="end_time")
+        mesh_seq.qoi_values = np.ones((mesh_seq.params.miniter + 1, 1))
+        mesh_seq.check_qoi_convergence()
+        self.assertTrue(mesh_seq.converged)
+
+    def test_qoi_convergence_false(self):
+        mesh_seq = AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="end_time")
+        mesh_seq.qoi_values = np.ones((mesh_seq.params.miniter + 1, 1))
+        mesh_seq.qoi_values[-1] = 2
+        mesh_seq.check_qoi_convergence()
+        self.assertFalse(mesh_seq.converged)
 
 
 # ---------------------------
@@ -138,13 +157,11 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     adj_sols_expected = {}
     adj_values_expected = {}
     for field, fs in mesh_seq._fs.items():
-        solve_blocks = mesh_seq.get_solve_blocks(field)
-        fwd_old_idx = mesh_seq.get_lagged_dependency_index(field, 0, solve_blocks)
+        solve_blocks = mesh_seq.get_solve_blocks(field, 0)
         adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
         if not steady:
-            adj_values_expected[field] = Function(
-                fs[0], val=solve_blocks[0]._dependencies[fwd_old_idx].adj_value
-            )
+            dep = mesh_seq._dependency(field, 0, solve_blocks[0])
+            adj_values_expected[field] = Function(fs[0], val=dep.adj_value)
 
     # Loop over having one or two subintervals
     for N in range(1, 2 if steady else 3):
@@ -258,7 +275,9 @@ def plot_solutions(problem, qoi_type, debug=True):
             for field in time_partition.fields:
                 sol = solutions[field][label][0][k]
                 to_plot += (
-                    [sol] if not hasattr(sol, "subfunctions") else list(sol.subfunctions)
+                    [sol]
+                    if not hasattr(sol, "subfunctions")
+                    else list(sol.subfunctions)
                 )
             outfiles[label].write(*to_plot)
 
