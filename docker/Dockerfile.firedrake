@@ -13,6 +13,8 @@ RUN bash -c "cd petsc; \
 	sed -i '30i \ \ \ \ '\''--download-parmmg'\'',' reconfigure-default.py; \
 	sed -i '30i \ \ \ \ '\''--download-mmg'\'',' reconfigure-default.py; \
 	sed -i '30i \ \ \ \ '\''--download-eigen'\'',' reconfigure-default.py; \
+	sed -i '30i \ \ \ \ '\''--download-triangle'\'',' reconfigure-default.py; \
+	sed -i '30i \ \ \ \ '\''--download-tetgen'\'',' reconfigure-default.py; \
 	./reconfigure-default.py"
 
 # Rebuild PETSc
