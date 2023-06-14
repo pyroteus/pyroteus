@@ -4,7 +4,7 @@ Driver functions for derivative recovery.
 from .interpolation import clement_interpolant
 from .utility import *
 from petsc4py import PETSc as petsc4py
-from typing import Dict, Optional, Union
+from typing import Optional
 
 
 __all__ = ["recover_hessian", "recover_boundary_hessian"]
@@ -16,33 +16,13 @@ def recover_hessian(f: Function, method: str = "L2", **kwargs) -> Function:
 
     :arg f: the scalar field whose Hessian we seek to recover
     :kwarg method: recovery method
+
+    All other keyword arguments are passed to the chosen recovery routine.
     """
     if method.upper() == "L2":
         g, H = double_l2_projection(f, **kwargs)
-
     elif method.capitalize() == "Clement":
-        mesh = kwargs.get("mesh") or f.function_space().mesh()
-        family = f.ufl_element().family()
-        degree = f.ufl_element().degree()
-        msg = "Clement can only be used to compute gradients of"
-        if family not in ("Lagrange", "Discontinuous Lagrange"):
-            raise ValueError(f"{msg} Lagrange fields.")
-        if degree == 0:
-            raise ValueError(f"{msg} fields of degree > 0.")
-
-        # Recover gradient
-        gradf = ufl.grad(f)
-        if degree == 1:
-            V = firedrake.VectorFunctionSpace(mesh, "DG", 0)
-            g = clement_interpolant(firedrake.interpolate(gradf, V))
-        else:
-            V = firedrake.VectorFunctionSpace(mesh, "DG", 1)
-            g = firedrake.project(gradf, V)
-
-        # Recover Hessian
-        W = firedrake.TensorFunctionSpace(mesh, "DG", 0)
-        H = clement_interpolant(firedrake.interpolate(ufl.grad(g), W))
-
+        g, H = double_clement(f, **kwargs)
     elif method.upper() == "ZZ":
         raise NotImplementedError(
             "Zienkiewicz-Zhu recovery not yet implemented."
@@ -50,6 +30,50 @@ def recover_hessian(f: Function, method: str = "L2", **kwargs) -> Function:
     else:
         raise ValueError(f"Recovery method '{method}' not recognised.")
     return H
+
+
+@PETSc.Log.EventDecorator()
+def double_clement(f: Function):
+    r"""
+    Recover the gradient and Hessian of a scalar field using two applications of
+    Clement interpolation.
+
+    Note that if the field is of degree 2 then projection will be used to obtain the
+    gradient. If the field is of degree 3 or greater then projection will be used
+    for the Hessian recovery, too.
+
+    :arg f: the scalar field whose derivatives we seek to recover
+    """
+    if not isinstance(f, Function):
+        raise ValueError(
+            "Clement interpolation can only be used to compute gradients of"
+            " Lagrange Functions of degree > 0."
+        )
+    family = f.ufl_element().family()
+    degree = f.ufl_element().degree()
+    if family not in ("Lagrange", "Discontinuous Lagrange") or degree == 0:
+        raise ValueError(
+            "Clement interpolation can only be used to compute gradients of"
+            " Lagrange Functions of degree > 0."
+        )
+    mesh = f.function_space().mesh()
+
+    # Recover gradient
+    if degree <= 1:
+        V = firedrake.VectorFunctionSpace(mesh, "DG", 0)
+        g = clement_interpolant(firedrake.project(ufl.grad(f), V))
+    else:
+        V = firedrake.VectorFunctionSpace(mesh, "DG", degree - 1)
+        g = firedrake.project(ufl.grad(f), V)
+
+    # Recover Hessian
+    if degree <= 2:
+        W = firedrake.TensorFunctionSpace(mesh, "DG", 0)
+        H = clement_interpolant(firedrake.project(ufl.grad(g), W))
+    else:
+        W = firedrake.TensorFunctionSpace(mesh, "DG", degree - 2)
+        H = firedrake.project(ufl.grad(g), W)
+    return g, H
 
 
 @PETSc.Log.EventDecorator("pyroteus.double_l2_projection")
@@ -140,25 +164,21 @@ def double_l2_projection(
     return l2_projection.subfunctions
 
 
-@PETSc.Log.EventDecorator("pyroteus.recovery_boundary_hessian")
+@PETSc.Log.EventDecorator()
 def recover_boundary_hessian(
-    f: Dict[Union[str, int], Function],
+    f: Function,
     mesh: MeshGeometry,
     method: str = "Clement",
     target_space: Optional[FunctionSpace] = None,
     **kwargs,
 ) -> Function:
     """
-    Recover the Hessian of a scalar field
-    on the domain boundary.
+    Recover the Hessian of a scalar field on the domain boundary.
 
-    :arg f: dictionary of boundary tags and corresponding
-        fields, which we seek to recover, as well as an
-        'interior' entry for the domain interior
+    :arg f: field to recover over the domain boundary
     :arg mesh: the mesh
     :kwarg method: choose from 'L2' and 'Clement'
-    :kwarg target_space: the
-        :func:`firedrake.functionspace.TensorFunctionSpace`
+    :kwarg target_space: the :func:`firedrake.functionspace.TensorFunctionSpace`
         in which the metric will exist
     """
     from pyroteus.math import construct_basis
@@ -184,7 +204,6 @@ def recover_boundary_hessian(
     l2_proj = [[Function(P1) for i in range(d - 1)] for j in range(d - 1)]
     h = firedrake.interpolate(ufl.CellDiameter(mesh), FunctionSpace(mesh, "DG", 0))
     h = firedrake.Constant(1 / h.vector().gather().max() ** 2)
-    f.pop("interior")
     sp = {
         "ksp_type": "gmres",
         "ksp_gmres_restart": 20,
@@ -201,11 +220,11 @@ def recover_boundary_hessian(
         for j, s1 in enumerate(s):
             for i, s0 in enumerate(s):
                 bcs = []
-                for tag, fi in f.items():
+                for tag in mesh.exterior_facets.unique_markers:
                     a_bc = v * Hs * ufl.ds(tag)
                     L_bc = (
                         -ufl.dot(s0, ufl.grad(v))
-                        * ufl.dot(s1, ufl.grad(fi))
+                        * ufl.dot(s1, ufl.grad(f))
                         * ufl.ds(tag)
                     )
                     bcs.append(firedrake.EquationBC(a_bc == L_bc, l2_proj[i][j], tag))
@@ -225,18 +244,18 @@ def recover_boundary_hessian(
         p0test = firedrake.TestFunction(P0_vec)
         p1test = firedrake.TestFunction(P1)
         fa = QualityMeasure(mesh, python=True)("facet_area")
-        for tag, fi in f.items():
-            source = firedrake.assemble(ufl.inner(p0test, ufl.grad(fi)) / fa * ufl.ds)
 
-            # Recover gradient
-            c = clement_interpolant(source, boundary_tag=tag, target_space=P1_vec)
+        source = firedrake.assemble(ufl.inner(p0test, ufl.grad(f)) / fa * ufl.ds)
 
-            # Recover Hessian
-            H += clement_interpolant(
-                firedrake.interpolate(ufl.grad(c), P0_ten),
-                boundary_tag=tag,
-                target_space=P1_ten,
-            )
+        # Recover gradient
+        c = clement_interpolant(source, boundary=True, target_space=P1_vec)
+
+        # Recover Hessian
+        H += clement_interpolant(
+            firedrake.interpolate(ufl.grad(c), P0_ten),
+            boundary=True,
+            target_space=P1_ten,
+        )
 
         # Compute tangential components
         for j, s1 in enumerate(s):

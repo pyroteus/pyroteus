@@ -26,25 +26,42 @@ class TestRecoverySetup(unittest.TestCase):
         V = FunctionSpace(self.mesh, family, degree)
         return Function(V).assign(1.0)
 
-    def test_clement_space_error(self):
-        f = self.get_func_ones("RT", 1)
-        kwargs = dict(method="Clement", mesh=self.mesh)
+    def test_clement_function_error(self):
+        f = bowl(*SpatialCoordinate(self.mesh))
+        kwargs = dict(method="Clement")
         with self.assertRaises(ValueError) as cm:
             recover_hessian(f, **kwargs)
-        msg = "Clement can only be used to compute gradients of Lagrange fields."
+        msg = (
+            "Clement interpolation can only be used to compute gradients of"
+            " Lagrange Functions of degree > 0."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_clement_space_error(self):
+        f = self.get_func_ones("RT", 1)
+        kwargs = dict(method="Clement")
+        with self.assertRaises(ValueError) as cm:
+            recover_hessian(f, **kwargs)
+        msg = (
+            "Clement interpolation can only be used to compute gradients of"
+            " Lagrange Functions of degree > 0."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_clement_degree_error(self):
         f = self.get_func_ones("DG", 0)
-        kwargs = dict(method="Clement", mesh=self.mesh)
+        kwargs = dict(method="Clement")
         with self.assertRaises(ValueError) as cm:
             recover_hessian(f, **kwargs)
-        msg = "Clement can only be used to compute gradients of fields of degree > 0."
+        msg = (
+            "Clement interpolation can only be used to compute gradients of"
+            " Lagrange Functions of degree > 0."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_zz_notimplemented_error(self):
         f = self.get_func_ones("CG", 1)
-        kwargs = dict(method="ZZ", mesh=self.mesh)
+        kwargs = dict(method="ZZ")
         with self.assertRaises(NotImplementedError) as cm:
             recover_hessian(f, **kwargs)
         msg = "Zienkiewicz-Zhu recovery not yet implemented."
@@ -52,7 +69,7 @@ class TestRecoverySetup(unittest.TestCase):
 
     def test_unrecognised_interior_method_error(self):
         f = self.get_func_ones("CG", 1)
-        kwargs = dict(method="some_method", mesh=self.mesh)
+        kwargs = dict(method="some_method")
         with self.assertRaises(ValueError) as cm:
             recover_hessian(f, **kwargs)
         msg = "Recovery method 'some_method' not recognised."
@@ -104,13 +121,13 @@ class TestRecoveryBowl(unittest.TestCase):
             (3, "L2"),
         ]
     )
-    def test_interior_L2_mixed(self, dim, norm_type):
+    def test_interior_L2_quadratic_mixed(self, dim, norm_type):
         # TODO: parallel version
         mesh = mesh_for_sensors(dim, 4)
         f = bowl(*mesh.coordinates)
         H = recover_hessian(f, method="L2", mesh=mesh, mixed=True)
         err = self.relative_error(H, norm_type=norm_type)
-        assert err < 1.0e-05
+        self.assertLess(err, 1.0e-08)
 
     @parameterized.expand(
         [
@@ -122,7 +139,7 @@ class TestRecoveryBowl(unittest.TestCase):
             (3, "L2"),
         ]
     )
-    def test_interior_L2_target_spaces(self, dim, norm_type):
+    def test_interior_L2_quadratic_target_spaces(self, dim, norm_type):
         mesh = mesh_for_sensors(dim, 4)
         f = bowl(*mesh.coordinates)
         V = VectorFunctionSpace(mesh, "CG", 1)
@@ -130,7 +147,7 @@ class TestRecoveryBowl(unittest.TestCase):
         kwargs = dict(mesh=mesh, target_spaces=(V, W))
         H = recover_hessian(f, method="L2", **kwargs)
         err = self.relative_error(H, norm_type=norm_type)
-        assert err < 1.0e-05
+        self.assertLess(err, 1.0e-07)
 
     @parameterized.expand(
         [
@@ -142,42 +159,53 @@ class TestRecoveryBowl(unittest.TestCase):
             (3, "L2"),
         ]
     )
-    def test_interior_Clement(self, dim, norm_type):
+    def test_interior_Clement_linear(self, dim, norm_type):
         mesh = mesh_for_sensors(dim, 20)
         f = interpolate(bowl(*mesh.coordinates), FunctionSpace(mesh, "CG", 1))
-        H = recover_hessian(f, method="Clement", mesh=mesh, mixed=True)
+        H = recover_hessian(f, method="Clement")
         err = self.relative_error(H, norm_type=norm_type, ignore_boundary=True)
-        assert err < 1.0e-05
+        self.assertLess(err, 1.0e-05)
 
-    # TODO: test_interior_Clement_quadratic_exact
+    @parameterized.expand(
+        [
+            (2, "l2"),
+            (2, "L1"),
+            (2, "L2"),
+            (3, "l2"),
+            (3, "L1"),
+            (3, "L2"),
+        ]
+    )
+    def test_interior_Clement_quadratic(self, dim, norm_type):
+        mesh = mesh_for_sensors(dim, 20)
+        f = interpolate(bowl(*mesh.coordinates), FunctionSpace(mesh, "CG", 2))
+        H = recover_hessian(f, method="Clement")
+        err = self.relative_error(H, norm_type=norm_type, ignore_boundary=True)
+        self.assertLess(err, 1.0e-08)
 
-    @parameterized.expand([(2,)])
+    @parameterized.expand([2])
     def test_boundary_L2(self, dim):
         # FIXME: 3D case for test_boundary_L2
         mesh = mesh_for_sensors(dim, 4)
         f = bowl(*mesh.coordinates)
-        tags = list(mesh.exterior_facets.unique_markers) + ["interior"]
-        f = {i: f for i in tags}
         H = recover_boundary_hessian(f, mesh, method="L2")
 
         # Check its directional derivatives in boundaries are zero
         for s in construct_basis(FacetNormal(mesh))[1:]:
             dHds = abs(assemble(dot(div(H), s) * ds))
-            assert dHds < 2.0e-08, "Non-zero tangential derivative"
+            self.assertLess(dHds, 2.0e-08)
 
-    @parameterized.expand([(2,)])
+    @parameterized.expand([2])
     def test_boundary_Clement(self, dim):
         # FIXME: 3D case for test_boundary_Clement
         mesh = mesh_for_sensors(dim, 20)
         f = bowl(*mesh.coordinates)
-        tags = list(mesh.exterior_facets.unique_markers) + ["interior"]
-        f = {i: f for i in tags}
         H = recover_boundary_hessian(f, mesh, method="Clement")
 
         # Check its directional derivatives in boundaries are zero
         for s in construct_basis(FacetNormal(mesh))[1:]:
             dHds = abs(assemble(dot(div(H), s) * ds))
-            assert dHds < 2.0e-08, "Non-zero tangential derivative"
+            self.assertLess(dHds, 2.0e-08)
 
 
 # TODO: Implement a difficult recovery test that force use of an LU solver.
