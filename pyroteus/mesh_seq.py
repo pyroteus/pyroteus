@@ -90,6 +90,7 @@ class MeshSeq:
         self.params = kwargs.get("parameters")
         self.steady = time_partition.steady
         self.check_convergence = True
+        self.fp_iteration = 0
         if self.params is None:
             self.params = AdaptParameters()
         self.warn = kwargs.get("warnings", True)

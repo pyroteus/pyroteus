@@ -97,7 +97,6 @@ class AdjointMeshSeq(MeshSeq):
         self.J = 0
         self.controls = None
         self.qoi_values = []
-        self.fp_iteration = 0
 
     @property
     @pyadjoint.no_annotations
