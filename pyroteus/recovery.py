@@ -38,6 +38,10 @@ def double_clement(f: Function):
     Recover the gradient and Hessian of a scalar field using two applications of
     Clement interpolation.
 
+    Note that if the field is of degree 2 then projection will be used to obtain the
+    gradient. If the field is of degree 3 or greater then projection will be used
+    for the Hessian recovery, too.
+
     :arg f: the scalar field whose derivatives we seek to recover
     """
     if not isinstance(f, Function):
@@ -55,16 +59,20 @@ def double_clement(f: Function):
     mesh = f.function_space().mesh()
 
     # Recover gradient
-    gradf = ufl.grad(f)
-    V = firedrake.VectorFunctionSpace(mesh, "DG", min(1, degree - 1))
-    if degree == 1:
-        g = clement_interpolant(firedrake.interpolate(gradf, V))
+    if degree <= 1:
+        V = firedrake.VectorFunctionSpace(mesh, "DG", 0)
+        g = clement_interpolant(firedrake.project(ufl.grad(f), V))
     else:
-        g = firedrake.project(gradf, V)
+        V = firedrake.VectorFunctionSpace(mesh, "DG", degree - 1)
+        g = firedrake.project(ufl.grad(f), V)
 
     # Recover Hessian
-    W = firedrake.TensorFunctionSpace(mesh, "DG", 0)
-    H = clement_interpolant(firedrake.interpolate(ufl.grad(g), W))
+    if degree <= 2:
+        W = firedrake.TensorFunctionSpace(mesh, "DG", 0)
+        H = clement_interpolant(firedrake.project(ufl.grad(g), W))
+    else:
+        W = firedrake.TensorFunctionSpace(mesh, "DG", degree - 2)
+        H = firedrake.project(ufl.grad(g), W)
     return g, H
 
 
