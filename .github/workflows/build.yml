@@ -30,7 +30,7 @@ jobs:
       - name: Install Pyroteus
         run: |
           . /home/firedrake/firedrake/bin/activate
-          python -m pip uninstall pyroteus
+          python -m pip uninstall -y pyroteus
           python -m pip install -e .
       - name: Test Pyroteus
         run: |
