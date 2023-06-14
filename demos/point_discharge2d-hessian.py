@@ -191,8 +191,11 @@ def adaptor(mesh_seq, solutions):
     fig.savefig(f"point_discharge2d-hessian_mesh{iteration + 1}.jpg")
     plt.close()
 
-    # If the target complexity has not been reached, skip to the next iteration
-    return complexity < 0.95 * target
+    # Check whether the target complexity has been (approximately) reached. If not,
+    # return ``True`` to indicate that convergence checks should be skipped until the
+    # next fixed point iteration.
+    continue_unconditionally = complexity < 0.95 * target
+    return continue_unconditionally
 
 
 # With the adaptor function defined, we can call the fixed point iteration method, which
