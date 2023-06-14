@@ -89,6 +89,7 @@ class MeshSeq:
         self._get_bcs = kwargs.get("get_bcs")
         self.params = kwargs.get("parameters")
         self.steady = time_partition.steady
+        self.check_convergence = True
         if self.params is None:
             self.params = AdaptParameters()
         self.warn = kwargs.get("warnings", True)
@@ -595,8 +596,11 @@ class MeshSeq:
         """
         P = self.params
         self.converged = False
+        if not self.check_convergence:
+            return self.converged
         if len(self.element_counts) < max(2, P.miniter + 1):
-            return
+            return self.converged
+
         self.converged = True
         elems_ = self.element_counts[-2]
         elems = self.element_counts[-1]
@@ -640,12 +644,12 @@ class MeshSeq:
             sols = self.solve_forward(solver_kwargs=solver_kwargs)
 
             # Adapt meshes, logging element and vertex counts
-            skip = adaptor(self, sols)
+            self.check_convergence = not adaptor(self, sols)
             self.element_counts.append(self.count_elements())
             self.vertex_counts.append(self.count_vertices())
 
             # Check for element count convergence
-            if not skip and self.check_element_count_convergence():
+            if self.check_element_count_convergence():
                 break
 
         if not self.converged:

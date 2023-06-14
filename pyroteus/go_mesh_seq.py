@@ -229,8 +229,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         """
         P = self.params
         self.converged = False
+        if not self.check_convergence:
+            return self.converged
         if len(self.estimator_values) < max(2, P.miniter):
-            return
+            return self.converged
         ee_ = self.estimator_values[-2]
         ee = self.estimator_values[-1]
         if abs(ee - ee_) < P.estimator_rtol * abs(ee_):
@@ -274,7 +276,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self.qoi_values = []
         self.estimator_values = []
         self.converged = False
-        skip = False
+        self.check_convergence = True
 
         for self.fp_iteration in range(self.params.maxiter):
             if update_params is not None:
@@ -292,22 +294,22 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             #       an optional return condition so that we
             #       can avoid unnecessary extra solves
             self.qoi_values.append(self.J)
-            if not skip and self.check_qoi_convergence():
+            if self.check_qoi_convergence():
                 break
 
             # Check for error estimator convergence
             ee = indicators2estimator(indicators, self.time_partition)
             self.estimator_values.append(ee)
-            if not skip and self.check_estimator_convergence():
+            if self.check_estimator_convergence():
                 break
 
             # Adapt meshes and log element counts
-            skip = adaptor(self, sols, indicators)
+            self.check_convergence = not adaptor(self, sols, indicators)
             self.element_counts.append(self.count_elements())
             self.vertex_counts.append(self.count_vertices())
 
             # Check for element count convergence
-            if not skip and self.check_element_count_convergence():
+            if self.check_element_count_convergence():
                 break
 
         if not self.converged:
