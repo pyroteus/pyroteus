@@ -40,15 +40,18 @@ def double_clement(f: Function):
 
     :arg f: the scalar field whose derivatives we seek to recover
     """
-    msg = "Clement can only be used to compute gradients of"
     if not isinstance(f, Function):
-        raise ValueError(f"{msg} Functions.")
+        raise ValueError(
+            "Clement interpolation can only be used to compute gradients of"
+            " Lagrange Functions of degree > 0."
+        )
     family = f.ufl_element().family()
     degree = f.ufl_element().degree()
-    if family not in ("Lagrange", "Discontinuous Lagrange"):
-        raise ValueError(f"{msg} Lagrange fields.")
-    if degree == 0:
-        raise ValueError(f"{msg} fields of degree > 0.")
+    if family not in ("Lagrange", "Discontinuous Lagrange") or degree == 0:
+        raise ValueError(
+            "Clement interpolation can only be used to compute gradients of"
+            " Lagrange Functions of degree > 0."
+        )
     mesh = f.function_space().mesh()
 
     # Recover gradient

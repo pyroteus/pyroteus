@@ -31,7 +31,10 @@ class TestRecoverySetup(unittest.TestCase):
         kwargs = dict(method="Clement")
         with self.assertRaises(ValueError) as cm:
             recover_hessian(f, **kwargs)
-        msg = "Clement can only be used to compute gradients of Functions."
+        msg = (
+            "Clement interpolation can only be used to compute gradients of"
+            " Lagrange Functions of degree > 0."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_clement_space_error(self):
@@ -39,7 +42,10 @@ class TestRecoverySetup(unittest.TestCase):
         kwargs = dict(method="Clement")
         with self.assertRaises(ValueError) as cm:
             recover_hessian(f, **kwargs)
-        msg = "Clement can only be used to compute gradients of Lagrange fields."
+        msg = (
+            "Clement interpolation can only be used to compute gradients of"
+            " Lagrange Functions of degree > 0."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_clement_degree_error(self):
@@ -47,7 +53,10 @@ class TestRecoverySetup(unittest.TestCase):
         kwargs = dict(method="Clement")
         with self.assertRaises(ValueError) as cm:
             recover_hessian(f, **kwargs)
-        msg = "Clement can only be used to compute gradients of fields of degree > 0."
+        msg = (
+            "Clement interpolation can only be used to compute gradients of"
+            " Lagrange Functions of degree > 0."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_zz_notimplemented_error(self):
