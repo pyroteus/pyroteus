@@ -50,17 +50,8 @@ def bessi0(x):
         3.92377e-3,
     )
 
-    p1 = [0]
-    for c in reversed(coeffs1[1:]):
-        p1 = np.polymul([1, 0], np.polyadd(p1, c))
-    p1 = np.poly1d(np.polyadd([coeffs1[0]], p1))
-    expr1 = p1(x1)
-
-    p2 = [0]
-    for c in reversed(coeffs2[1:]):
-        p2 = np.polymul([1, 0], np.polyadd(p2, c))
-    p2 = np.poly1d(np.polyadd([coeffs2[0]], p2))
-    expr2 = exp(ax) / sqrt(ax) * p2(x2)
+    expr1 = np.polyval(np.flip(coeffs1), x1)
+    expr2 = exp(ax) / sqrt(ax) * np.polyval(np.flip(coeffs2), x2)
 
     return where(ax < 3.75, expr1, expr2)
 
@@ -107,17 +98,8 @@ def bessk0(x):
         5.3208e-4,
     )
 
-    p1 = [0]
-    for c in reversed(coeffs1[1:]):
-        p1 = np.polymul([1, 0], np.polyadd(p1, c))
-    p1 = np.poly1d(np.polyadd([coeffs1[0]], p1))
-    expr1 = -ln(0.5 * x) * bessi0(x) + p1(x1)
-
-    p2 = [0]
-    for c in reversed(coeffs2[1:]):
-        p2 = np.polymul([1, 0], np.polyadd(p2, c))
-    p2 = np.poly1d(np.polyadd([coeffs2[0]], p2))
-    expr2 = exp(-x) / sqrt(x) * p2(x2)
+    expr1 = -ln(0.5 * x) * bessi0(x) + np.polyval(np.flip(coeffs1), x1)
+    expr2 = exp(-x) / sqrt(x) * np.polyval(np.flip(coeffs2), x2)
 
     return where(x <= 2, expr1, expr2)
 
