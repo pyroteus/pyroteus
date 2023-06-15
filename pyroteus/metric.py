@@ -25,6 +25,17 @@ __all__ = [
 ]
 
 
+class P0Metric(RiemannianMetric):
+    r"""
+    Subclass of :class:`RiemannianMetric` which allows use of :math:`\mathbb P0` space.
+    """
+
+    def _check_space(self):
+        el = self.function_space().ufl_element()
+        if (el.family(), el.degree()) != ("Discontinuous Lagrange", 0):
+            raise ValueError(f"P0Metric should be in P0 space, not '{el}'.")
+
+
 def get_metric_kernel(func: str, dim: int) -> op2.Kernel:
     """
     Helper function to easily pass Eigen kernels
@@ -120,7 +131,15 @@ def assemble_eigendecomposition(
             f" {fe_ten.degree()} vs. {fe_vec.degree()}."
         )
     dim = V_ten.mesh().topological_dimension()
-    M = RiemannianMetric(V_ten)
+    if (fe_vec.family(), fe_vec.degree()) == ("Lagrange", 1):
+        M = RiemannianMetric(V_ten)
+    elif (fe_vec.family(), fe_vec.degree()) == ("Discontinuous Lagrange", 0):
+        M = P0Metric(V_ten)
+    else:
+        raise ValueError(
+            "Can only work with RiemannianMetrics defined in P1 space or P0 space, not"
+            f"{fe_vec}."
+        )
     op2.par_loop(
         get_metric_kernel("set_eigendecomposition", dim),
         V_ten.node_set,
@@ -177,15 +196,13 @@ def isotropic_metric(
                     f" space, not {family} of degree {degree}"
                 )
             error_indicator = clement_interpolant(error_indicator)
-    if interpolant in ("Clement", "interpolate"):
-        metric.interpolate(abs(error_indicator) * ufl.Identity(dim), target_space)
-    elif interpolant in ("L2", "project"):
+    if interpolant in ("L2", "project"):
         error_indicator = firedrake.project(
             error_indicator, FunctionSpace(mesh, "CG", 1)
         )
-        metric.interpolate(abs(error_indicator) * ufl.Identity(dim), target_space)
-    else:
-        raise ValueError(f"Interpolant {interpolant} not recognised")
+    elif interpolant not in ("Clement", "interpolate"):
+        raise ValueError(f"Interpolant '{interpolant}' not recognised.")
+    metric.interpolate(abs(error_indicator) * ufl.Identity(dim))
     return metric
 
 
@@ -261,8 +278,7 @@ def anisotropic_dwr_metric(
     if isinstance(hessian, list):  # FIXME: This is hacky
         hessian = hessian[0]
     target_complexity = kwargs.get("target_complexity", None)
-    # min_eigenvalue = kwargs.get("min_eigenvalue", 1.0e-05)
-    # TODO: why was this ^^^ here?
+    min_eigenvalue = kwargs.get("min_eigenvalue", 1.0e-05)
     if target_complexity <= 0.0:
         raise ValueError(
             f"Target complexity must be positive, not {target_complexity}."
@@ -277,7 +293,7 @@ def anisotropic_dwr_metric(
             f"Convergence rate must be at least one, not {convergence_rate}."
         )
     P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
-    P0_metric = RiemannianMetric(P0_ten)
+    P0_metric = P0Metric(P0_ten)
 
     # Get reference element volume
     K_hat = 1 / 2 if dim == 2 else 1 / 6
@@ -298,17 +314,17 @@ def anisotropic_dwr_metric(
         P0_metric.project(hessian)
         P0_metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
 
-        # Compute stretching factors, in ascending order
+        # Compute stretching factors (in ascending order), multiplied by K_ratio
         evectors, evalues = compute_eigendecomposition(P0_metric, reorder=True)
-        # lmin = max(evalues.vector().gather().min(), min_eigenvalue)
-        # TODO: why was this ^^^ here?
-        S = abs(evalues / pow(np.prod(evalues), 1 / dim))
+        lmin = max(evalues.vector().gather().min(), min_eigenvalue)
+        scaling = 1 / pow(np.prod(evalues), 1 / dim)
+        modified_evalues = [
+            ufl.max_value(K_ratio * abs(scaling * e), lmin) for e in evalues
+        ]
 
         # Assemble metric with modified eigenvalues
-        evalues.interpolate(K_ratio * S)
+        evalues.interpolate(ufl.as_vector(modified_evalues))
         v = evalues.vector().gather()
-        # lmin = max(v.min(), min_eigenvalue)
-        # TODO: why was this ^^^ here?
         if np.isnan(v).any():
             raise ValueError("At least one modified stretching factor is not finite.")
         P0_metric.assign(assemble_eigendecomposition(evectors, evalues))
@@ -324,7 +340,16 @@ def anisotropic_dwr_metric(
         metric.project(P0_metric)
     else:
         raise ValueError(f"Interpolant {interpolant} not recognised")
-    metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
+
+    # Rescale to enforce that the target complexity is met
+    #   Note that we use the L-infinity norm so that the metric is just scaled to the
+    #   target metric complexity, as opposed to being redistributed spatially.
+    mp = {
+        "dm_plex_metric_target_complexity": target_complexity,
+        "dm_plex_metric_p": np.inf,
+    }
+    metric.set_parameters(mp)
+    metric.normalise()
     return metric
 
 

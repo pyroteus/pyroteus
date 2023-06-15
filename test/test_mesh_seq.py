@@ -126,3 +126,14 @@ class TestStringFormatting(TestGeneric):
             "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
         )
         self.assertTrue(re.match(repr(mesh_seq), expected))
+
+
+class TestMeshSeq(TestStringFormatting):
+    """
+    Unit tests for basic :class:`MeshSeq` functionality.
+    """
+
+    def test_counting(self):
+        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(3, 3)])
+        self.assertEqual(mesh_seq.count_elements(), [18])
+        self.assertEqual(mesh_seq.count_vertices(), [16])

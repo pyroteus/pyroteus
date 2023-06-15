@@ -8,7 +8,7 @@ from .interpolation import project
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
 from .time_partition import TimePartition
-from .utility import AttrDict, norm, Function
+from .utility import AttrDict, norm, Function, pyrint
 from collections.abc import Callable
 from functools import wraps
 import numpy as np
@@ -97,7 +97,6 @@ class AdjointMeshSeq(MeshSeq):
         self.J = 0
         self.controls = None
         self.qoi_values = []
-        self.fp_iteration = 0
 
     @property
     @pyadjoint.no_annotations
@@ -449,10 +448,17 @@ class AdjointMeshSeq(MeshSeq):
         """
         P = self.params
         self.converged = False
+        if not self.check_convergence:
+            return self.converged
         if len(self.qoi_values) < max(2, P.miniter):
-            return
+            return self.converged
         qoi_ = self.qoi_values[-2]
         qoi = self.qoi_values[-1]
-        self.converged = True
-        if abs(qoi - qoi_) > P.qoi_rtol * abs(qoi_):
-            self.converged = False
+        if abs(qoi - qoi_) < P.qoi_rtol * abs(qoi_):
+            self.converged = True
+        if self.converged:
+            pyrint(
+                f"Terminated due to QoI convergence after {self.fp_iteration+1}"
+                " iterations."
+            )
+        return self.converged

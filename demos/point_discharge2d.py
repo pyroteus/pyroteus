@@ -76,7 +76,7 @@ def get_form(mesh_seq):
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
 
-        # Stabilisation parameter
+        # SUPG stabilisation parameter
         unorm = sqrt(dot(u, u))
         tau = 0.5 * h / unorm
         tau = min_value(tau, unorm * h / (6 * D))
@@ -109,7 +109,9 @@ def get_bcs(mesh_seq):
     return bcs
 
 
-# With these ingredients, we can now define the :meth:`get_solver` method. ::
+# With these ingredients, we can now define the :meth:`get_solver` method. Don't forget
+# to impose the correct names for the current and lagged solution fields, as well as
+# applying the corresponding `ad_block_tag` to the solve call. ::
 
 
 def get_solver(mesh_seq):
