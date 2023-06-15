@@ -342,6 +342,8 @@ def anisotropic_dwr_metric(
         raise ValueError(f"Interpolant {interpolant} not recognised")
 
     # Rescale to enforce that the target complexity is met
+    #   Note that we use the L-infinity norm so that the metric is just scaled to the
+    #   target metric complexity, as opposed to being redistributed spatially.
     mp = {
         "dm_plex_metric_target_complexity": target_complexity,
         "dm_plex_metric_p": np.inf,
