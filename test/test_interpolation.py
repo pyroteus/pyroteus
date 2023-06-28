@@ -168,7 +168,8 @@ class TestProject(unittest.TestCase):
         expected = source
         self.assertAlmostEqual(errornorm(expected, target), 0)
 
-    def test_project_same_mesh(self):
+    @parameterized.expand([False, True])
+    def test_project_same_mesh(self, adjoint):
         Vs = FunctionSpace(self.source_mesh, "CG", 1)
         Vt = FunctionSpace(self.source_mesh, "DG", 0)
         source = interpolate(self.sinusoid(), Vs)
@@ -178,7 +179,8 @@ class TestProject(unittest.TestCase):
         expected.project(source)
         self.assertAlmostEqual(errornorm(expected, target), 0)
 
-    def test_project_same_mesh_mixed(self):
+    @parameterized.expand([False, True])
+    def test_project_same_mesh_mixed(self, adjoint):
         P1 = FunctionSpace(self.source_mesh, "CG", 1)
         P0 = FunctionSpace(self.source_mesh, "DG", 0)
         Vs = P1 * P1
