@@ -3,37 +3,44 @@ Driver functions for derivative recovery.
 """
 from .interpolation import clement_interpolant
 from .utility import *
-from petsc4py import PETSc as petsc4py
 from typing import Optional
 
 
-__all__ = ["recover_hessian", "recover_boundary_hessian"]
+@PETSc.Log.EventDecorator()
+def recover_gradient_l2(
+    f: Function,
+    target_space: Optional[FunctionSpace] = None,
+) -> Function:
+    r"""
+    Recover the gradient of a scalar or vector field using :math:`L^2` projection.
 
-
-def recover_hessian(f: Function, method: str = "L2", **kwargs) -> Function:
+    :arg f: the scalar field whose derivatives we seek to recover
+    :kwarg mesh: the underlying mesh
+    :kwarg target_space: the :func:`firedrake.functionspace.FunctionSpace`
+        recovered gradient should live in
     """
-    Recover the Hessian of a scalar field.
-
-    :arg f: the scalar field whose Hessian we seek to recover
-    :kwarg method: recovery method
-
-    All other keyword arguments are passed to the chosen recovery routine.
-    """
-    if method.upper() == "L2":
-        g, H = double_l2_projection(f, **kwargs)
-    elif method.capitalize() == "Clement":
-        g, H = double_clement(f, **kwargs)
-    elif method.upper() == "ZZ":
-        raise NotImplementedError(
-            "Zienkiewicz-Zhu recovery not yet implemented."
-        )  # TODO
-    else:
-        raise ValueError(f"Recovery method '{method}' not recognised.")
-    return H
+    if target_space is None:
+        if not isinstance(f, Function):
+            raise ValueError(
+                "If a target space is not provided then the input must be a Function."
+            )
+        degree = max(1, f.ufl_element().degree() - 1)
+        mesh = f.function_space().mesh()
+        rank = len(f.ufl_element().value_shape())
+        if rank == 0:
+            target_space = firedrake.VectorFunctionSpace(mesh, "CG", degree)
+        elif rank == 1:
+            target_space = firedrake.TensorFunctionSpace(mesh, "CG", degree)
+        else:
+            raise ValueError(
+                "L2 projection can only be used to compute gradients of scalar or"
+                f" vector Functions, not Functions of rank {rank}."
+            )
+    return firedrake.project(ufl.grad(f), target_space)
 
 
 @PETSc.Log.EventDecorator()
-def double_clement(f: Function):
+def recover_hessian_clement(f: Function) -> Function:
     r"""
     Recover the gradient and Hessian of a scalar field using two applications of
     Clement interpolation.
@@ -64,7 +71,7 @@ def double_clement(f: Function):
         g = clement_interpolant(firedrake.project(ufl.grad(f), V))
     else:
         V = firedrake.VectorFunctionSpace(mesh, "DG", degree - 1)
-        g = firedrake.project(ufl.grad(f), V)
+        g = recover_gradient_l2(f, target_space=V)
 
     # Recover Hessian
     if degree <= 2:
@@ -72,102 +79,13 @@ def double_clement(f: Function):
         H = clement_interpolant(firedrake.project(ufl.grad(g), W))
     else:
         W = firedrake.TensorFunctionSpace(mesh, "DG", degree - 2)
-        H = firedrake.project(ufl.grad(g), W)
+        H = recover_gradient_l2(g, target_space=W)
     return g, H
-
-
-@PETSc.Log.EventDecorator("pyroteus.double_l2_projection")
-def double_l2_projection(
-    f: Function,
-    mesh: MeshGeometry = None,
-    target_spaces: Optional[FunctionSpace] = None,
-    mixed: bool = False,
-) -> Function:
-    r"""
-    Recover the gradient and Hessian of a scalar field using a
-    double :math:`L^2` projection.
-
-    :arg f: the scalar field whose derivatives we seek to recover
-    :kwarg mesh: the underlying mesh
-    :kwarg target_spaces: the
-        :func:`firedrake.functionspace.VectorFunctionSpace` and
-        :func:`firedrake.functionspace.TensorFunctionSpace` the
-        recovered gradient and Hessian should live in
-    :kwarg mixed: solve as a mixed system, or separately?
-    """
-    mesh = mesh or f.function_space().mesh()
-    if target_spaces is None:
-        P1_vec = firedrake.VectorFunctionSpace(mesh, "CG", 1)
-        P1_ten = firedrake.TensorFunctionSpace(mesh, "CG", 1)
-    else:
-        P1_vec, P1_ten = target_spaces
-    if not mixed:
-        g = firedrake.project(ufl.grad(f), P1_vec)
-        H = firedrake.project(ufl.grad(g), P1_ten)
-        return g, H
-    W = P1_vec * P1_ten
-    g, H = firedrake.TrialFunctions(W)
-    phi, tau = firedrake.TestFunctions(W)
-    l2_projection = Function(W)
-    n = ufl.FacetNormal(mesh)
-
-    # The formulation is chosen such that f does not need to have any
-    # finite element derivatives
-    a = (
-        ufl.inner(tau, H) * ufl.dx
-        + ufl.inner(ufl.div(tau), g) * ufl.dx
-        - ufl.dot(g, ufl.dot(tau, n)) * ufl.ds
-        - ufl.dot(ufl.avg(g), ufl.jump(tau, n)) * ufl.dS
-    )
-    a += ufl.inner(phi, g) * ufl.dx
-    L = (
-        f * ufl.dot(phi, n) * ufl.ds
-        + ufl.avg(f) * ufl.jump(phi, n) * ufl.dS
-        - f * ufl.div(phi) * ufl.dx
-    )
-
-    # Apply stationary preconditioners in the Schur complement to get away
-    # with applying GMRES to the whole mixed system
-    sp = {
-        "mat_type": "aij",
-        "ksp_type": "gmres",
-        "ksp_max_it": 20,
-        "pc_type": "fieldsplit",
-        "pc_fieldsplit_type": "schur",
-        "pc_fieldsplit_0_fields": "1",
-        "pc_fieldsplit_1_fields": "0",
-        "pc_fieldsplit_schur_precondition": "selfp",
-        "fieldsplit_0_ksp_type": "preonly",
-        "fieldsplit_1_ksp_type": "preonly",
-        "fieldsplit_1_pc_type": "gamg",
-        "fieldsplit_1_mg_levels_ksp_max_it": 5,
-    }
-    if firedrake.COMM_WORLD.size == 1:
-        sp["fieldsplit_0_pc_type"] = "ilu"
-        sp["fieldsplit_1_mg_levels_pc_type"] = "ilu"
-    else:
-        sp["fieldsplit_0_pc_type"] = "bjacobi"
-        sp["fieldsplit_0_sub_ksp_type"] = "preonly"
-        sp["fieldsplit_0_sub_pc_type"] = "ilu"
-        sp["fieldsplit_1_mg_levels_pc_type"] = "bjacobi"
-        sp["fieldsplit_1_mg_levels_sub_ksp_type"] = "preonly"
-        sp["fieldsplit_1_mg_levels_sub_pc_type"] = "ilu"
-    try:
-        firedrake.solve(a == L, l2_projection, solver_parameters=sp)
-    except firedrake.ConvergenceError:
-        petsc4py.Sys.Print(
-            "L2 projection failed to converge with"
-            " iterative solver parameters, trying direct."
-        )
-        sp = {"pc_mat_factor_solver_type": "mumps"}
-        firedrake.solve(a == L, l2_projection, solver_parameters=sp)
-    return l2_projection.subfunctions
 
 
 @PETSc.Log.EventDecorator()
 def recover_boundary_hessian(
     f: Function,
-    mesh: MeshGeometry,
     method: str = "Clement",
     target_space: Optional[FunctionSpace] = None,
     **kwargs,
@@ -176,14 +94,14 @@ def recover_boundary_hessian(
     Recover the Hessian of a scalar field on the domain boundary.
 
     :arg f: field to recover over the domain boundary
-    :arg mesh: the mesh
-    :kwarg method: choose from 'L2' and 'Clement'
+    :kwarg method: choose from 'mixed_L2' and 'Clement'
     :kwarg target_space: the :func:`firedrake.functionspace.TensorFunctionSpace`
         in which the metric will exist
     """
     from pyroteus.math import construct_basis
     from pyroteus.metric import get_metric_kernel
 
+    mesh = ufl.domain.extract_unique_domain(f)
     d = mesh.topological_dimension()
     assert d in (2, 3)
 
@@ -210,7 +128,7 @@ def recover_boundary_hessian(
         "pc_type": "ilu",
     }
 
-    if method.upper() == "L2":
+    if method == "mixed_L2":
         # Arbitrary value on domain interior
         a = v * Hs * ufl.dx
         L = v * h * ufl.dx
@@ -236,7 +154,7 @@ def recover_boundary_hessian(
                     solver_parameters=sp,
                 )
 
-    elif method.capitalize() == "Clement":
+    elif method == "Clement":
         P0_vec = firedrake.VectorFunctionSpace(mesh, "DG", 0)
         P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
         P1_vec = firedrake.VectorFunctionSpace(mesh, "CG", 1)
