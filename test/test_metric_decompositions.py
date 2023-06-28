@@ -15,34 +15,34 @@ class TestMetricDecompositions(unittest.TestCase):
     Unit tests for metric decompositions.
     """
 
-    def mesh(self, dim):
+    @staticmethod
+    def mesh(dim):
         return uniform_mesh(dim, 1)
 
-    def test_compute_eigendecomposition_type_error(self):
-        P1_ten = TensorFunctionSpace(self.mesh(2), "CG", 1)
-        with self.assertRaises(ValueError) as cm:
-            compute_eigendecomposition(Function(P1_ten))
-        msg = (
-            "Can only compute eigendecompositions of RiemannianMetrics,"
-            " not objects of type '<class 'firedrake.function.Function'>'."
-        )
-        assert str(cm.exception) == msg
+    @staticmethod
+    def metric(mesh):
+        P1_ten = TensorFunctionSpace(mesh, "CG", 1)
+        return RiemannianMetric(P1_ten)
 
     def test_assemble_eigendecomposition_evectors_rank2_error(self):
-        P1_vec = VectorFunctionSpace(self.mesh(2), "CG", 1)
+        mesh = self.mesh(2)
+        P1_vec = VectorFunctionSpace(mesh, "CG", 1)
         evalues = Function(P1_vec)
         evectors = Function(P1_vec)
+        metric = self.metric(mesh)
         with self.assertRaises(ValueError) as cm:
-            assemble_eigendecomposition(evectors, evalues)
+            metric.assemble_eigendecomposition(evectors, evalues)
         msg = "Eigenvector Function should be rank-2, not rank-1."
         assert str(cm.exception) == msg
 
     def test_assemble_eigendecomposition_evalues_rank1_error(self):
-        P1_ten = TensorFunctionSpace(self.mesh(2), "CG", 1)
+        mesh = self.mesh(2)
+        P1_ten = TensorFunctionSpace(mesh, "CG", 1)
         evalues = Function(P1_ten)
         evectors = Function(P1_ten)
+        metric = self.metric(mesh)
         with self.assertRaises(ValueError) as cm:
-            assemble_eigendecomposition(evectors, evalues)
+            metric.assemble_eigendecomposition(evectors, evalues)
         msg = "Eigenvalue Function should be rank-1, not rank-2."
         assert str(cm.exception) == msg
 
@@ -50,8 +50,9 @@ class TestMetricDecompositions(unittest.TestCase):
         mesh = self.mesh(2)
         evalues = Function(VectorFunctionSpace(mesh, "DG", 1))
         evectors = Function(TensorFunctionSpace(mesh, "CG", 1))
+        metric = self.metric(mesh)
         with self.assertRaises(ValueError) as cm:
-            assemble_eigendecomposition(evectors, evalues)
+            metric.assemble_eigendecomposition(evectors, evalues)
         msg = (
             "Mismatching finite element families:"
             " 'Lagrange' vs. 'Discontinuous Lagrange'."
@@ -62,12 +63,12 @@ class TestMetricDecompositions(unittest.TestCase):
         mesh = self.mesh(2)
         evalues = Function(VectorFunctionSpace(mesh, "CG", 2))
         evectors = Function(TensorFunctionSpace(mesh, "CG", 1))
+        metric = self.metric(mesh)
         with self.assertRaises(ValueError) as cm:
-            assemble_eigendecomposition(evectors, evalues)
+            metric.assemble_eigendecomposition(evectors, evalues)
         msg = "Mismatching finite element space degrees: 1 vs. 2."
         assert str(cm.exception) == msg
 
-    @pytest.mark.slow
     @parameterized.expand([(2, True), (2, False), (3, True), (3, False)])
     def test_eigendecomposition(self, dim, reorder):
         """
@@ -87,7 +88,7 @@ class TestMetricDecompositions(unittest.TestCase):
         metric.interpolate(as_matrix(mat))
 
         # Extract the eigendecomposition
-        evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
+        evectors, evalues = metric.compute_eigendecomposition(reorder=reorder)
 
         # Check eigenvectors are orthonormal
         err = Function(P1_ten)
@@ -106,13 +107,16 @@ class TestMetricDecompositions(unittest.TestCase):
                         f"Eigenvalues are not in descending order: {evalues.dat.data}"
                     )
 
-        # Reassemble it and check the two match
-        metric -= assemble_eigendecomposition(evectors, evalues)
-        if not np.isclose(norm(metric), 0.0):
-            raise ValueError(
-                f"Reassembled metric does not match. Error: {metric.dat.data}"
-            )
+        # Reassemble
+        metric.assemble_eigendecomposition(evectors, evalues)
 
+        # Check against the expected result
+        expected = RiemannianMetric(P1_ten)
+        expected.interpolate(as_matrix(mat))
+        if not np.isclose(errornorm(metric, expected), 0.0):
+            raise ValueError("Reassembled metric does not match.")
+
+    @pytest.mark.slow
     @parameterized.expand([(2, True), (2, False), (3, True), (3, False)])
     def test_density_quotients_decomposition(self, dim, reorder):
         """
@@ -130,7 +134,7 @@ class TestMetricDecompositions(unittest.TestCase):
         metric.interpolate(as_matrix(mat))
 
         # Extract the eigendecomposition
-        evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
+        density, quotients, evectors = metric.density_and_quotients(reorder=reorder)
 
         # Check eigenvectors are orthonormal
         err = Function(P1_ten)
@@ -138,20 +142,17 @@ class TestMetricDecompositions(unittest.TestCase):
         if not np.isclose(norm(err), 0.0):
             raise ValueError(f"Eigenvectors are not orthonormal: {evectors.dat.data}")
 
-        # Check eigenvalues are in descending order
-        if reorder:
-            P1 = FunctionSpace(mesh, "CG", 1)
-            for i in range(dim - 1):
-                f = interpolate(evalues[i], P1)
-                f -= interpolate(evalues[i + 1], P1)
-                if f.vector().gather().min() < 0.0:
-                    raise ValueError(
-                        f"Eigenvalues are not in descending order: {evalues.dat.data}"
-                    )
+        # Reassemble
+        rho = pow(density, 2 / dim)
+        Qd = [pow(quotients[i], -2 / dim) for i in range(dim)]
+        if dim == 2:
+            Q = as_matrix([[Qd[0], 0], [0, Qd[1]]])
+        else:
+            Q = as_matrix([[Qd[0], 0, 0], [0, Qd[1], 0], [0, 0, Qd[2]]])
+        metric.interpolate(rho * dot(evectors, dot(Q, transpose(evectors))))
 
-        # Reassemble it and check the two match
-        metric -= assemble_eigendecomposition(evectors, evalues)
-        if not np.isclose(norm(metric), 0.0):
-            raise ValueError(
-                f"Reassembled metric does not match. Error: {metric.dat.data}"
-            )
+        # Check against the expected result
+        expected = RiemannianMetric(P1_ten)
+        expected.interpolate(as_matrix(mat))
+        if not np.isclose(errornorm(metric, expected), 0.0):
+            raise ValueError("Reassembled metric does not match.")
