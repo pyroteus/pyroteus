@@ -283,6 +283,12 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
             interpolant=interpolant,
         )
 
+    def _any_inf(self, f):
+        if not isinstance(f, Function):
+            f = interpolate(f, FunctionSpace(self.function_space().mesh(), "DG", 0))
+        arr = f.vector().gather()
+        return np.isinf(arr).any() or np.isnan(arr).any()
+
     @PETSc.Log.EventDecorator()
     def compute_anisotropic_dwr_metric(
         self,
@@ -322,6 +328,10 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
             raise ValueError(
                 f"Convergence rate must be at least one, not {convergence_rate}."
             )
+        if min_eigenvalue <= 0.0:
+            raise ValueError(
+                f"Minimum eigenvalue must be positive, not {min_eigenvalue}."
+            )
         if interpolant not in ("Clement", "L2"):
             raise ValueError(f"Interpolant '{interpolant}' not recognised.")
         P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
@@ -335,36 +345,33 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
 
         # Get optimal element volume
         P0 = FunctionSpace(mesh, "DG", 0)
-        K_opt = firedrake.interpolate(
-            pow(error_indicator, 1 / (convergence_rate + 1)), P0
-        )
-        K_opt.interpolate(K / target_complexity * K_opt.vector().gather().sum() / K_opt)
-        K_ratio = pow(abs(K_hat / K_opt), 2 / dim)
+        K_opt = pow(error_indicator, 1 / (convergence_rate + 1))
+        K_opt_av = K_opt / interpolate(K_opt, P0).vector().gather().sum()
+        K_ratio = target_complexity * pow(abs(K_opt_av * K_hat / K), 2 / dim)
 
-        # Modify the eigendecomposition
-        if hessian is None:
-            P0_metric.interpolate(K_ratio * ufl.Identity(dim))
-            P0_metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
-        else:
-            # Interpolate from P1 to P0 by averaging the vertex-wise values
-            P0_metric.project(hessian)
-            P0_metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
+        if self._any_inf(K_ratio):
+            raise ValueError("K_ratio contains non-finite values.")
 
-            # Compute stretching factors (in ascending order), multiplied by K_ratio
-            evectors, evalues = P0_metric.compute_eigendecomposition(reorder=True)
-            lmin = max(evalues.vector().gather().min(), min_eigenvalue)
-            scaling = 1 / pow(np.prod(evalues), 1 / dim)
-            modified_evalues = [
-                ufl.max_value(K_ratio * abs(scaling * e), lmin) for e in evalues
-            ]
+        # Interpolate from P1 to P0
+        #   Note that this shouldn't affect symmetric positive-definiteness.
+        if hessian is not None:
+            hessian.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
+        P0_metric.project(hessian or ufl.Identity(dim))
 
-            # Assemble metric with modified eigenvalues
-            evalues.interpolate(ufl.as_vector(modified_evalues))
-            if np.isnan(evalues.vector().gather()).any():
-                raise ValueError(
-                    "At least one modified stretching factor is not finite."
-                )
-            P0_metric.assemble_eigendecomposition(evectors, evalues)
+        # Compute stretching factors (in ascending order)
+        evectors, evalues = P0_metric.compute_eigendecomposition(reorder=True)
+        divisor = pow(np.prod(evalues), 1 / dim)
+        modified_evalues = [
+            abs(ufl.max_value(e, min_eigenvalue) / divisor) for e in evalues
+        ]
+
+        # Assemble metric with modified eigenvalues
+        evalues.interpolate(K_ratio * ufl.as_vector(modified_evalues))
+        if self._any_inf(evalues):
+            raise ValueError(
+                "At least one modified stretching factor contains non-finite values."
+            )
+        P0_metric.assemble_eigendecomposition(evectors, evalues)
 
         # Interpolate the metric into the target space
         fs = self.function_space()
