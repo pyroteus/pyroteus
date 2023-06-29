@@ -439,26 +439,20 @@ class AdjointMeshSeq(MeshSeq):
 
     def check_qoi_convergence(self):
         """
-        Check for convergence of the fixed point iteration
-        due to the relative difference in QoI value being
-        smaller than the specified tolerance.
+        Check for convergence of the fixed point iteration due to the relative
+        difference in QoI value being smaller than the specified tolerance.
 
-        The :attr:`AdjointMeshSeq.converged` attribute
-        is set to ``True`` if convergence is detected.
+        The :attr:`AdjointMeshSeq.converged` attribute is set to ``True`` across all
+        entries if convergence is detected.
         """
-        P = self.params
-        self.converged = False
-        if not self.check_convergence:
+        if not self.check_convergence.any():
             return self.converged
-        if len(self.qoi_values) < max(2, P.miniter):
-            return self.converged
-        qoi_ = self.qoi_values[-2]
-        qoi = self.qoi_values[-1]
-        if abs(qoi - qoi_) < P.qoi_rtol * abs(qoi_):
-            self.converged = True
-        if self.converged:
-            pyrint(
-                f"Terminated due to QoI convergence after {self.fp_iteration+1}"
-                " iterations."
-            )
+        if len(self.qoi_values) >= max(2, self.params.miniter + 1):
+            qoi_, qoi = self.qoi_values[-2:]
+            if abs(qoi - qoi_) < self.params.qoi_rtol * abs(qoi_):
+                self.converged[:] = True
+                pyrint(
+                    f"Terminated due to QoI convergence after {self.fp_iteration+1}"
+                    " iterations."
+                )
         return self.converged

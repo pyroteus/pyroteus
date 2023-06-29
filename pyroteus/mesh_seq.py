@@ -89,7 +89,8 @@ class MeshSeq:
         self._get_bcs = kwargs.get("get_bcs")
         self.params = kwargs.get("parameters")
         self.steady = time_partition.steady
-        self.check_convergence = True
+        self.check_convergence = np.array([True] * len(self), dtype=bool)
+        self.converged = np.array([False] * len(self), dtype=bool)
         self.fp_iteration = 0
         if self.params is None:
             self.params = AdaptParameters()
@@ -588,31 +589,22 @@ class MeshSeq:
 
     def check_element_count_convergence(self):
         """
-        Check for convergence of the fixed point iteration
-        due to the relative difference in element count being
-        smaller than the specified tolerance.
+        Check for convergence of the fixed point iteration due to the relative
+        difference in element count being smaller than the specified tolerance.
 
-        The :attr:`MeshSeq.converged` attribute
-        is set to ``True`` if convergence is detected.
+        The :attr:`MeshSeq.converged` attribute is set to ``True`` in the
+        appropriate entry if convergence is detected on a subinterval.
         """
-        P = self.params
-        self.converged = False
-        if not self.check_convergence:
-            return self.converged
-        if len(self.element_counts) < max(2, P.miniter + 1):
-            return self.converged
-
-        self.converged = True
-        elems_ = self.element_counts[-2]
-        elems = self.element_counts[-1]
-        for ne_, ne in zip(elems_, elems):
-            if abs(ne - ne_) > P.element_rtol * ne_:
-                self.converged = False
-        if self.converged:
-            pyrint(
-                "Terminated due to element count convergence after"
-                f" {self.fp_iteration+1} iterations."
-            )
+        if len(self.element_counts) >= max(2, self.params.miniter + 1):
+            for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:])):
+                if not self.check_convergence[i]:
+                    continue
+                if abs(ne - ne_) <= self.params.element_rtol * ne_:
+                    self.converged[i] = True
+                    pyrint(
+                        f"Dropping out subinterval {i} due to element count convergence"
+                        f" after {self.fp_iteration+1} iterations."
+                    )
         return self.converged
 
     @PETSc.Log.EventDecorator()
@@ -635,7 +627,8 @@ class MeshSeq:
         update_params = kwargs.get("update_params")
         self.element_counts = [self.count_elements()]
         self.vertex_counts = [self.count_vertices()]
-        self.converged = False
+        self.converged[:] = False
+        self.check_convergence[:] = True
 
         for self.fp_iteration in range(self.params.maxiter):
             if update_params is not None:
@@ -645,15 +638,20 @@ class MeshSeq:
             sols = self.solve_forward(solver_kwargs=solver_kwargs)
 
             # Adapt meshes, logging element and vertex counts
-            self.check_convergence = not adaptor(self, sols)
+            continue_unconditionally = adaptor(self, sols)
+            self.check_convergence[:] = np.logical_not(continue_unconditionally)
             self.element_counts.append(self.count_elements())
             self.vertex_counts.append(self.count_vertices())
 
             # Check for element count convergence
-            if self.check_element_count_convergence():
+            if self.check_element_count_convergence().all():
                 break
 
-        if not self.converged:
-            pyrint(f"Failed to converge in {self.params.maxiter} iterations.")
+        for i, conv in enumerate(self.converged):
+            if not conv:
+                pyrint(
+                    f"Failed to converge on subinterval {i} in {self.params.maxiter}"
+                    " iterations."
+                )
 
         return sols

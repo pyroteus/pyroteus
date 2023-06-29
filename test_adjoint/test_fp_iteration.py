@@ -64,3 +64,8 @@ class TestMeshSeq(unittest.TestCase):
         maxiter = self.parameters.maxiter
         self.mesh_seq.fixed_point_iteration(adaptor)
         self.assertEqual(len(self.mesh_seq.element_counts), maxiter + 1)
+
+
+# TODO: GoalOrientedMeshSeq version
+#  - tweak the qoi function and the indicator_fn
+#  - Test the new 'drop out' functionality

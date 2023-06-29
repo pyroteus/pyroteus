@@ -8,6 +8,7 @@ from .utility import AttrDict
 from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager, project
 from firedrake.petsc import PETSc
 from collections.abc import Callable
+import numpy as np
 from typing import Tuple
 import ufl
 
@@ -221,28 +222,22 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
     def check_estimator_convergence(self):
         """
-        Check for convergence of the fixed point iteration
-        due to the relative difference in error estimator
-        value being smaller than the specified tolerance.
+        Check for convergence of the fixed point iteration due to the relative
+        difference in error estimator value being smaller than the specified tolerance.
 
-        The :attr:`GoalOrientedMeshSeq.converged` attribute
-        is set to ``True`` if convergence is detected.
+        The :attr:`GoalOrientedMeshSeq.converged` attribute is set to ``True`` across
+        all entries if convergence is detected.
         """
-        P = self.params
-        self.converged = False
-        if not self.check_convergence:
+        if not self.check_convergence.any():
             return self.converged
-        if len(self.estimator_values) < max(2, P.miniter):
-            return self.converged
-        ee_ = self.estimator_values[-2]
-        ee = self.estimator_values[-1]
-        if abs(ee - ee_) < P.estimator_rtol * abs(ee_):
-            self.converged = True
-        if self.converged:
-            pyrint(
-                "Terminated due to error estimator convergence after"
-                f" {self.fp_iteration+1} iterations."
-            )
+        if len(self.estimator_values) >= max(2, self.params.miniter + 1):
+            ee_, ee = self.estimator_values[-2:]
+            if abs(ee - ee_) < self.params.estimator_rtol * abs(ee_):
+                self.converged[:] = True
+                pyrint(
+                    "Terminated due to error estimator convergence after"
+                    f" {self.fp_iteration+1} iterations."
+                )
         return self.converged
 
     @PETSc.Log.EventDecorator()
@@ -276,8 +271,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self.vertex_counts = [self.count_vertices()]
         self.qoi_values = []
         self.estimator_values = []
-        self.converged = False
-        self.check_convergence = True
+        self.converged[:] = False
+        self.check_convergence[:] = True
 
         for self.fp_iteration in range(self.params.maxiter):
             if update_params is not None:
@@ -295,25 +290,30 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             #       an optional return condition so that we
             #       can avoid unnecessary extra solves
             self.qoi_values.append(self.J)
-            if self.check_qoi_convergence():
+            if self.check_qoi_convergence().all():
                 break
 
             # Check for error estimator convergence
             ee = indicators2estimator(indicators, self.time_partition)
             self.estimator_values.append(ee)
-            if self.check_estimator_convergence():
+            if self.check_estimator_convergence().all():
                 break
 
             # Adapt meshes and log element counts
-            self.check_convergence = not adaptor(self, sols, indicators)
+            continue_unconditionally = adaptor(self, sols, indicators)
+            self.check_convergence[:] = np.logical_not(continue_unconditionally)
             self.element_counts.append(self.count_elements())
             self.vertex_counts.append(self.count_vertices())
 
             # Check for element count convergence
-            if self.check_element_count_convergence():
+            if self.check_element_count_convergence().all():
                 break
 
-        if not self.converged:
-            pyrint(f"Failed to converge in {self.params.maxiter} iterations.")
+        for i, conv in enumerate(self.converged):
+            if not conv:
+                pyrint(
+                    f"Failed to converge on subinterval {i} in {self.params.maxiter}"
+                    " iterations."
+                )
 
         return sols
