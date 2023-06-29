@@ -3,7 +3,6 @@ from pyroteus import *
 from pyroteus.metric import P0Metric
 from utility import *
 from parameterized import parameterized
-import pytest
 import unittest
 
 
@@ -106,6 +105,16 @@ class TestMetricDrivers(unittest.TestCase):
         msg = "Convergence rate must be at least one, not 0.999."
         self.assertEqual(str(cm.exception), msg)
 
+    def test_anisotropic_dwr_metric_min_eigenvalue_error(self):
+        mesh = uniform_mesh(2, 1)
+        metric = RiemannianMetric(TensorFunctionSpace(mesh, "CG", 1))
+        metric.set_parameters({"dm_plex_metric_target_complexity": 1000.0})
+        indicator = Function(FunctionSpace(mesh, "DG", 0)).assign(1.0)
+        with self.assertRaises(ValueError) as cm:
+            metric.compute_anisotropic_dwr_metric(indicator, min_eigenvalue=0.0)
+        msg = "Minimum eigenvalue must be positive, not 0.0."
+        self.assertEqual(str(cm.exception), msg)
+
     def test_anisotropic_dwr_metric_interpolant_error(self):
         mesh = uniform_mesh(2, 1)
         metric = RiemannianMetric(TensorFunctionSpace(mesh, "CG", 1))
@@ -114,6 +123,19 @@ class TestMetricDrivers(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             metric.compute_anisotropic_dwr_metric(indicator, interpolant="interpolant")
         msg = "Interpolant 'interpolant' not recognised."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_anisotropic_dwr_metric_nan_error(self):
+        mesh = uniform_mesh(2, 1)
+        P1_ten = TensorFunctionSpace(mesh, "CG", 1)
+        metric = RiemannianMetric(P1_ten)
+        metric.set_parameters({"dm_plex_metric_target_complexity": 1.0})
+        indicator = self.uniform_indicator(mesh)
+        indicator.dat.data[0] = np.nan
+        hessian = uniform_metric(P1_ten, 1.0)
+        with self.assertRaises(ValueError) as cm:
+            metric.compute_anisotropic_dwr_metric(indicator, hessian)
+        msg = "K_ratio contains non-finite values."
         self.assertEqual(str(cm.exception), msg)
 
     def test_weighted_hessian_metric_mesh_error1(self):
@@ -178,7 +200,6 @@ class TestMetricDrivers(unittest.TestCase):
 
     @parameterized.expand([(2, "Clement"), (2, "L2"), (3, "Clement"), (3, "L2")])
     def test_uniform_isotropic_dwr_metric(self, dim, interpolant):
-        pytest.skip("FIXME: broken")  # FIXME
         mesh = uniform_mesh(dim, 1)
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
         metric = RiemannianMetric(P1_ten)
@@ -190,7 +211,6 @@ class TestMetricDrivers(unittest.TestCase):
 
     @parameterized.expand([(2, "Clement"), (2, "L2"), (3, "Clement"), (3, "L2")])
     def test_uniform_anisotropic_dwr_metric(self, dim, interpolant):
-        pytest.skip("FIXME: broken")  # FIXME
         mesh = uniform_mesh(dim, 1)
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
         metric = RiemannianMetric(P1_ten)
