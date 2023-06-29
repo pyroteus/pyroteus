@@ -9,6 +9,7 @@ from firedrake import Function, FunctionSpace, MeshHierarchy, TransferManager, p
 from firedrake.petsc import PETSc
 from collections.abc import Callable
 from typing import Tuple
+import ufl
 
 
 __all__ = ["GoalOrientedMeshSeq"]
@@ -214,7 +215,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     # Project back to the base space
                     indi = project(indi_e, P0_spaces[i])
                     indi.interpolate(abs(indi))
-                    indicators[f][i][j].assign(indi)
+                    indicators[f][i][j].interpolate(ufl.max_value(indi, 1.0e-16))
 
         return sols, indicators
 
