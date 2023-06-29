@@ -4,7 +4,6 @@ Driver functions for metric-based mesh adaptation.
 import firedrake.meshadapt
 from .time_partition import TimePartition
 from .recovery import *
-from collections.abc import Iterable
 from typing import List, Optional, Tuple, Union
 import ufl
 
@@ -240,7 +239,7 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         """
         mesh = ufl.domain.extract_unique_domain(error_indicator)
         if mesh != self.function_space().mesh():
-            raise ValueError("Cannot use an error indicator from a different mesh")
+            raise ValueError("Cannot use an error indicator from a different mesh.")
         dim = mesh.topological_dimension()
 
         # Interpolate P0 indicators into P1 space
@@ -253,6 +252,36 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         else:
             raise ValueError(f"Interpolant '{interpolant}' not recognised.")
         return self.interpolate(abs(P1_indicator) * ufl.Identity(dim))
+
+    def compute_isotropic_dwr_metric(
+        self,
+        error_indicator: Function,
+        convergence_rate: float = 1.0,
+        min_eigenvalue: float = 1.0e-05,
+        interpolant: str = "Clement",
+    ):
+        r"""
+        Compute an isotropic metric from some error indicator using an element-based
+        formulation.
+
+        The formulation is based on that presented in :cite:`CPB:13`. Note that
+        normalisation is implicit in the metric construction and involves the
+        `convergence_rate` parameter, named :math:`alpha` in :cite:`CPB:13`.
+
+        Whilst an element-based formulation is used to derive the metric, the result is
+        projected into :math:`\mathbb P1` space, by default.
+
+        :arg error_indicator: the error indicator
+        :kwarg convergence_rate: normalisation parameter
+        :kwarg min_eigenvalue: minimum tolerated eigenvalue
+        :kwarg interpolant: choose from 'Clement' or 'L2'
+        """
+        return self.compute_anisotropic_dwr_metric(
+            error_indicator=error_indicator,
+            convergence_rate=convergence_rate,
+            min_eigenvalue=min_eigenvalue,
+            interpolant=interpolant,
+        )
 
     @PETSc.Log.EventDecorator()
     def compute_anisotropic_dwr_metric(
@@ -282,15 +311,19 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         :kwarg interpolant: choose from 'Clement' or 'L2'
         """
         mp = self.metric_parameters.copy()
-        target_complexity = mp["dm_plex_metric_target_complexity"]
+        target_complexity = mp.get("dm_plex_metric_target_complexity")
+        if target_complexity is None:
+            raise ValueError("Target complexity must be set.")
         mesh = ufl.domain.extract_unique_domain(error_indicator)
         if mesh != self.function_space().mesh():
-            raise ValueError("Cannot use an error indicator from a different mesh")
+            raise ValueError("Cannot use an error indicator from a different mesh.")
         dim = mesh.topological_dimension()
         if convergence_rate < 1.0:
             raise ValueError(
                 f"Convergence rate must be at least one, not {convergence_rate}."
             )
+        if interpolant not in ("Clement", "L2"):
+            raise ValueError(f"Interpolant '{interpolant}' not recognised.")
         P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
         P0_metric = P0Metric(P0_ten)
 
@@ -338,10 +371,8 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         metric = RiemannianMetric(fs)
         if interpolant == "Clement":
             metric.assign(clement_interpolant(P0_metric, target_space=fs))
-        elif interpolant == "L2":
-            metric.project(P0_metric)
         else:
-            raise ValueError(f"Interpolant '{interpolant}' not recognised.")
+            metric.project(P0_metric)
 
         # Rescale to enforce that the target complexity is met
         #   Note that we use the L-infinity norm so that the metric is just scaled to the
@@ -353,7 +384,7 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         return self
 
     @PETSc.Log.EventDecorator()
-    def weighted_hessian_metric(
+    def compute_weighted_hessian_metric(
         self,
         error_indicators: List[Function],
         hessians: List[Function],
@@ -372,21 +403,23 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         :kwarg average: should metric components be averaged or intersected?
         :kwarg interpolant: choose from 'Clement' or 'L2'
         """
-        if not isinstance(error_indicators, Iterable):
+        if isinstance(error_indicators, Function):
             error_indicators = [error_indicators]
-        if not isinstance(hessians, Iterable):
+        if isinstance(hessians, Function):
             hessians = [hessians]
         mesh = self.function_space().mesh()
         P1 = FunctionSpace(mesh, "CG", 1)
 
         # Project error indicators into P1 space and use them to weight Hessians
         for error_indicator, hessian in zip(error_indicators, hessians):
+            if mesh != error_indicator.function_space().mesh():
+                raise ValueError("Cannot use an error indicator from a different mesh.")
+            if mesh != hessian.function_space().mesh():
+                raise ValueError("Cannot use a Hessian from a different mesh.")
             if not isinstance(hessian, RiemannianMetric):
-                raise ValueError(
+                raise TypeError(
                     f"Expected Hessian to be a RiemannianMetric, not {type(hessian)}."
                 )
-            if mesh != hessian.function_space().mesh():
-                raise ValueError("Cannot use a Hessian from a different mesh")
             if interpolant == "Clement":
                 error_indicator = clement_interpolant(error_indicator, target_space=P1)
             elif interpolant == "L2":
@@ -409,7 +442,7 @@ class P0Metric(RiemannianMetric):
     def _check_space(self):
         el = self.function_space().ufl_element()
         if (el.family(), el.degree()) != ("Discontinuous Lagrange", 0):
-            raise ValueError(f"P0Metric should be in P0 space, not '{el}'.")
+            raise ValueError(f"P0 metric should be in P0 space, not '{el}'.")
 
 
 # TODO: Implement this on the PETSc level and port it through to Firedrake
@@ -535,7 +568,7 @@ def space_time_normalise(
         if not isinstance(mp, dict):
             raise TypeError(
                 "Expected metric_parameters to consist of dictionaries,"
-                f" not objects of type '{type(mp)}'"
+                f" not objects of type '{type(mp)}'."
             )
         p = mp.get("dm_plex_metric_p")
         if p is None:
@@ -716,5 +749,5 @@ def ramp_complexity(
         raise ValueError(
             f"Number of iterations must be non-negative, not {num_iterations}."
         )
-    alpha = min(i / num_iterations, 1)
+    alpha = 1 if num_iterations == 0 else min(i / num_iterations, 1)
     return alpha * target + (1 - alpha) * base
