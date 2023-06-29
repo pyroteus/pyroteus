@@ -52,19 +52,17 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         """
         if method == "L2":
             g = recover_gradient_l2(f, target_space=kwargs.get("target_space"))
-            self.assign(recover_gradient_l2(g))
+            return self.assign(recover_gradient_l2(g))
         elif method == "mixed_L2":
-            super().compute_hessian(f, **kwargs)
+            return super().compute_hessian(f, **kwargs)
         elif method == "Clement":
-            g, H = recover_hessian_clement(f, **kwargs)
-            self.assign(H)
+            return self.assign(recover_hessian_clement(f, **kwargs)[1])
         elif method == "ZZ":
             raise NotImplementedError(
                 "Zienkiewicz-Zhu recovery not yet implemented."
             )  # TODO
         else:
             raise ValueError(f"Recovery method '{method}' not recognised.")
-        return self
 
     @PETSc.Log.EventDecorator()
     def compute_boundary_hessian(self, f: Function, method: str = "mixed_L2", **kwargs):
@@ -74,8 +72,7 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         :arg f: field to recover over the domain boundary
         :kwarg method: choose from 'mixed_L2' and 'Clement'
         """
-        self.assign(recover_boundary_hessian(f, method=method, **kwargs))
-        return self
+        return self.assign(recover_boundary_hessian(f, method=method, **kwargs))
 
     @PETSc.Log.EventDecorator()
     def compute_eigendecomposition(
@@ -194,19 +191,18 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         fs_ten = self.function_space()
         mesh = fs_ten.mesh()
         fe = (fs_ten.ufl_element().family(), fs_ten.ufl_element().degree())
-        fs_vec = firedrake.VectorFunctionSpace(mesh, *fe)
-        fs = FunctionSpace(mesh, *fe)
         dim = mesh.topological_dimension()
-        density = Function(fs, name="Metric density")
-        quotients = Function(fs_vec, name="Anisotropic quotients")
-
-        # Compute eigendecomposition
         evectors, evalues = self.compute_eigendecomposition(reorder=reorder)
 
         # Extract density and quotients
-        magnitudes = [1 / ufl.sqrt(evalues[i]) for i in range(dim)]
-        density.interpolate(1 / np.prod(magnitudes))
-        quotients.interpolate(ufl.as_vector([density * h**dim for h in magnitudes]))
+        density = Function(FunctionSpace(mesh, *fe), name="Metric density")
+        density.interpolate(np.prod([ufl.sqrt(e) for e in evalues]))
+        quotients = Function(
+            firedrake.VectorFunctionSpace(mesh, *fe), name="Anisotropic quotients"
+        )
+        quotients.interpolate(
+            ufl.as_vector([density / ufl.sqrt(e) ** dim for e in evalues])
+        )
         return density, quotients, evectors
 
     def combine(self, *metrics, average: bool = True, **kwargs):
@@ -218,11 +214,7 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
 
         All other keyword arguments are passed to the relevant method.
         """
-        if average:
-            self.average(*metrics, **kwargs)
-        else:
-            self.intersect(*metrics, **kwargs)
-        return self
+        return (self.average if average else self.intersect)(*metrics, **kwargs)
 
     @PETSc.Log.EventDecorator()
     def compute_isotropic_metric(
@@ -284,8 +276,6 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         )
 
     def _any_inf(self, f):
-        if not isinstance(f, Function):
-            f = interpolate(f, FunctionSpace(self.function_space().mesh(), "DG", 0))
         arr = f.vector().gather()
         return np.isinf(arr).any() or np.isnan(arr).any()
 
@@ -349,7 +339,7 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         K_opt_av = K_opt / interpolate(K_opt, P0).vector().gather().sum()
         K_ratio = target_complexity * pow(abs(K_opt_av * K_hat / K), 2 / dim)
 
-        if self._any_inf(K_ratio):
+        if self._any_inf(interpolate(K_ratio, P0)):
             raise ValueError("K_ratio contains non-finite values.")
 
         # Interpolate from P1 to P0
@@ -387,8 +377,7 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         mp["dm_plex_metric_p"] = np.inf
         metric.set_parameters(mp)
         metric.normalise()
-        self.assign(metric)
-        return self
+        return self.assign(metric)
 
     @PETSc.Log.EventDecorator()
     def compute_weighted_hessian_metric(
@@ -416,8 +405,6 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
             hessians = [hessians]
         mesh = self.function_space().mesh()
         P1 = FunctionSpace(mesh, "CG", 1)
-
-        # Project error indicators into P1 space and use them to weight Hessians
         for error_indicator, hessian in zip(error_indicators, hessians):
             if mesh != error_indicator.function_space().mesh():
                 raise ValueError("Cannot use an error indicator from a different mesh.")
@@ -434,10 +421,7 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
             else:
                 raise ValueError(f"Interpolant '{interpolant}' not recognised.")
             hessian.interpolate(abs(error_indicator) * hessian)
-
-        # Combine the components
-        self.combine(*hessians, average=average)
-        return self
+        return self.combine(*hessians, average=average)
 
 
 class P0Metric(RiemannianMetric):

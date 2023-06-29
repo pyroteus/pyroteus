@@ -41,6 +41,6 @@ class TestRampComplexity(unittest.TestCase):
         niter = 3
         for i in range(niter):
             C = ramp_complexity(base, target, i, num_iterations=niter)
-            self.assertLess(C, target)
+            self.assertAlmostEqual(C, base + i * (target - base) / niter)
         C = ramp_complexity(base, target, niter, num_iterations=niter)
         self.assertEqual(C, target)
