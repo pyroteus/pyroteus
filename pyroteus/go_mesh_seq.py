@@ -190,13 +190,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     f" {type(forms)}."
                 )
 
-            # Construct the error indicator
-            for j in range(len(sols[self.fields[0]]["forward"][i])):
-                P0_e = FunctionSpace(mesh_seq_e[i], "DG", 0)
-                indi_e = Function(P0_e)
-
-                # Loop over each strongly coupled field
-                for f in self.fields:
+            # Loop over each strongly coupled field
+            for f in self.fields:
+                # Loop over each timestep
+                for j in range(len(sols[f]["forward"][i])):
                     # Update fields
                     transfer(sols[f][FWD][i][j], u[f])
                     transfer(sols[f][FWD_OLD][i][j], u_[f])
