@@ -24,6 +24,24 @@ class TestMetricNormalisation(unittest.TestCase):
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
         return RiemannianMetric(P1_ten)
 
+    def test_time_partition_length_error(self):
+        time_partition = TimePartition(1.0, 2, [0.5, 0.5], "u")
+        mp = {"dm_plex_metric_target_complexity": 1.0}
+        with self.assertRaises(ValueError) as cm:
+            space_time_normalise([self.simple_metric], time_partition, [mp])
+        msg = "Number of metrics does not match number of subintervals: 1 vs. 2."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_metric_parameters_length_error(self):
+        mp = {"dm_plex_metric_target_complexity": 1.0}
+        with self.assertRaises(ValueError) as cm:
+            space_time_normalise([self.simple_metric], self.time_partition, [mp, mp])
+        msg = (
+            "Number of metrics does not match number of sets of metric parameters:"
+            " 1 vs. 2."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
     def test_metric_parameters_type_error(self):
         with self.assertRaises(TypeError) as cm:
             space_time_normalise([self.simple_metric], self.time_partition, [1])
