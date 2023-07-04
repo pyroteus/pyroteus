@@ -2,6 +2,7 @@
 Driver functions for metric-based mesh adaptation.
 """
 import firedrake.meshadapt
+from .log import debug
 from .time_partition import TimePartition
 from .recovery import *
 from typing import List, Optional, Tuple, Union
@@ -535,22 +536,21 @@ def space_time_normalise(
     metric_parameters: Union[dict, list],
     global_factor: Optional[float] = None,
     boundary: bool = False,
-    **kwargs,
+    restrict_sizes: bool = True,
+    restrict_anisotropy: bool = True,
 ) -> List[RiemannianMetric]:
     r"""
     Apply :math:`L^p` normalisation in both space and time.
 
-    :arg metrics: list of :class:`firedrake.meshadapt.RiemannianMetric`\s
-        corresponding to the metric associated with
-        each subinterval
+    :arg metrics: list of :class:`firedrake.meshadapt.RiemannianMetric`\s corresponding
+        to the metric associated with each subinterval
     :arg time_partition: :class:`TimePartition` for the problem at hand
-    :arg metric_parameters: dictionary containing the target *space-time*
-        metric complexity under `dm_plex_metric_target_complexity` and the
-        normalisation order under `dm_plex_metric_p`, or a list thereof
+    :arg metric_parameters: dictionary containing the target *space-time* metric
+        complexity under `dm_plex_metric_target_complexity` and the normalisation order
+        under `dm_plex_metric_p`, or a list thereof
     :kwarg global_factor: pre-computed global normalisation factor
     :kwarg boundary: is the normalisation to be done over the boundary?
-    :kwarg restrict_sizes: should minimum and maximum metric magnitudes
-        be enforced?
+    :kwarg restrict_sizes: should minimum and maximum metric magnitudes be enforced?
     :kwarg restrict_anisotropy: should maximum anisotropy be enforced?
     """
     if isinstance(metric_parameters, dict):
@@ -596,34 +596,31 @@ def space_time_normalise(
             )
         if target <= 0.0:
             raise ValueError(f"Target complexity '{target}' is not positive.")
-    d = metrics[0].function_space().mesh().topological_dimension()
-
-    # Compute timestep on each subinterval
-    assert len(metrics) == len(time_partition)
-    subinterval_timestep = [S.timestep for S in time_partition]
-
-    # Enforce that the metric is SPD
-    for metric in metrics:
+        metric.set_parameters(mp)
         metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
 
     # Compute global normalisation factor
     if global_factor is None:
         integral = 0
-        for metric, tau, mp in zip(metrics, subinterval_timestep, metric_parameters):
-            p = mp["dm_plex_metric_p"]
-            target = mp["dm_plex_metric_target_complexity"]
-            detM = ufl.det(metric)
+        p = mp["dm_plex_metric_p"]
+        exponent = 0.5 if np.isinf(p) else (p / (2 * p + d))
+        for metric, S in zip(metrics, time_partition):
             dX = (ufl.ds if boundary else ufl.dx)(metric.function_space().mesh())
-            exponent = 0.5 if np.isinf(p) else (p / (2 * p + d))
-            integral += firedrake.assemble(pow(detM, exponent) * dX) * pow(tau, -1)
+            scaling = S.length / S.timestep
+            integral += assemble(pow(scaling * ufl.det(metric), exponent) * dX)
+            metric *= scaling ** 2
+        target = mp["dm_plex_metric_target_complexity"] * time_partition.end_time
+        debug(f"space_time_normalise: target space-time complexity={target:.4e}")
         global_factor = firedrake.Constant(pow(target / integral, 2 / d))
+    debug(f"space_time_normalise: global scale factor={float(global_factor):.4e}")
 
     # Normalise on each subinterval
-    for metric, tau, mp in zip(metrics, subinterval_timestep, metric_parameters):
-        p = mp["dm_plex_metric_p"]
-        metric.set_parameters(mp)
-        metric.normalise(global_factor=global_factor)
-        metric.enforce_spd(**kwargs)
+    for metric in metrics:
+        metric.normalise(
+            global_factor=global_factor,
+            restrict_sizes=restrict_sizes,
+            restrict_anisotropy=restrict_anisotropy,
+        )
     return metrics
 
 
