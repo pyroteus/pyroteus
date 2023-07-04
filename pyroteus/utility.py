@@ -4,6 +4,7 @@ Utility functions and classes for mesh adaptation.
 from .quality import *
 import mpi4py
 import petsc4py
+from firedrake import assemble
 from .log import *
 from collections import OrderedDict
 import numpy as np
@@ -34,9 +35,7 @@ def Mesh(arg, **kwargs) -> MeshGeometry:
     # Facet area
     boundary_markers = sorted(mesh.exterior_facets.unique_markers)
     one = Function(P1).assign(1.0)
-    bnd_len = OrderedDict(
-        {i: firedrake.assemble(one * ufl.ds(int(i))) for i in boundary_markers}
-    )
+    bnd_len = OrderedDict({i: assemble(one * ufl.ds(int(i))) for i in boundary_markers})
     if dim == 2:
         mesh.boundary_len = bnd_len
     else:
@@ -100,7 +99,7 @@ def assemble_mass_matrix(
         )
     else:
         raise ValueError(f"Norm type '{norm_type}' not recognised.")
-    return firedrake.assemble(lhs).petscmat
+    return assemble(lhs).petscmat
 
 
 @PETSc.Log.EventDecorator("pyroteus.norm")
@@ -160,7 +159,7 @@ def norm(v: Function, norm_type: str = "L2", **kwargs) -> float:
             integrand = ufl.inner(v, v) + ufl.inner(ufl.curl(v), ufl.curl(v))
         else:
             raise ValueError(f"Unknown norm type '{norm_type}'.")
-        return firedrake.assemble(condition * integrand ** (p / 2) * dX) ** (1 / p)
+        return assemble(condition * integrand ** (p / 2) * dX) ** (1 / p)
 
 
 @PETSc.Log.EventDecorator("pyroteus.errornorm")
@@ -209,7 +208,7 @@ def errornorm(u, uh: Function, norm_type: str = "L2", **kwargs) -> float:
         if norm_type == "L2":
             vv = [uu - uuh for uu, uuh in zip(u.subfunctions, uh.subfunctions)]
             dX = ufl.ds if kwargs.get("boundary", False) else ufl.dx
-            return ufl.sqrt(firedrake.assemble(sum([ufl.inner(v, v) for v in vv]) * dX))
+            return ufl.sqrt(assemble(sum([ufl.inner(v, v) for v in vv]) * dX))
         else:
             raise NotImplementedError(
                 f"Norm type '{norm_type}' not supported for mixed spaces."

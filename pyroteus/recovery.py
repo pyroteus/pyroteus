@@ -163,7 +163,7 @@ def recover_boundary_hessian(
         p1test = firedrake.TestFunction(P1)
         fa = QualityMeasure(mesh, python=True)("facet_area")
 
-        source = firedrake.assemble(ufl.inner(p0test, ufl.grad(f)) / fa * ufl.ds)
+        source = assemble(ufl.inner(p0test, ufl.grad(f)) / fa * ufl.ds)
 
         # Recover gradient
         c = clement_interpolant(source, boundary=True, target_space=P1_vec)
@@ -178,7 +178,7 @@ def recover_boundary_hessian(
         # Compute tangential components
         for j, s1 in enumerate(s):
             for i, s0 in enumerate(s):
-                l2_proj[i][j] = firedrake.assemble(
+                l2_proj[i][j] = assemble(
                     p1test * ufl.dot(ufl.dot(s0, H), s1) / fa * ufl.ds
                 )
     else:

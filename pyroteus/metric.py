@@ -502,7 +502,7 @@ def enforce_element_constraints(
                     f"Encountered hmax value smaller than hmin: {_hmax} vs. {_hmin}."
                 )
             dx = ufl.dx(domain=mesh)
-            integral = firedrake.assemble(ufl.conditional(hmax < hmin, 1, 0) * dx)
+            integral = assemble(ufl.conditional(hmax < hmin, 1, 0) * dx)
             if not np.isclose(integral, 0.0):
                 raise ValueError(
                     f"Encountered regions where hmax < hmin: volume {integral}."
@@ -639,10 +639,8 @@ def determine_metric_complexity(
     gbar = pow(gbar, d / (2 * p + d - 1))
 
     # Compute coefficients for the algebraic problem
-    a = firedrake.assemble(g * pow(ufl.det(H_interior), p / (2 * p + d)) * ufl.dx)
-    b = firedrake.assemble(
-        gbar * pow(ufl.det(H_boundary), p / (2 * p + d - 1)) * ufl.ds
-    )
+    a = assemble(g * pow(ufl.det(H_interior), p / (2 * p + d)) * ufl.dx)
+    b = assemble(gbar * pow(ufl.det(H_boundary), p / (2 * p + d - 1)) * ufl.ds)
 
     # Solve algebraic problem
     c = sympy.Symbol("c")
