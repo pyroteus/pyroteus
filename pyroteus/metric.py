@@ -1,39 +1,21 @@
 """
 Driver functions for metric-based mesh adaptation.
 """
+import firedrake.meshadapt
 from .time_partition import TimePartition
-from .utility import *
-from firedrake.meshadapt import RiemannianMetric
-from .interpolation import clement_interpolant
-from collections.abc import Iterable
+from .recovery import *
 from typing import List, Optional, Tuple, Union
 import ufl
 
 
 __all__ = [
-    "compute_eigendecomposition",
-    "assemble_eigendecomposition",
-    "isotropic_metric",
-    "anisotropic_metric",
+    "RiemannianMetric",
     "enforce_element_constraints",
     "space_time_normalise",
     "intersect_on_boundary",
-    "combine_metrics",
     "determine_metric_complexity",
-    "density_and_quotients",
     "ramp_complexity",
 ]
-
-
-class P0Metric(RiemannianMetric):
-    r"""
-    Subclass of :class:`RiemannianMetric` which allows use of :math:`\mathbb P0` space.
-    """
-
-    def _check_space(self):
-        el = self.function_space().ufl_element()
-        if (el.family(), el.degree()) != ("Discontinuous Lagrange", 0):
-            raise ValueError(f"P0Metric should be in P0 space, not '{el}'.")
 
 
 def get_metric_kernel(func: str, dim: int) -> op2.Kernel:
@@ -49,363 +31,409 @@ def get_metric_kernel(func: str, dim: int) -> op2.Kernel:
         return op2.Kernel(code.read(), func, cpp=True, include_dirs=include_dir)
 
 
-@PETSc.Log.EventDecorator()
-def compute_eigendecomposition(
-    metric: RiemannianMetric, reorder: bool = False
-) -> Tuple[Function, Function]:
+class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
     """
-    Compute the eigenvectors and eigenvalues of
-    a matrix-valued function.
-
-    :arg M: a :class:`firedrake.meshadapt.RiemannianMetric`
-    :kwarg reorder: should the eigendecomposition
-        be reordered in order of *descending*
-        eigenvalue magnitude?
-    :return: eigenvector :class:`firedrake.function.Function` and
-        eigenvalue :class:`firedrake.function.Function` from the
-        :func:`firedrake.functionspace.TensorFunctionSpace`
-        underpinning the metric
+    Subclass of :class:`firedrake.meshadapt.RiemannianMetric` to allow adding methods.
     """
-    V_ten = metric.function_space()
-    if not isinstance(metric, RiemannianMetric):
-        raise ValueError(
-            "Can only compute eigendecompositions of RiemannianMetrics,"
-            f" not objects of type '{type(metric)}'."
+
+    @PETSc.Log.EventDecorator()
+    def compute_hessian(self, f: Function, method: str = "mixed_L2", **kwargs):
+        """
+        Recover the Hessian of a scalar field.
+
+        :arg f: the scalar field whose Hessian we seek to recover
+        :kwarg method: recovery method
+
+        All other keyword arguments are passed to the chosen recovery routine.
+
+        In the case of the `'L2'` method, the `target_space` keyword argument is used
+        for the gradient recovery. The target space for the Hessian recovery is
+        inherited from the metric itself.
+        """
+        if method == "L2":
+            g = recover_gradient_l2(f, target_space=kwargs.get("target_space"))
+            return self.assign(recover_gradient_l2(g))
+        elif method == "mixed_L2":
+            return super().compute_hessian(f, **kwargs)
+        elif method == "Clement":
+            return self.assign(recover_hessian_clement(f, **kwargs)[1])
+        elif method == "ZZ":
+            raise NotImplementedError(
+                "Zienkiewicz-Zhu recovery not yet implemented."
+            )  # TODO
+        else:
+            raise ValueError(f"Recovery method '{method}' not recognised.")
+
+    @PETSc.Log.EventDecorator()
+    def compute_boundary_hessian(self, f: Function, method: str = "mixed_L2", **kwargs):
+        """
+        Recover the Hessian of a scalar field on the domain boundary.
+
+        :arg f: field to recover over the domain boundary
+        :kwarg method: choose from 'mixed_L2' and 'Clement'
+        """
+        return self.assign(recover_boundary_hessian(f, method=method, **kwargs))
+
+    @PETSc.Log.EventDecorator()
+    def compute_eigendecomposition(
+        self, reorder: bool = False
+    ) -> Tuple[Function, Function]:
+        """
+        Compute the eigenvectors and eigenvalues of a matrix-valued function.
+
+        :kwarg reorder: should the eigendecomposition be reordered in order of
+            *descending* eigenvalue magnitude?
+        :return: eigenvector :class:`firedrake.function.Function` and eigenvalue
+            :class:`firedrake.function.Function` from the
+            :func:`firedrake.functionspace.TensorFunctionSpace` underpinning the metric
+        """
+        V_ten = self.function_space()
+        mesh = V_ten.mesh()
+        fe = (V_ten.ufl_element().family(), V_ten.ufl_element().degree())
+        V_vec = firedrake.VectorFunctionSpace(mesh, *fe)
+        dim = mesh.topological_dimension()
+        evectors, evalues = Function(V_ten), Function(V_vec)
+        if reorder:
+            kernel = get_metric_kernel("get_reordered_eigendecomposition", dim)
+        else:
+            kernel = get_metric_kernel("get_eigendecomposition", dim)
+        op2.par_loop(
+            kernel,
+            V_ten.node_set,
+            evectors.dat(op2.RW),
+            evalues.dat(op2.RW),
+            self.dat(op2.READ),
         )
-    mesh = V_ten.mesh()
-    fe = (V_ten.ufl_element().family(), V_ten.ufl_element().degree())
-    V_vec = firedrake.VectorFunctionSpace(mesh, *fe)
-    dim = mesh.topological_dimension()
-    evectors, evalues = Function(V_ten), Function(V_vec)
-    if reorder:
-        kernel = get_metric_kernel("get_reordered_eigendecomposition", dim)
-    else:
-        kernel = get_metric_kernel("get_eigendecomposition", dim)
-    op2.par_loop(
-        kernel,
-        V_ten.node_set,
-        evectors.dat(op2.RW),
-        evalues.dat(op2.RW),
-        metric.dat(op2.READ),
-    )
-    return evectors, evalues
+        return evectors, evalues
 
+    @PETSc.Log.EventDecorator()
+    def assemble_eigendecomposition(self, evectors: Function, evalues: Function):
+        """
+        Assemble a matrix from its eigenvectors and eigenvalues.
 
-@PETSc.Log.EventDecorator()
-def assemble_eigendecomposition(
-    evectors: Function, evalues: Function
-) -> RiemannianMetric:
-    """
-    Assemble a matrix from its eigenvectors and
-    eigenvalues.
-
-    :arg evectors: eigenvector
-        :class:`firedrake.function.Function`
-    :arg evalues: eigenvalue
-        :class:`firedrake.function.Function`
-    :return: the assembled matrix as a
-        :class:`firedrake.meshadapt.RiemannianMetric`
-    """
-    V_ten = evectors.function_space()
-    fe_ten = V_ten.ufl_element()
-    if len(fe_ten.value_shape()) != 2:
-        raise ValueError(
-            "Eigenvector Function should be rank-2,"
-            f" not rank-{len(fe_ten.value_shape())}."
+        :arg evectors: eigenvector :class:`firedrake.function.Function`
+        :arg evalues: eigenvalue :class:`firedrake.function.Function`
+        """
+        V_ten = evectors.function_space()
+        fe_ten = V_ten.ufl_element()
+        if len(fe_ten.value_shape()) != 2:
+            raise ValueError(
+                "Eigenvector Function should be rank-2,"
+                f" not rank-{len(fe_ten.value_shape())}."
+            )
+        V_vec = evalues.function_space()
+        fe_vec = V_vec.ufl_element()
+        if len(fe_vec.value_shape()) != 1:
+            raise ValueError(
+                "Eigenvalue Function should be rank-1,"
+                f" not rank-{len(fe_vec.value_shape())}."
+            )
+        if fe_ten.family() != fe_vec.family():
+            raise ValueError(
+                "Mismatching finite element families:"
+                f" '{fe_ten.family()}' vs. '{fe_vec.family()}'."
+            )
+        if fe_ten.degree() != fe_vec.degree():
+            raise ValueError(
+                "Mismatching finite element space degrees:"
+                f" {fe_ten.degree()} vs. {fe_vec.degree()}."
+            )
+        dim = V_ten.mesh().topological_dimension()
+        op2.par_loop(
+            get_metric_kernel("set_eigendecomposition", dim),
+            V_ten.node_set,
+            self.dat(op2.RW),
+            evectors.dat(op2.READ),
+            evalues.dat(op2.READ),
         )
-    V_vec = evalues.function_space()
-    fe_vec = V_vec.ufl_element()
-    if len(fe_vec.value_shape()) != 1:
-        raise ValueError(
-            "Eigenvalue Function should be rank-1,"
-            f" not rank-{len(fe_vec.value_shape())}."
+        return self
+
+    @PETSc.Log.EventDecorator()
+    def density_and_quotients(self, reorder: bool = False) -> List[Function]:
+        r"""
+        Extract the density and anisotropy quotients from a metric.
+
+        By symmetry, Riemannian metrics admit an orthogonal eigendecomposition,
+
+        .. math::
+            \underline{\mathbf M}(\mathbf x)
+            = \underline{\mathbf V}(\mathbf x)\:
+            \underline{\boldsymbol\Lambda}(\mathbf x)\:
+            \underline{\mathbf V}(\mathbf x)^T,
+
+        at each point :math:`\mathbf x\in\Omega`, where
+        :math:`\underline{\mathbf V}` and :math:`\underline{\boldsymbol\Sigma}` are
+        matrices holding the eigenvectors and eigenvalues, respectively. By
+        positive-definiteness, entries of :math:`\underline{\boldsymbol\Lambda}` are all
+        positive.
+
+        An alternative decomposition,
+
+        .. math::
+            \underline{\mathbf M}(\mathbf x)
+            = d(\mathbf x)^\frac2n
+            \underline{\mathbf V}(\mathbf x)\:
+            \underline{\mathbf R}(\mathbf x)^{-\frac2n}
+            \underline{\mathbf V}(\mathbf x)^T
+
+        can also be deduced, in terms of the `metric density` and
+        `anisotropy quotients`,
+
+        .. math::
+            d = \prod_{i=1}^n h_i,\qquad
+            r_i = h_i^n d,\qquad \forall i=1:n,
+
+        where :math:`h_i := \frac1{\sqrt{\lambda_i}}`.
+
+        :kwarg reorder: should the eigendecomposition be reordered?
+        :return: metric density, anisotropy quotients and eigenvector matrix
+        """
+        fs_ten = self.function_space()
+        mesh = fs_ten.mesh()
+        fe = (fs_ten.ufl_element().family(), fs_ten.ufl_element().degree())
+        dim = mesh.topological_dimension()
+        evectors, evalues = self.compute_eigendecomposition(reorder=reorder)
+
+        # Extract density and quotients
+        density = Function(FunctionSpace(mesh, *fe), name="Metric density")
+        density.interpolate(np.prod([ufl.sqrt(e) for e in evalues]))
+        quotients = Function(
+            firedrake.VectorFunctionSpace(mesh, *fe), name="Anisotropic quotients"
         )
-    if fe_ten.family() != fe_vec.family():
-        raise ValueError(
-            "Mismatching finite element families:"
-            f" '{fe_ten.family()}' vs. '{fe_vec.family()}'."
+        quotients.interpolate(
+            ufl.as_vector([density / ufl.sqrt(e) ** dim for e in evalues])
         )
-    if fe_ten.degree() != fe_vec.degree():
-        raise ValueError(
-            "Mismatching finite element space degrees:"
-            f" {fe_ten.degree()} vs. {fe_vec.degree()}."
+        return density, quotients, evectors
+
+    def combine(self, *metrics, average: bool = True, **kwargs):
+        """
+        Combine metrics using either averaging or intersection.
+
+        :arg metrics: the list of metrics to combine with
+        :kwarg average: toggle between averaging and intersection
+
+        All other keyword arguments are passed to the relevant method.
+        """
+        return (self.average if average else self.intersect)(*metrics, **kwargs)
+
+    @PETSc.Log.EventDecorator()
+    def compute_isotropic_metric(
+        self, error_indicator: Function, interpolant: str = "Clement", **kwargs
+    ):
+        r"""
+        Compute an isotropic metric from some error indicator.
+
+        The result is a :math:`\mathbb P1` diagonal tensor field whose entries are
+        projections of the error indicator in modulus.
+
+        :arg error_indicator: the error indicator
+        :kwarg interpolant: choose from 'Clement' or 'L2'
+        """
+        mesh = ufl.domain.extract_unique_domain(error_indicator)
+        if mesh != self.function_space().mesh():
+            raise ValueError("Cannot use an error indicator from a different mesh.")
+        dim = mesh.topological_dimension()
+
+        # Interpolate P0 indicators into P1 space
+        if interpolant == "Clement":
+            P1_indicator = clement_interpolant(error_indicator)
+        elif interpolant == "L2":
+            P1_indicator = firedrake.project(
+                error_indicator, FunctionSpace(mesh, "CG", 1)
+            )
+        else:
+            raise ValueError(f"Interpolant '{interpolant}' not recognised.")
+        return self.interpolate(abs(P1_indicator) * ufl.Identity(dim))
+
+    def compute_isotropic_dwr_metric(
+        self,
+        error_indicator: Function,
+        convergence_rate: float = 1.0,
+        min_eigenvalue: float = 1.0e-05,
+        interpolant: str = "Clement",
+    ):
+        r"""
+        Compute an isotropic metric from some error indicator using an element-based
+        formulation.
+
+        The formulation is based on that presented in :cite:`CPB:13`. Note that
+        normalisation is implicit in the metric construction and involves the
+        `convergence_rate` parameter, named :math:`alpha` in :cite:`CPB:13`.
+
+        Whilst an element-based formulation is used to derive the metric, the result is
+        projected into :math:`\mathbb P1` space, by default.
+
+        :arg error_indicator: the error indicator
+        :kwarg convergence_rate: normalisation parameter
+        :kwarg min_eigenvalue: minimum tolerated eigenvalue
+        :kwarg interpolant: choose from 'Clement' or 'L2'
+        """
+        return self.compute_anisotropic_dwr_metric(
+            error_indicator=error_indicator,
+            convergence_rate=convergence_rate,
+            min_eigenvalue=min_eigenvalue,
+            interpolant=interpolant,
         )
-    dim = V_ten.mesh().topological_dimension()
-    if (fe_vec.family(), fe_vec.degree()) == ("Lagrange", 1):
-        M = RiemannianMetric(V_ten)
-    elif (fe_vec.family(), fe_vec.degree()) == ("Discontinuous Lagrange", 0):
-        M = P0Metric(V_ten)
-    else:
-        raise ValueError(
-            "Can only work with RiemannianMetrics defined in P1 space or P0 space, not"
-            f"{fe_vec}."
-        )
-    op2.par_loop(
-        get_metric_kernel("set_eigendecomposition", dim),
-        V_ten.node_set,
-        M.dat(op2.RW),
-        evectors.dat(op2.READ),
-        evalues.dat(op2.READ),
-    )
-    return M
 
+    def _any_inf(self, f):
+        arr = f.vector().gather()
+        return np.isinf(arr).any() or np.isnan(arr).any()
 
-# --- General
+    @PETSc.Log.EventDecorator()
+    def compute_anisotropic_dwr_metric(
+        self,
+        error_indicator: Function,
+        hessian: Optional[Function] = None,
+        convergence_rate: float = 1.0,
+        min_eigenvalue: float = 1.0e-05,
+        interpolant: str = "Clement",
+    ):
+        r"""
+        Compute an anisotropic metric from some error indicator, given a Hessian field.
 
+        The formulation used is based on that presented in :cite:`CPB:13`. Note that
+        normalisation is implicit in the metric construction and involves the
+        `convergence_rate` parameter, named :math:`alpha` in :cite:`CPB:13`.
 
-@PETSc.Log.EventDecorator()
-def isotropic_metric(
-    error_indicator: Function, interpolant: str = "Clement", **kwargs
-) -> RiemannianMetric:
-    r"""
-    Compute an isotropic metric from some error indicator.
+        If a Hessian is not provided then an isotropic formulation is used.
 
-    The result is a :math:`\mathbb P1` diagonal tensor
-    field whose entries are projections of the error
-    indicator in modulus.
+        Whilst an element-based formulation is used to derive the metric, the result is
+        projected into :math:`\mathbb P1` space, by default.
 
-    :arg error_indicator: the error indicator
-    :kwarg target_space:
-        :func:`firedrake.functionspace.TensorFunctionSpace`
-        in which the metric will exist
-    :kwarg interpolant: choose from 'Clement', 'L2',
-        'interpolate', 'project'
-    :return: the isotropic
-        :class:`firedrake.meshadapt.RiemannianMetric`
-    """
-    target_space = kwargs.get("target_space")
-    mesh = ufl.domain.extract_unique_domain(error_indicator)
-    dim = mesh.topological_dimension()
-    assert dim in (2, 3), f"Spatial dimension {dim:d} not supported."
-    target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
-    assert target_space.ufl_element().family() == "Lagrange"
-    assert target_space.ufl_element().degree() == 1
-    metric = RiemannianMetric(target_space)
+        :arg error_indicator: the error indicator
+        :kwarg hessian: the Hessian
+        :kwarg convergence_rate: normalisation parameter
+        :kwarg min_eigenvalue: minimum tolerated eigenvalue
+        :kwarg interpolant: choose from 'Clement' or 'L2'
+        """
+        mp = self.metric_parameters.copy()
+        target_complexity = mp.get("dm_plex_metric_target_complexity")
+        if target_complexity is None:
+            raise ValueError("Target complexity must be set.")
+        mesh = ufl.domain.extract_unique_domain(error_indicator)
+        if mesh != self.function_space().mesh():
+            raise ValueError("Cannot use an error indicator from a different mesh.")
+        dim = mesh.topological_dimension()
+        if convergence_rate < 1.0:
+            raise ValueError(
+                f"Convergence rate must be at least one, not {convergence_rate}."
+            )
+        if min_eigenvalue <= 0.0:
+            raise ValueError(
+                f"Minimum eigenvalue must be positive, not {min_eigenvalue}."
+            )
+        if interpolant not in ("Clement", "L2"):
+            raise ValueError(f"Interpolant '{interpolant}' not recognised.")
+        P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
+        P0_metric = P0Metric(P0_ten)
 
-    # Interpolate P0 indicators into P1 space
-    if interpolant == "Clement":
-        if not isinstance(error_indicator, Function):
-            raise NotImplementedError("Can only apply Clement interpolant to Functions")
-        fs = error_indicator.function_space()
-        family = fs.ufl_element().family()
-        degree = fs.ufl_element().degree()
-        if family != "Lagrange" or degree != 1:
-            if family != "Discontinuous Lagrange" or degree != 0:
-                raise ValueError(
-                    "Was expecting an error indicator in P0 or P1"
-                    f" space, not {family} of degree {degree}"
-                )
-            error_indicator = clement_interpolant(error_indicator)
-    if interpolant in ("L2", "project"):
-        error_indicator = firedrake.project(
-            error_indicator, FunctionSpace(mesh, "CG", 1)
-        )
-    elif interpolant not in ("Clement", "interpolate"):
-        raise ValueError(f"Interpolant '{interpolant}' not recognised.")
-    metric.interpolate(abs(error_indicator) * ufl.Identity(dim))
-    return metric
+        # Get reference element volume
+        K_hat = 1 / 2 if dim == 2 else 1 / 6
 
+        # Get current element volume
+        K = K_hat * abs(ufl.JacobianDeterminant(mesh))
 
-def anisotropic_metric(
-    error_indicator: Function, hessian: RiemannianMetric, **kwargs
-) -> RiemannianMetric:
-    r"""
-    Compute an element-wise anisotropic metric from some
-    error indicator, given a Hessian field.
+        # Get optimal element volume
+        P0 = FunctionSpace(mesh, "DG", 0)
+        K_opt = pow(error_indicator, 1 / (convergence_rate + 1))
+        K_opt_av = K_opt / interpolate(K_opt, P0).vector().gather().sum()
+        K_ratio = target_complexity * pow(abs(K_opt_av * K_hat / K), 2 / dim)
 
-    Two formulations are currently available:
-      * the element-wise formulation presented
-        in :cite:`CPB:13`; and
-      * the vertex-wise formulation presented in
-        :cite:`PPP+:06`.
+        if self._any_inf(interpolate(K_ratio, P0)):
+            raise ValueError("K_ratio contains non-finite values.")
 
-    In both cases, a :math:`\mathbb P1` metric is
-    returned by default.
+        # Interpolate from P1 to P0
+        #   Note that this shouldn't affect symmetric positive-definiteness.
+        if hessian is not None:
+            hessian.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
+        P0_metric.project(hessian or ufl.Identity(dim))
 
-    :arg error_indicator: (list of) error indicator(s)
-    :arg hessian: (list of) Hessian(s)
-    :kwarg target_space:
-        :func:`firedrake.functionspace.TensorFunctionSpace`
-        in which the metric will exist
-    :kwarg interpolant: choose from 'Clement', 'L2',
-        'interpolate', 'project'
-    """
-    approach = kwargs.pop("approach", "anisotropic_dwr")
-    if approach == "anisotropic_dwr":
-        return anisotropic_dwr_metric(error_indicator, hessian=hessian, **kwargs)
-    elif approach == "weighted_hessian":
-        return weighted_hessian_metric(error_indicator, hessian=hessian, **kwargs)
-    else:
-        raise ValueError(f"Anisotropic metric approach {approach} not recognised.")
-
-
-@PETSc.Log.EventDecorator()
-def anisotropic_dwr_metric(
-    error_indicator: Function, interpolant: str = "Clement", **kwargs
-) -> Function:
-    r"""
-    Compute an anisotropic metric from some error
-    indicator, given a Hessian field.
-
-    The formulation used is based on that presented
-    in :cite:`CPB:13`.
-
-    Whilst an element-based formulation is used to
-    derive the metric, the result is projected into
-    :math:`\mathbb P1` space, by default.
-
-    Note that normalisation is implicit in the metric
-    construction and involves the `convergence_rate`
-    parameter, named :math:`alpha` in :cite:`CPB:13`.
-
-    If a Hessian is not provided then an isotropic
-    formulation is used.
-
-    :arg error_indicator: the error indicator
-    :kwarg hessian: the Hessian
-    :kwarg target_space:
-        :func:`firedrake.functionspace.TensorFunctionSpace`
-        in which the metric will exist
-    :kwarg target_complexity: target metric complexity
-    :kwarg convergence rate: normalisation parameter
-    :kwarg interpolant: choose from 'Clement', 'L2',
-        'interpolate', 'project'
-    """
-    hessian = kwargs.get("hessian")
-    target_space = kwargs.get("target_space")
-    if isinstance(error_indicator, list):  # FIXME: This is hacky
-        error_indicator = error_indicator[0]
-    if isinstance(hessian, list):  # FIXME: This is hacky
-        hessian = hessian[0]
-    target_complexity = kwargs.get("target_complexity", None)
-    min_eigenvalue = kwargs.get("min_eigenvalue", 1.0e-05)
-    if target_complexity <= 0.0:
-        raise ValueError(
-            f"Target complexity must be positive, not {target_complexity}."
-        )
-    mesh = ufl.domain.extract_unique_domain(error_indicator)
-    dim = mesh.topological_dimension()
-    if dim not in (2, 3):
-        raise ValueError(f"Spatial dimension {dim} not supported. Must be 2 or 3.")
-    convergence_rate = kwargs.get("convergence_rate", 1.0)
-    if convergence_rate < 1.0:
-        raise ValueError(
-            f"Convergence rate must be at least one, not {convergence_rate}."
-        )
-    P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
-    P0_metric = P0Metric(P0_ten)
-
-    # Get reference element volume
-    K_hat = 1 / 2 if dim == 2 else 1 / 6
-
-    # Get current element volume
-    K = K_hat * abs(ufl.JacobianDeterminant(mesh))
-
-    # Get optimal element volume
-    P0 = FunctionSpace(mesh, "DG", 0)
-    K_opt = firedrake.interpolate(pow(error_indicator, 1 / (convergence_rate + 1)), P0)
-    K_opt.interpolate(K / target_complexity * K_opt.vector().gather().sum() / K_opt)
-    K_ratio = pow(abs(K_hat / K_opt), 2 / dim)
-    if hessian is None:
-        P0_metric.interpolate(K_ratio * ufl.Identity(dim))
-        P0_metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
-    else:
-        # Interpolate from P1 to P0 by averaging the vertex-wise values
-        P0_metric.project(hessian)
-        P0_metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
-
-        # Compute stretching factors (in ascending order), multiplied by K_ratio
-        evectors, evalues = compute_eigendecomposition(P0_metric, reorder=True)
-        lmin = max(evalues.vector().gather().min(), min_eigenvalue)
-        scaling = 1 / pow(np.prod(evalues), 1 / dim)
+        # Compute stretching factors (in ascending order)
+        evectors, evalues = P0_metric.compute_eigendecomposition(reorder=True)
+        divisor = pow(np.prod(evalues), 1 / dim)
         modified_evalues = [
-            ufl.max_value(K_ratio * abs(scaling * e), lmin) for e in evalues
+            abs(ufl.max_value(e, min_eigenvalue) / divisor) for e in evalues
         ]
 
         # Assemble metric with modified eigenvalues
-        evalues.interpolate(ufl.as_vector(modified_evalues))
-        v = evalues.vector().gather()
-        if np.isnan(v).any():
-            raise ValueError("At least one modified stretching factor is not finite.")
-        P0_metric.assign(assemble_eigendecomposition(evectors, evalues))
+        evalues.interpolate(K_ratio * ufl.as_vector(modified_evalues))
+        if self._any_inf(evalues):
+            raise ValueError(
+                "At least one modified stretching factor contains non-finite values."
+            )
+        P0_metric.assemble_eigendecomposition(evectors, evalues)
 
-    # Interpolate the metric into target space and ensure SPD
-    target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
-    metric = RiemannianMetric(target_space)
-    if interpolant == "Clement":
-        metric.assign(clement_interpolant(P0_metric, target_space=target_space))
-    elif interpolant == "interpolate":
-        metric.interpolate(P0_metric)
-    elif interpolant in ("project", "L2"):
-        metric.project(P0_metric)
-    else:
-        raise ValueError(f"Interpolant {interpolant} not recognised")
-
-    # Rescale to enforce that the target complexity is met
-    #   Note that we use the L-infinity norm so that the metric is just scaled to the
-    #   target metric complexity, as opposed to being redistributed spatially.
-    mp = {
-        "dm_plex_metric_target_complexity": target_complexity,
-        "dm_plex_metric_p": np.inf,
-    }
-    metric.set_parameters(mp)
-    metric.normalise()
-    return metric
-
-
-@PETSc.Log.EventDecorator()
-def weighted_hessian_metric(
-    error_indicators: List[Function],
-    hessians: List[RiemannianMetric],
-    interpolant: str = "Clement",
-    **kwargs,
-) -> Function:
-    r"""
-    Compute a vertex-wise anisotropic metric from a (list
-    of) error indicator(s), given a (list of) Hessian
-    field(s).
-
-    The formulation used is based on that presented
-    in :cite:`PPP+:06`.
-
-    :arg error_indicators: (list of) error indicator(s)
-    :arg hessians: (list of) Hessian(s)
-    :kwarg target_space:
-        :func:`firedrake.functionspace.TensorFunctionSpace`
-        in which the metric will exist
-    :kwarg average: should metric components be averaged
-        or intersected?
-    :kwarg interpolant: choose from 'Clement', 'L2',
-        'interpolate', 'project'
-    """
-    target_space = kwargs.get("target_space")
-    if not isinstance(error_indicators, Iterable):
-        error_indicators = [error_indicators]
-    if not isinstance(hessians, Iterable):
-        hessians = [hessians]
-    mesh = ufl.domain.extract_unique_domain(hessians[0])
-    dim = mesh.topological_dimension()
-    if dim not in (2, 3):
-        raise ValueError(f"Spatial dimension {dim:d} not supported. Must be 2 or 3.")
-
-    # Project error indicators into P1 space and use them to weight Hessians
-    target_space = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
-    metrics = [RiemannianMetric(target_space) for hessian in hessians]
-    for error_indicator, hessian, metric in zip(error_indicators, hessians, metrics):
+        # Interpolate the metric into the target space
+        fs = self.function_space()
+        metric = RiemannianMetric(fs)
         if interpolant == "Clement":
-            error_indicator = clement_interpolant(error_indicator)
+            metric.assign(clement_interpolant(P0_metric, target_space=fs))
         else:
-            P1 = FunctionSpace(mesh, "CG", 1)
-            if interpolant == "interpolate":
-                error_indicator = firedrake.interpolate(error_indicator, P1)
-            elif interpolant in ("L2", "project"):
+            metric.project(P0_metric)
+
+        # Rescale to enforce that the target complexity is met
+        #   Note that we use the L-infinity norm so that the metric is just scaled to the
+        #   target metric complexity, as opposed to being redistributed spatially.
+        mp["dm_plex_metric_p"] = np.inf
+        metric.set_parameters(mp)
+        metric.normalise()
+        return self.assign(metric)
+
+    @PETSc.Log.EventDecorator()
+    def compute_weighted_hessian_metric(
+        self,
+        error_indicators: List[Function],
+        hessians: List[Function],
+        average: bool = False,
+        interpolant: str = "Clement",
+    ):
+        r"""
+        Compute a vertex-wise anisotropic metric from a list of error indicators, given
+        a list of corresponding Hessian fields.
+
+        The formulation used is based on that presented in :cite:`PPP+:06`. It is
+        assumed that the error indicators have been constructed in the appropriate way.
+
+        :arg error_indicators: list of error indicators
+        :arg hessians: list of Hessians
+        :kwarg average: should metric components be averaged or intersected?
+        :kwarg interpolant: choose from 'Clement' or 'L2'
+        """
+        if isinstance(error_indicators, Function):
+            error_indicators = [error_indicators]
+        if isinstance(hessians, Function):
+            hessians = [hessians]
+        mesh = self.function_space().mesh()
+        P1 = FunctionSpace(mesh, "CG", 1)
+        for error_indicator, hessian in zip(error_indicators, hessians):
+            if mesh != error_indicator.function_space().mesh():
+                raise ValueError("Cannot use an error indicator from a different mesh.")
+            if mesh != hessian.function_space().mesh():
+                raise ValueError("Cannot use a Hessian from a different mesh.")
+            if not isinstance(hessian, RiemannianMetric):
+                raise TypeError(
+                    f"Expected Hessian to be a RiemannianMetric, not {type(hessian)}."
+                )
+            if interpolant == "Clement":
+                error_indicator = clement_interpolant(error_indicator, target_space=P1)
+            elif interpolant == "L2":
                 error_indicator = firedrake.project(error_indicator, P1)
             else:
-                raise ValueError(f"Interpolant {interpolant} not recognised")
-        metric.interpolate(abs(error_indicator) * hessian)
+                raise ValueError(f"Interpolant '{interpolant}' not recognised.")
+            hessian.interpolate(abs(error_indicator) * hessian)
+        return self.combine(*hessians, average=average)
 
-    # Combine the components
-    return combine_metrics(*metrics, average=kwargs.get("average", False))
+
+class P0Metric(RiemannianMetric):
+    r"""
+    Subclass of :class:`firedrake.meshadapt.RiemannianMetric` which allows use of
+    :math:`\mathbb P0` space.
+    """
+
+    def _check_space(self):
+        el = self.function_space().ufl_element()
+        if (el.family(), el.degree()) != ("Discontinuous Lagrange", 0):
+            raise ValueError(f"P0 metric should be in P0 space, not '{el}'.")
 
 
 # TODO: Implement this on the PETSc level and port it through to Firedrake
@@ -500,9 +528,6 @@ def enforce_element_constraints(
     return metrics
 
 
-# --- Normalisation
-
-
 @PETSc.Log.EventDecorator()
 def space_time_normalise(
     metrics: List[RiemannianMetric],
@@ -534,7 +559,7 @@ def space_time_normalise(
         if not isinstance(mp, dict):
             raise TypeError(
                 "Expected metric_parameters to consist of dictionaries,"
-                f" not objects of type '{type(mp)}'"
+                f" not objects of type '{type(mp)}'."
             )
         p = mp.get("dm_plex_metric_p")
         if p is None:
@@ -581,17 +606,16 @@ def space_time_normalise(
     return metrics
 
 
-@PETSc.Log.EventDecorator("pyroteus.determine_metric_complexity")
+@PETSc.Log.EventDecorator()
 def determine_metric_complexity(
     H_interior: Function, H_boundary: Function, target: float, p: float, **kwargs
 ) -> float:
     """
-    Solve an algebraic problem to obtain coefficients
-    for the interior and boundary metrics to obtain a
-    given metric complexity.
+    Solve an algebraic problem to obtain coefficients for the interior and boundary
+    metrics to obtain a given metric complexity.
 
-    See :cite:`LDA:10` for details. Note that we use a
-    slightly different formulation here.
+    See :cite:`LDA:10` for details. Note that we use a slightly different formulation
+    here.
 
     :arg H_interior: Hessian component from domain interior
     :arg H_boundary: Hessian component from domain boundary
@@ -634,9 +658,7 @@ def determine_metric_complexity(
         return float(sympy.re(c[0]))
 
 
-# --- Combination
-
-
+# TODO: Use the intersection functionality in PETSc
 @PETSc.Log.EventDecorator()
 def intersect_on_boundary(
     *metrics: Tuple[RiemannianMetric],
@@ -697,93 +719,6 @@ def intersect_on_boundary(
     return intersected_metric
 
 
-def combine_metrics(
-    *metrics: Tuple[RiemannianMetric], average: bool = True, **kwargs
-) -> RiemannianMetric:
-    """
-    Combine a list of metrics.
-
-    :kwarg average: combination by averaging or intersection?
-    """
-    metric = RiemannianMetric(metrics[0].function_space())
-    if average:
-        metric.average(*metrics, **kwargs)
-    else:
-        metric.intersect(*metrics, **kwargs)
-    return metric
-
-
-# --- Metric decompositions and properties
-
-
-@PETSc.Log.EventDecorator()
-def density_and_quotients(
-    metric: RiemannianMetric, reorder: bool = False
-) -> List[Function]:
-    r"""
-    Extract the density and anisotropy quotients from a
-    metric.
-
-    By symmetry, Riemannian metrics admit an orthogonal
-    eigendecomposition,
-
-    .. math::
-        \underline{\mathbf M}(\mathbf x)
-        = \underline{\mathbf V}(\mathbf x)\:
-        \underline{\boldsymbol\Lambda}(\mathbf x)\:
-        \underline{\mathbf V}(\mathbf x)^T,
-
-    at each point :math:`\mathbf x\in\Omega`, where
-    :math:`\underline{\mathbf V}` and
-    :math:`\underline{\boldsymbol\Sigma}` are matrices
-    holding the eigenvectors and eigenvalues, respectively.
-    By positive-definiteness, entries of
-    :math:`\underline{\boldsymbol\Lambda}` are all positive.
-
-    An alternative decomposition,
-
-    .. math::
-        \underline{\mathbf M}(\mathbf x)
-        = d(\mathbf x)^\frac2n
-        \underline{\mathbf V}(\mathbf x)\:
-        \underline{\mathbf R}(\mathbf x)^{-\frac2n}
-        \underline{\mathbf V}(\mathbf x)^T
-
-    can also be deduced, in terms of the `metric density`
-    and `anisotropy quotients`,
-
-    .. math::
-        d = \prod_{i=1}^n h_i,\qquad
-        r_i = h_i^n d,\qquad \forall i=1:n,
-
-    where :math:`h_i := \frac1{\sqrt{\lambda_i}}`.
-
-    :arg metric: the metric to extract density and
-        quotients from
-    :kwarg reorder: should the eigendecomposition be
-        reordered?
-    :return: metric density, anisotropy quotients and
-        eigenvector matrix
-    """
-    fs_ten = metric.function_space()
-    mesh = fs_ten.mesh()
-    fe = (fs_ten.ufl_element().family(), fs_ten.ufl_element().degree())
-    fs_vec = firedrake.VectorFunctionSpace(mesh, *fe)
-    fs = FunctionSpace(mesh, *fe)
-    dim = mesh.topological_dimension()
-    density = Function(fs, name="Metric density")
-    quotients = Function(fs_vec, name="Anisotropic quotients")
-
-    # Compute eigendecomposition
-    evectors, evalues = compute_eigendecomposition(metric, reorder=reorder)
-
-    # Extract density and quotients
-    magnitudes = [1 / ufl.sqrt(evalues[i]) for i in range(dim)]
-    density.interpolate(1 / np.prod(magnitudes))
-    quotients.interpolate(ufl.as_vector([density * h**dim for h in magnitudes]))
-    return density, quotients, evectors
-
-
 def ramp_complexity(
     base: float, target: float, i: int, num_iterations: int = 3
 ) -> float:
@@ -805,5 +740,5 @@ def ramp_complexity(
         raise ValueError(
             f"Number of iterations must be non-negative, not {num_iterations}."
         )
-    alpha = min(i / num_iterations, 1)
+    alpha = 1 if num_iterations == 0 else min(i / num_iterations, 1)
     return alpha * target + (1 - alpha) * base

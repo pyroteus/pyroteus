@@ -155,7 +155,9 @@ plt.close()
 
 def adaptor(mesh_seq, solutions, indicators):
     # Deduce an isotropic metric from the error indicator field
-    metric = isotropic_metric(indicators["c"][0][0])
+    P1_ten = TensorFunctionSpace(mesh_seq[0], "CG", 1)
+    metric = RiemannianMetric(P1_ten)
+    metric.compute_isotropic_metric(indicators["c"][0][0])
 
     # Ramp the target metric complexity from 400 to 1000 over the first few iterations
     base, target, iteration = 400, 1000, mesh_seq.fp_iteration
@@ -270,16 +272,20 @@ plt.close()
 
 
 def adaptor(mesh_seq, solutions, indicators):
-    base, target, iteration = 400, 1000, mesh_seq.fp_iteration
+    P1_ten = TensorFunctionSpace(mesh_seq[0], "CG", 1)
 
-    # Deduce an anisotropic metric from the error indicator field and the Hessian of the
-    # forward solution
-    hessian = recover_hessian(solutions["c"]["forward"][0][0])
-    metric = anisotropic_metric(
-        indicators["c"][0][0],
-        hessian,
-        target_complexity=ramp_complexity(base, target, iteration),
-    )
+    # Recover the Hessian of the forward solution
+    hessian = RiemannianMetric(P1_ten)
+    hessian.compute_hessian(solutions["c"]["forward"][0][0])
+
+    # Ramp the target metric complexity from 400 to 1000 over the first few iterations
+    metric = RiemannianMetric(P1_ten)
+    base, target, iteration = 400, 1000, mesh_seq.fp_iteration
+    mp = {"dm_plex_metric_target_complexity": ramp_complexity(base, target, iteration)}
+    metric.set_parameters(mp)
+
+    # Deduce an anisotropic metric from the error indicator field and the Hessian
+    metric.compute_anisotropic_dwr_metric(indicators["c"][0][0], hessian)
     complexity = metric.complexity()
 
     # Adapt the mesh
