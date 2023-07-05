@@ -104,29 +104,30 @@ class TestAdjointUtils(unittest.TestCase):
 
     def test_qoi_convergence_values_lt_2(self):
         mesh_seq = self.mesh_seq("end_time")
-        mesh_seq.fp_iteration = mesh_seq.params.miniter
+        mesh_seq.fp_iteration = mesh_seq.params.miniter + 1
         mesh_seq.qoi_values = [1.0]
         mesh_seq.check_qoi_convergence()
-        self.assertFalse(mesh_seq.converged)
+        self.assertFalse(mesh_seq.converged[0])
 
     def test_qoi_convergence_values_lt_miniter(self):
         mesh_seq = self.mesh_seq("end_time")
         mesh_seq.fp_iteration = mesh_seq.params.miniter
         mesh_seq.qoi_values = np.ones(mesh_seq.params.miniter - 1)
         mesh_seq.check_qoi_convergence()
-        self.assertFalse(mesh_seq.converged)
+        self.assertFalse(mesh_seq.converged[0])
 
     def test_qoi_convergence_values_constant(self):
         mesh_seq = self.mesh_seq("end_time")
         mesh_seq.fp_iteration = mesh_seq.params.miniter
-        mesh_seq.qoi_values = np.ones(mesh_seq.params.miniter)
+        mesh_seq.qoi_values = np.ones(mesh_seq.params.miniter + 1)
         mesh_seq.check_qoi_convergence()
-        self.assertTrue(mesh_seq.converged)
+        print(mesh_seq.converged)
+        self.assertTrue(mesh_seq.converged[0])
 
     def test_qoi_convergence_values_not_converged(self):
         mesh_seq = self.mesh_seq("end_time")
         mesh_seq.fp_iteration = mesh_seq.params.miniter
-        mesh_seq.qoi_values = np.ones(mesh_seq.params.miniter)
+        mesh_seq.qoi_values = np.ones(mesh_seq.params.miniter + 1)
         mesh_seq.qoi_values[-1] = 100.0
         mesh_seq.check_qoi_convergence()
-        self.assertFalse(mesh_seq.converged)
+        self.assertFalse(mesh_seq.converged[0])
