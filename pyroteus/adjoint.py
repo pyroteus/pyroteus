@@ -452,7 +452,7 @@ class AdjointMeshSeq(MeshSeq):
             if abs(qoi - qoi_) < self.params.qoi_rtol * abs(qoi_):
                 self.converged[:] = True
                 pyrint(
-                    f"Terminated due to QoI convergence after {self.fp_iteration+1}"
-                    " iterations."
+                    f"QoI converged after {self.fp_iteration+1} iterations"
+                    f" under relative tolerance {self.params.qoi_rtol}."
                 )
         return self.converged

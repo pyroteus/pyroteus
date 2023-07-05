@@ -232,8 +232,8 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             if abs(ee - ee_) < self.params.estimator_rtol * abs(ee_):
                 self.converged[:] = True
                 pyrint(
-                    "Terminated due to error estimator convergence after"
-                    f" {self.fp_iteration+1} iterations."
+                    f"Error estimator converged after {self.fp_iteration+1} iterations"
+                    f" under relative tolerance {self.params.estimator_rtol}."
                 )
         return self.converged
 

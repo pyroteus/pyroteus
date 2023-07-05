@@ -602,8 +602,9 @@ class MeshSeq:
                 if abs(ne - ne_) <= self.params.element_rtol * ne_:
                     self.converged[i] = True
                     pyrint(
-                        f"Dropping out subinterval {i} due to element count convergence"
-                        f" after {self.fp_iteration+1} iterations."
+                        f"Element count converged on subinterval {i} after"
+                        f" {self.fp_iteration+1} iterations under relative tolerance"
+                        f" {self.params.element_rtol}."
                     )
         return self.converged
 
