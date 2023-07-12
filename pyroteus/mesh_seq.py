@@ -640,7 +640,9 @@ class MeshSeq:
 
             # Adapt meshes, logging element and vertex counts
             continue_unconditionally = adaptor(self, sols)
-            self.check_convergence[:] = np.logical_not(continue_unconditionally)
+            self.check_convergence[:] = np.logical_not(
+                np.logical_or(continue_unconditionally, self.converged)
+            )
             self.element_counts.append(self.count_elements())
             self.vertex_counts.append(self.count_vertices())
 
