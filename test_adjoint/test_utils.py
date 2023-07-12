@@ -121,7 +121,6 @@ class TestAdjointUtils(unittest.TestCase):
         mesh_seq.fp_iteration = mesh_seq.params.miniter
         mesh_seq.qoi_values = np.ones(mesh_seq.params.miniter + 1)
         mesh_seq.check_qoi_convergence()
-        print(mesh_seq.converged)
         self.assertTrue(mesh_seq.converged[0])
 
     def test_qoi_convergence_values_not_converged(self):
