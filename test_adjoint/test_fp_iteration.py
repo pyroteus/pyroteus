@@ -70,6 +70,8 @@ class TestMeshSeq(unittest.TestCase):
         mesh_seq = self.mesh_seq(TimeInstant([]), UnitTriangleMesh())
         mesh_seq.fixed_point_iteration(adaptor)
         self.assertEqual(len(mesh_seq.element_counts), miniter + 1)
+        self.assertTrue(np.allclose(mesh_seq.converged, True))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
     def test_noconvergence(self):
         mesh1 = UnitSquareMesh(1, 1)
@@ -83,6 +85,8 @@ class TestMeshSeq(unittest.TestCase):
         mesh_seq = self.mesh_seq(TimeInstant([]), mesh2)
         mesh_seq.fixed_point_iteration(adaptor)
         self.assertEqual(len(mesh_seq.element_counts), maxiter + 1)
+        self.assertTrue(np.allclose(mesh_seq.converged, False))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
     def test_dropout(self):
         mesh1 = UnitSquareMesh(1, 1)
@@ -97,6 +101,8 @@ class TestMeshSeq(unittest.TestCase):
         mesh_seq.fixed_point_iteration(adaptor)
         expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
         self.assertEqual(mesh_seq.element_counts, expected)
+        self.assertTrue(np.allclose(mesh_seq.converged, [False, True]))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, [True, False]))
 
 
 class TestGoalOrientedMeshSeq(unittest.TestCase):
@@ -133,6 +139,8 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         mesh_seq = self.mesh_seq(TimeInstant([]), UnitTriangleMesh())
         mesh_seq.fixed_point_iteration(adaptor)
         self.assertEqual(len(mesh_seq.element_counts), miniter + 1)
+        self.assertTrue(np.allclose(mesh_seq.converged, True))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
     def test_noconvergence(self):
         mesh1 = UnitSquareMesh(1, 1)
@@ -146,6 +154,8 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         mesh_seq = self.mesh_seq(TimeInstant([]), mesh2)
         mesh_seq.fixed_point_iteration(adaptor)
         self.assertEqual(len(mesh_seq.element_counts), maxiter + 1)
+        self.assertTrue(np.allclose(mesh_seq.converged, False))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
     def test_dropout(self):
         mesh1 = UnitSquareMesh(1, 1)
@@ -160,3 +170,5 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         mesh_seq.fixed_point_iteration(adaptor)
         expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
         self.assertEqual(mesh_seq.element_counts, expected)
+        self.assertTrue(np.allclose(mesh_seq.converged, [False, True]))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, [True, False]))
