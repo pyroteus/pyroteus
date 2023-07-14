@@ -606,11 +606,18 @@ class MeshSeq:
                     continue
                 if abs(ne - ne_) <= self.params.element_rtol * ne_:
                     self.converged[i] = True
-                    pyrint(
-                        f"Element count converged on subinterval {i} after"
-                        f" {self.fp_iteration+1} iterations under relative tolerance"
-                        f" {self.params.element_rtol}."
-                    )
+                    if len(self) == 1:
+                        pyrint(
+                            f"Element count converged after {self.fp_iteration+1}"
+                            " iterations under relative tolerance"
+                            f" {self.params.element_rtol}."
+                        )
+                    else:
+                        pyrint(
+                            f"Element count converged on subinterval {i} after"
+                            f" {self.fp_iteration+1} iterations under relative tolerance"
+                            f" {self.params.element_rtol}."
+                        )
         return self.converged
 
     @PETSc.Log.EventDecorator()
