@@ -7,7 +7,7 @@ from firedrake.adjoint.solving import get_solve_blocks
 from firedrake.adjoint.blocks import GenericSolveBlock
 from pyadjoint import get_working_tape, Block
 from .interpolation import project
-from .log import pyrint, debug, warning, logger, DEBUG
+from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
 from .quality import QualityMeasure
 from .time_partition import TimePartition
@@ -112,6 +112,9 @@ class MeshSeq:
 
     def warning(self, msg: str):
         warning(f"{self.__class__.__name__}: {msg}")
+
+    def info(self, msg: str):
+        info(f"{self.__class__.__name__}: {msg}")
 
     def __len__(self) -> int:
         return len(self.meshes)
