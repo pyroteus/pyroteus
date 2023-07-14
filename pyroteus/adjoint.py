@@ -405,7 +405,7 @@ class AdjointMeshSeq(MeshSeq):
                 for field, control in zip(self.fields, self.controls)
             }
             for field, seed in seeds.items():
-                if np.isclose(norm(seed), 0.0):
+                if not self.steady and np.isclose(norm(seed), 0.0):
                     self.warning(
                         f"Adjoint action for field '{field}' on {self.th(i)}"
                         " subinterval is zero."
