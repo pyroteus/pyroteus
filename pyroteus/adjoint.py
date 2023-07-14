@@ -226,7 +226,7 @@ class AdjointMeshSeq(MeshSeq):
             run_final_subinterval=test_checkpoint_qoi,
         )
         J_chk = float(self.J)
-        if self.warn and test_checkpoint_qoi and np.isclose(J_chk, 0.0):
+        if test_checkpoint_qoi and np.isclose(J_chk, 0.0):
             self.warning("Zero QoI. Is it implemented as intended?")
 
         # Reset the QoI to zero
@@ -292,7 +292,7 @@ class AdjointMeshSeq(MeshSeq):
                 if self.qoi_type in ["end_time", "steady"]:
                     qoi = self.get_qoi(checkpoint, i)
                     self.J = qoi(**qoi_kwargs)
-                    if self.warn and np.isclose(float(self.J), 0.0):
+                    if np.isclose(float(self.J), 0.0):
                         self.warning("Zero QoI. Is it implemented as intended?")
             else:
                 with pyadjoint.stop_annotating():
@@ -386,17 +386,16 @@ class AdjointMeshSeq(MeshSeq):
                             )
 
                 # Check non-zero adjoint solution/value
-                if self.warn:
-                    if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
-                        self.warning(
-                            f"Adjoint solution for field '{field}' on {self.th(i)}"
-                            " subinterval is zero."
-                        )
-                    if get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
-                        self.warning(
-                            f"Adjoint action for field '{field}' on {self.th(i)}"
-                            " subinterval is zero."
-                        )
+                if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
+                    self.warning(
+                        f"Adjoint solution for field '{field}' on {self.th(i)}"
+                        " subinterval is zero."
+                    )
+                if get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
+                    self.warning(
+                        f"Adjoint action for field '{field}' on {self.th(i)}"
+                        " subinterval is zero."
+                    )
 
             # Get adjoint action on each subinterval
             seeds = {
@@ -405,13 +404,12 @@ class AdjointMeshSeq(MeshSeq):
                 )
                 for field, control in zip(self.fields, self.controls)
             }
-            if self.warn:
-                for field, seed in seeds.items():
-                    if np.isclose(norm(seed), 0.0):
-                        self.warning(
-                            f"Adjoint action for field '{field}' on {self.th(i)}"
-                            " subinterval is zero."
-                        )
+            for field, seed in seeds.items():
+                if np.isclose(norm(seed), 0.0):
+                    self.warning(
+                        f"Adjoint action for field '{field}' on {self.th(i)}"
+                        " subinterval is zero."
+                    )
 
             # Clear the tape to reduce the memory footprint
             tape.clear_tape()

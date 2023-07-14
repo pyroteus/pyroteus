@@ -55,7 +55,6 @@ class MeshSeq:
             :class:`~.MeshSeq`, which returns a function that
             determines any Dirichlet boundary conditions
         :kwarg parameters: :class:`~.AdaptParameters` instance
-        :kwarg warnings: print warnings?
         """
         self.time_partition = time_partition
         self.fields = time_partition.fields
@@ -94,7 +93,6 @@ class MeshSeq:
         self.fp_iteration = 0
         if self.params is None:
             self.params = AdaptParameters()
-        self.warn = kwargs.get("warnings", True)
         self.sections = [{} for mesh in self]
 
     def __str__(self) -> str:
