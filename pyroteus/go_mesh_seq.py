@@ -226,6 +226,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         all entries if convergence is detected.
         """
         if not self.check_convergence.any():
+            self.info(
+                "Skipping estimator convergence check because check_convergence"
+                f" contains False values for indices {self._subintervals_not_checked}."
+            )
             return self.converged
         if len(self.estimator_values) >= max(2, self.params.miniter + 1):
             ee_, ee = self.estimator_values[-2:]

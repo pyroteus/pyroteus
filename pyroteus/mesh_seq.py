@@ -599,6 +599,10 @@ class MeshSeq:
         if len(self.element_counts) >= max(2, self.params.miniter + 1):
             for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:])):
                 if not self.check_convergence[i]:
+                    self.info(
+                        f"Skipping element count convergence check on subinterval {i})"
+                        f" because check_convergence[{i}] == False."
+                    )
                     continue
                 if abs(ne - ne_) <= self.params.element_rtol * ne_:
                     self.converged[i] = True

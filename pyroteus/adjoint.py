@@ -435,6 +435,10 @@ class AdjointMeshSeq(MeshSeq):
             c = "th"
         return f"{num}{c}"
 
+    def _subintervals_not_checked(self):
+        num_not_checked = len(self.check_convergence[not self.check_convergence])
+        return self.check_convergence.argsort()[num_not_checked]
+
     def check_qoi_convergence(self):
         """
         Check for convergence of the fixed point iteration due to the relative
@@ -444,6 +448,10 @@ class AdjointMeshSeq(MeshSeq):
         entries if convergence is detected.
         """
         if not self.check_convergence.any():
+            self.info(
+                "Skipping QoI convergence check because check_convergence contains"
+                f" False values for indices {self._subintervals_not_checked}."
+            )
             return self.converged
         if len(self.qoi_values) >= max(2, self.params.miniter + 1):
             qoi_, qoi = self.qoi_values[-2:]
