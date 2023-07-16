@@ -226,7 +226,7 @@ class AdjointMeshSeq(MeshSeq):
             run_final_subinterval=test_checkpoint_qoi,
         )
         J_chk = float(self.J)
-        if self.warn and test_checkpoint_qoi and np.isclose(J_chk, 0.0):
+        if test_checkpoint_qoi and np.isclose(J_chk, 0.0):
             self.warning("Zero QoI. Is it implemented as intended?")
 
         # Reset the QoI to zero
@@ -292,7 +292,7 @@ class AdjointMeshSeq(MeshSeq):
                 if self.qoi_type in ["end_time", "steady"]:
                     qoi = self.get_qoi(checkpoint, i)
                     self.J = qoi(**qoi_kwargs)
-                    if self.warn and np.isclose(float(self.J), 0.0):
+                    if np.isclose(float(self.J), 0.0):
                         self.warning("Zero QoI. Is it implemented as intended?")
             else:
                 with pyadjoint.stop_annotating():
@@ -386,17 +386,16 @@ class AdjointMeshSeq(MeshSeq):
                             )
 
                 # Check non-zero adjoint solution/value
-                if self.warn:
-                    if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
-                        self.warning(
-                            f"Adjoint solution for field '{field}' on {self.th(i)}"
-                            " subinterval is zero."
-                        )
-                    if get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
-                        self.warning(
-                            f"Adjoint action for field '{field}' on {self.th(i)}"
-                            " subinterval is zero."
-                        )
+                if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
+                    self.warning(
+                        f"Adjoint solution for field '{field}' on {self.th(i)}"
+                        " subinterval is zero."
+                    )
+                if get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
+                    self.warning(
+                        f"Adjoint action for field '{field}' on {self.th(i)}"
+                        " subinterval is zero."
+                    )
 
             # Get adjoint action on each subinterval
             seeds = {
@@ -405,13 +404,12 @@ class AdjointMeshSeq(MeshSeq):
                 )
                 for field, control in zip(self.fields, self.controls)
             }
-            if self.warn:
-                for field, seed in seeds.items():
-                    if np.isclose(norm(seed), 0.0):
-                        self.warning(
-                            f"Adjoint action for field '{field}' on {self.th(i)}"
-                            " subinterval is zero."
-                        )
+            for field, seed in seeds.items():
+                if not self.steady and np.isclose(norm(seed), 0.0):
+                    self.warning(
+                        f"Adjoint action for field '{field}' on {self.th(i)}"
+                        " subinterval is zero."
+                    )
 
             # Clear the tape to reduce the memory footprint
             tape.clear_tape()
@@ -437,28 +435,30 @@ class AdjointMeshSeq(MeshSeq):
             c = "th"
         return f"{num}{c}"
 
+    def _subintervals_not_checked(self):
+        num_not_checked = len(self.check_convergence[not self.check_convergence])
+        return self.check_convergence.argsort()[num_not_checked]
+
     def check_qoi_convergence(self):
         """
-        Check for convergence of the fixed point iteration
-        due to the relative difference in QoI value being
-        smaller than the specified tolerance.
+        Check for convergence of the fixed point iteration due to the relative
+        difference in QoI value being smaller than the specified tolerance.
 
-        The :attr:`AdjointMeshSeq.converged` attribute
-        is set to ``True`` if convergence is detected.
+        The :attr:`AdjointMeshSeq.converged` attribute is set to ``True`` across all
+        entries if convergence is detected.
         """
-        P = self.params
-        self.converged = False
-        if not self.check_convergence:
-            return self.converged
-        if len(self.qoi_values) < max(2, P.miniter):
-            return self.converged
-        qoi_ = self.qoi_values[-2]
-        qoi = self.qoi_values[-1]
-        if abs(qoi - qoi_) < P.qoi_rtol * abs(qoi_):
-            self.converged = True
-        if self.converged:
-            pyrint(
-                f"Terminated due to QoI convergence after {self.fp_iteration+1}"
-                " iterations."
+        if not self.check_convergence.any():
+            self.info(
+                "Skipping QoI convergence check because check_convergence contains"
+                f" False values for indices {self._subintervals_not_checked}."
             )
+            return self.converged
+        if len(self.qoi_values) >= max(2, self.params.miniter + 1):
+            qoi_, qoi = self.qoi_values[-2:]
+            if abs(qoi - qoi_) < self.params.qoi_rtol * abs(qoi_):
+                self.converged[:] = True
+                pyrint(
+                    f"QoI converged after {self.fp_iteration+1} iterations"
+                    f" under relative tolerance {self.params.qoi_rtol}."
+                )
         return self.converged

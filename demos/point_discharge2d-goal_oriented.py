@@ -197,7 +197,7 @@ def adaptor(mesh_seq, solutions, indicators):
     # return ``True`` to indicate that convergence checks should be skipped until the
     # next fixed point iteration.
     continue_unconditionally = complexity < 0.95 * target
-    return continue_unconditionally
+    return [continue_unconditionally]
 
 
 # With the adaptor function defined, we can call the fixed point iteration method. Note
@@ -319,7 +319,7 @@ def adaptor(mesh_seq, solutions, indicators):
     # return ``True`` to indicate that convergence checks should be skipped until the
     # next fixed point iteration.
     continue_unconditionally = complexity < 0.95 * target
-    return continue_unconditionally
+    return [continue_unconditionally]
 
 
 # To avoid confusion, we redefine the :class:`GoalOrientedMeshSeq` object before using
