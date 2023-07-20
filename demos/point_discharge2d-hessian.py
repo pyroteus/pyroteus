@@ -209,14 +209,14 @@ solutions = mesh_seq.fixed_point_iteration(adaptor)
 #
 # .. code-block:: console
 #
-#     1, complexity:  433, dofs:  561, elements: 1000
-#     2, complexity:  630, dofs:  618, elements: 1161
-#     3, complexity:  825, dofs:  898, elements: 1725
-#     4, complexity: 1023, dofs: 1128, elements: 2180
-#     5, complexity: 1020, dofs: 1336, elements: 2592
-#     6, complexity: 1022, dofs: 1354, elements: 2629
-#     7, complexity: 1022, dofs: 1362, elements: 2643
-#    Terminated due to element count convergence after 7 iterations
+#     1, complexity:  433, dofs:  618, elements: 1161
+#     2, complexity:  630, dofs:  898, elements: 1725
+#     3, complexity:  825, dofs: 1128, elements: 2180
+#     4, complexity: 1023, dofs: 1336, elements: 2592
+#     5, complexity: 1020, dofs: 1354, elements: 2629
+#     6, complexity: 1022, dofs: 1362, elements: 2643
+#     7, complexity: 1022, dofs: 1356, elements: 2635
+#    Element count converged after 7 iterations under relative tolerance 0.005.
 #
 # We can plot the final mesh and the corresponding solution as follows. ::
 
