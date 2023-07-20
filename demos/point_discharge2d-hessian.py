@@ -177,8 +177,8 @@ def adaptor(mesh_seq, solutions):
     metric.normalise()
     complexity = metric.complexity()
     mesh_seq[0] = adapt(mesh_seq[0], metric)
-    num_dofs = mesh_seq.vertex_counts[-1][0]
-    num_elem = mesh_seq.element_counts[-1][0]
+    num_dofs = mesh_seq.count_vertices()[0]
+    num_elem = mesh_seq.count_elements()[0]
     pyrint(
         f"{iteration + 1:2d}, complexity: {complexity:4.0f}"
         f", dofs: {num_dofs:4d}, elements: {num_elem:4d}"
