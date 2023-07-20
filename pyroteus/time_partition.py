@@ -166,6 +166,7 @@ class TimePartition:
                 "num_timesteps": self.num_timesteps_per_subinterval[i],
                 "start_time": self.subintervals[i][0],
                 "end_time": self.subintervals[i][1],
+                "length": self.subintervals[i][1] - self.subintervals[i][0],
             }
         )
 
