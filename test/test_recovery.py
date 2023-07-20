@@ -146,7 +146,7 @@ class TestRecoveryBowl(unittest.TestCase):
         metric.compute_hessian(f, method=method)
         self.assertLess(self.relative_error(metric), 1.0e-07)
 
-    @parameterized.expand([2, 3])
+    @parameterized.expand([[2], [3]])
     def test_interior_Clement_linear(self, dim):
         mesh = mesh_for_sensors(dim, 20)
         f = interpolate(bowl(*mesh.coordinates), FunctionSpace(mesh, "CG", 1))
@@ -154,7 +154,7 @@ class TestRecoveryBowl(unittest.TestCase):
         metric.compute_hessian(f, method="Clement")
         self.assertLess(self.relative_error(metric, ignore_boundary=True), 1.0e-05)
 
-    @parameterized.expand([2, 3])
+    @parameterized.expand([[2], [3]])
     def test_interior_Clement_quadratic(self, dim):
         mesh = mesh_for_sensors(dim, 20)
         f = interpolate(bowl(*mesh.coordinates), FunctionSpace(mesh, "CG", 2))
@@ -162,7 +162,7 @@ class TestRecoveryBowl(unittest.TestCase):
         metric.compute_hessian(f, method="Clement")
         self.assertLess(self.relative_error(metric, ignore_boundary=True), 1.0e-08)
 
-    @parameterized.expand([2])
+    @parameterized.expand([[2]])
     def test_boundary_mixed_L2(self, dim):
         # FIXME: 3D case for test_boundary_mixed_L2
         mesh = mesh_for_sensors(dim, 4)
@@ -175,7 +175,7 @@ class TestRecoveryBowl(unittest.TestCase):
             dHds = abs(assemble(dot(div(metric), s) * ds))
             self.assertLess(dHds, 2.0e-08)
 
-    @parameterized.expand([2])
+    @parameterized.expand([[2]])
     def test_boundary_Clement(self, dim):
         # FIXME: 3D case for test_boundary_Clement
         mesh = mesh_for_sensors(dim, 20)
