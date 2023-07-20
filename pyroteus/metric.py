@@ -555,12 +555,33 @@ def space_time_normalise(
     """
     if isinstance(metric_parameters, dict):
         metric_parameters = [metric_parameters for _ in range(len(time_partition))]
-    for mp in metric_parameters:
+    d = metrics[0].function_space().mesh().topological_dimension()
+    if len(metrics) != len(time_partition):
+        raise ValueError(
+            "Number of metrics does not match number of subintervals:"
+            f" {len(metrics)} vs. {len(time_partition)}."
+        )
+    if len(metrics) != len(metric_parameters):
+        raise ValueError(
+            "Number of metrics does not match number of sets of metric parameters:"
+            f" {len(metrics)} vs. {len(metric_parameters)}."
+        )
+
+    # Preparation step
+    metric_parameters = metric_parameters.copy()
+    for metric, mp in zip(metrics, metric_parameters):
         if not isinstance(mp, dict):
             raise TypeError(
                 "Expected metric_parameters to consist of dictionaries,"
                 f" not objects of type '{type(mp)}'."
             )
+
+        # Allow concise notation
+        if "dm_plex_metric" in mp and isinstance(mp["dm_plex_metric"], dict):
+            for key, value in mp["dm_plex_metric"].items():
+                mp[f"dm_plex_metric_{key}"] = value
+            mp.pop("dm_plex_metric")
+
         p = mp.get("dm_plex_metric_p")
         if p is None:
             raise ValueError("Normalisation order 'dm_plex_metric_p' must be set.")
