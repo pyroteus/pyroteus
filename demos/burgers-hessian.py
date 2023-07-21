@@ -85,7 +85,12 @@ time_partition = TimePartition(
     end_time, num_subintervals, dt, fields, timesteps_per_export=2, debug=True
 )
 
-params = MetricParameters()
+params = MetricParameters(
+    {
+        "element_rtol": 0.001,
+        "maxiter": 35 if os.environ.get("PYROTEUS_REGRESSION_TEST") is None else 3,
+    }
+)
 mesh_seq = MeshSeq(
     time_partition,
     meshes,

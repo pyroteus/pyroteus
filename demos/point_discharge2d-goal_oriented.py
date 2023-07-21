@@ -102,7 +102,13 @@ def get_qoi(mesh_seq, sol, index):
 # we add another relative tolerance condition for the change in QoI value between
 # iterations. ::
 
-params = GoalOrientedMetricParameters({"element_rtol": 0.005, "qoi_rtol": 0.005})
+params = GoalOrientedMetricParameters(
+    {
+        "element_rtol": 0.005,
+        "qoi_rtol": 0.005,
+        "maxiter": 35 if os.environ.get("PYROTEUS_REGRESSION_TEST") is None else 3,
+    }
+)
 
 mesh = RectangleMesh(50, 10, 50, 10)
 time_partition = TimeInstant(fields)
