@@ -113,6 +113,7 @@ mesh_seq = MeshSeq(
 # has already been reached on any of the subintervals. If so, the adaptation step is
 # skipped. ::
 
+
 def adaptor(mesh_seq, solutions):
     metrics = []
     complexities = []
