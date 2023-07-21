@@ -34,8 +34,11 @@ class TestPVD(unittest.TestCase):
         self.cleanUp()
 
     def cleanUp(self):
-        if os.path.exists(self.fname):
-            os.remove(self.fname)
+        name = os.path.splitext(self.fname)[0]
+        fname = os.path.join(os.path.dirname(self.fname), name)
+        for ext in (".pvd", "_0.vtu", "_1.vtu"):
+            if os.path.exists(fname + ext):
+                os.remove(fname + ext)
 
     def test_adaptive(self):
         file = File(self.fname)
