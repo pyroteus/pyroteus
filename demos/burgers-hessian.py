@@ -167,7 +167,7 @@ def adaptor(mesh_seq, solutions):
     # Plot each intermediate adapted mesh
     fig, axes = mesh_seq.plot()
     for i, ax in enumerate(axes):
-        ax.set_title(f"Mesh {i + 1}")
+        ax.set_title(f"Subinterval {i + 1}")
     fig.savefig(f"burgers-hessian_mesh{iteration + 1}.jpg")
     plt.close()
 
@@ -230,8 +230,9 @@ solutions = mesh_seq.fixed_point_iteration(adaptor)
 #
 # Finally, let's plot the adapted meshes. ::
 
-mesh_seq.plot()
-axes.set_title("Adapted mesh")
+fig, axes = mesh_seq.plot()
+for i, ax in enumerate(axes):
+    ax.set_title(f"Subinterval {i + 1}")
 fig.savefig("burgers-hessian_mesh.jpg")
 plt.close()
 
