@@ -252,4 +252,11 @@ plt.close()
 # more densely distributed near to the right-hand boundary. This can be seen by
 # comparing the second mesh against the first.
 #
+# .. rubric:: Exercise
+#
+# In this demo, we obtain a Hessian metric by recovering Hessians of the two velocity
+# components and combining them using metric intersection. Try out other approaches,
+# such as combining using metric addition and recovering a single Hessian of the speed
+# (i.e., the square root of the dot product of the velocity with itself).
+#
 # This demo can also be accessed as a `Python script <burgers-hessian.py>`__.
