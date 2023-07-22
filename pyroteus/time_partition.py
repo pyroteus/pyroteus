@@ -65,11 +65,7 @@ class TimePartition:
                 )
                 for i in range(num_subintervals)
             ]
-        assert len(self.subintervals) == num_subintervals
-        assert np.isclose(self.subintervals[0][0], self.start_time)
-        for i in range(1, num_subintervals):
-            assert np.isclose(self.subintervals[i][0], self.subintervals[i - 1][1])
-        assert np.isclose(self.subintervals[-1][1], self.end_time)
+        self._check_subintervals()
         self.debug("subintervals")
 
         # Get timestep on each subinterval
@@ -188,6 +184,30 @@ class TimePartition:
                 "end_time": self.subintervals[i][1],
             }
         )
+
+    def _check_subintervals(self):
+        if len(self.subintervals) != self.num_subintervals:
+            raise ValueError(
+                "Number of subintervals provided differs from num_subintervals:"
+                f" {len(self.subintervals)} != {self.num_subintervals}."
+            )
+        if not np.isclose(self.subintervals[0][0], self.start_time):
+            raise ValueError(
+                "The first subinterval does not start at the start time:"
+                f" {self.subintervals[0][0]} != {self.start_time}."
+            )
+        for i in range(self.num_subintervals-1):
+            if not np.isclose(self.subintervals[i][1], self.subintervals[i+1][0]):
+                raise ValueError(
+                    f"The end of subinterval {i} does not match the start of"
+                    f" subinterval {i+1}: {self.subintervals[i][1]} !="
+                    f" {self.subintervals[i+1][0]}."
+                )
+        if not np.isclose(self.subintervals[-1][1], self.end_time):
+            raise ValueError(
+                "The final subinterval does not end at the end time:"
+                f" {self.subintervals[-1][1]} != {self.end_time}."
+            )
 
     def __eq__(self, other):
         if len(self) != len(other):
