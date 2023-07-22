@@ -270,13 +270,14 @@ class TimeInstant(TimeInterval):
     """
 
     def __init__(self, fields: Union[List[str], str], **kwargs):
-        time = kwargs.get("time", 1.0)
         if "end_time" in kwargs:
             if "time" in kwargs:
                 raise ValueError("Both 'time' and 'end_time' are set.")
-            time = kwargs.get("end_time")
+            time = kwargs.pop("end_time")
+        else:
+            time = kwargs.pop("time", 1.0)
         timestep = time
-        super().__init__(time, timestep, fields)
+        super().__init__(time, timestep, fields, **kwargs)
 
     def __str__(self) -> str:
         return f"({self.end_time})"
