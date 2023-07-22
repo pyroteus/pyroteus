@@ -70,14 +70,10 @@ class TimePartition:
 
         # Get timestep on each subinterval
         if not isinstance(timesteps, Iterable):
-            timesteps = [timesteps for subinterval in self.subintervals]
-        self.timesteps = np.array(timesteps)
+            timesteps = [timesteps] * len(self)
+        self.timesteps = timesteps
+        self._check_timesteps()
         self.debug("timesteps")
-        if len(self.timesteps) != num_subintervals:
-            raise ValueError(
-                "Number of timesteps and subintervals do not match"
-                f" ({len(self.timesteps)} vs. {num_subintervals})."
-            )
 
         # Get number of timesteps on each subinterval
         _timesteps_per_subinterval = [
@@ -207,6 +203,13 @@ class TimePartition:
             raise ValueError(
                 "The final subinterval does not end at the end time:"
                 f" {self.subintervals[-1][1]} != {self.end_time}."
+            )
+
+    def _check_timesteps(self):
+        if len(self.timesteps) != self.num_subintervals:
+            raise ValueError(
+                "Number of timesteps does not match num_subintervals:"
+                f" {len(self.timesteps)} != {self.num_subintervals}."
             )
 
     def __eq__(self, other):
