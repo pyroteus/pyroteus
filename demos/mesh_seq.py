@@ -29,7 +29,7 @@ time_partition = TimePartition(
     len(subintervals),
     dt,
     fields,
-    timesteps_per_export=[2, 4],
+    num_timesteps_per_export=[2, 4],
     subintervals=subintervals,
 )
 

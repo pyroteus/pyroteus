@@ -112,7 +112,7 @@ dt = 1 / n
 # single mesh, so the partition is trivial and we can use the
 # :class:`TimeInterval` constructor. ::
 
-time_partition = TimeInterval(end_time, dt, fields, timesteps_per_export=2)
+time_partition = TimeInterval(end_time, dt, fields, num_timesteps_per_export=2)
 
 # Finally, we are able to construct an :class:`AdjointMeshSeq` and
 # thereby call its :meth:`solve_adjoint` method. This computes the QoI

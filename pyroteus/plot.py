@@ -43,7 +43,7 @@ def plot_snapshots(solutions, time_partition, field, label, **kwargs):
             if not steady:
                 time = (
                     i * P.end_time / cols
-                    + j * P.timesteps_per_export[i] * P.timesteps[i]
+                    + j * P.num_timesteps_per_export[i] * P.timesteps[i]
                 )
                 ax.annotate(f"t={time:.2f}", (0.05, 0.05), color="white")
         tcs.append(tc)
@@ -81,7 +81,7 @@ def plot_indicator_snapshots(indicators, time_partition, field, **kwargs):
             if not steady:
                 time = (
                     i * P.end_time / cols
-                    + j * P.timesteps_per_export[i] * P.timesteps[i]
+                    + j * P.num_timesteps_per_export[i] * P.timesteps[i]
                 )
                 ax.annotate(f"t={time:.2f}", (0.05, 0.05), color="white")
         tcs.append(tc)

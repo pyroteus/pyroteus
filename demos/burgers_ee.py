@@ -27,6 +27,8 @@
 from firedrake import *
 from pyroteus_adjoint import *
 
+set_log_level(DEBUG)
+
 # Redefine the ``fields`` variable and the getter functions as in the first
 # adjoint Burgers demo. ::
 
@@ -106,7 +108,7 @@ end_time = 0.5
 dt = 1 / n
 num_subintervals = len(meshes)
 time_partition = TimePartition(
-    end_time, num_subintervals, dt, fields, timesteps_per_export=2, debug=True
+    end_time, num_subintervals, dt, fields, num_timesteps_per_export=2,
 )
 
 # A key difference between this demo and the previous ones is that we need to

@@ -32,7 +32,7 @@ class TestSetup(unittest.TestCase):
         self.assertTrue(time_partition1 != time_partition2)
 
     def test_time_partition_ne_negative(self):
-        time_partition1 = TimePartition(1.0, 1, [1.0], "field", timesteps_per_export=1)
+        time_partition1 = TimePartition(1.0, 1, [1.0], "field", num_timesteps_per_export=1)
         time_partition2 = TimePartition(1.0, 1, [1.0], "field")
         self.assertFalse(time_partition1 != time_partition2)
 
@@ -141,21 +141,21 @@ class TestSetup(unittest.TestCase):
         msg = "Non-integer number of timesteps on subinterval 0: 2.5."
         self.assertEqual(str(cm.exception), msg)
 
-    def test_noninteger_timesteps_per_export(self):
+    def test_noninteger_num_timesteps_per_export(self):
         with self.assertRaises(ValueError) as cm:
-            TimePartition(1.0, 1, [0.5], "field", timesteps_per_export=1.1)
+            TimePartition(1.0, 1, [0.5], "field", num_timesteps_per_export=1.1)
         msg = "Non-integer timesteps per export (1.1)."
         self.assertEqual(str(cm.exception), msg)
 
-    def test_nonmatching_num_timesteps_per_export(self):
+    def test_nonmatching_num_num_timesteps_per_export(self):
         with self.assertRaises(ValueError) as cm:
-            TimePartition(1.0, 1, [0.5], "field", timesteps_per_export=[1, 2])
+            TimePartition(1.0, 1, [0.5], "field", num_timesteps_per_export=[1, 2])
         msg = "Number of timesteps per export and subinterval do not match (2 vs. 1)."
         self.assertEqual(str(cm.exception), msg)
 
-    def test_indivisible_timesteps_per_export(self):
+    def test_indivisible_num_timesteps_per_export(self):
         with self.assertRaises(ValueError) as cm:
-            TimePartition(1.0, 1, [0.5], "field", timesteps_per_export=4)
+            TimePartition(1.0, 1, [0.5], "field", num_timesteps_per_export=4)
         msg = (
             "Number of timesteps per export does not divide number of timesteps per"
             " subinterval (4 vs. 2 on subinterval 0)."

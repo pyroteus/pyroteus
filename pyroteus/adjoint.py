@@ -281,7 +281,7 @@ class AdjointMeshSeq(MeshSeq):
         # Loop over subintervals in reverse
         seeds = None
         for i in reversed(range(num_subintervals)):
-            stride = P.timesteps_per_export[i]
+            stride = P.num_timesteps_per_export[i]
             num_exports = P.exports_per_subinterval[i]
 
             # Annotate tape on current subinterval

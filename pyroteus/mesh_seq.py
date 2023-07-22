@@ -531,7 +531,7 @@ class MeshSeq:
         # Loop over the subintervals
         checkpoint = self.initial_condition
         for i in range(num_subintervals):
-            stride = P.timesteps_per_export[i]
+            stride = P.num_timesteps_per_export[i]
             num_exports = P.exports_per_subinterval[i]
 
             # Annotate tape on current subinterval

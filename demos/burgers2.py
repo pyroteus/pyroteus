@@ -12,6 +12,9 @@
 from firedrake import *
 from pyroteus_adjoint import *
 
+
+set_log_level(DEBUG)
+
 # Redefine the ``fields`` variable from the previous demo, as well as all the getter
 # functions. ::
 
@@ -96,7 +99,7 @@ dt = 1 / n
 
 num_subintervals = len(meshes)
 time_partition = TimePartition(
-    end_time, num_subintervals, dt, fields, timesteps_per_export=2, debug=True
+    end_time, num_subintervals, dt, fields, num_timesteps_per_export=2,
 )
 mesh_seq = AdjointMeshSeq(
     time_partition,
