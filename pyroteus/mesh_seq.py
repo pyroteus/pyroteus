@@ -404,8 +404,6 @@ class MeshSeq:
             # Look for Functions whose name matches that of the field
             # NOTE: Here we assume that the user has set this correctly in their
             #       get_solver method
-            if not hasattr(out.output, "name"):
-                continue
             if not out.output.name() == field:
                 continue
 
@@ -417,8 +415,8 @@ class MeshSeq:
             return candidates[0]
         elif len(candidates) > 1:
             raise AttributeError(
-                "Cannot determine a unique output for the solution"
-                f" associated with field '{field}'. Candidates: {candidates}."
+                "Cannot determine a unique output index for the solution associated"
+                f" with field '{field}' out of {len(candidates)} candidates."
             )
         elif not self.steady:
             raise AttributeError(
@@ -451,8 +449,6 @@ class MeshSeq:
             # Look for Functions whose name is the lagged version of the field's
             # NOTE: Here we assume that the user has set this correctly in their
             #       get_solver method
-            if not hasattr(dep.output, "name"):
-                continue
             if not dep.output.name() == f"{field}_old":
                 continue
 
@@ -465,7 +461,7 @@ class MeshSeq:
         elif len(candidates) > 1:
             raise AttributeError(
                 "Cannot determine a unique dependency index for the lagged solution"
-                f" associated with field '{field}'. Candidates: {candidates}."
+                f" associated with field '{field}' out of {len(candidates)} candidates."
             )
         elif not self.steady:
             raise AttributeError(
