@@ -391,15 +391,12 @@ class MeshSeq:
         :arg solve_block: taped :class:`firedrake.adjoint.blocks.GenericSolveBlock`
         """
         fs = self.function_spaces[field][subinterval]
-        assert isinstance(solve_block, GenericSolveBlock)
 
         # Loop through the solve block's outputs
         candidates = []
         for out in solve_block._outputs:
             # Look for Functions with matching function spaces
             if not isinstance(out.output, Function):
-                continue
-            if not hasattr(out.output, "function_space"):
                 continue
             if out.output.function_space() != fs:
                 continue
@@ -438,18 +435,15 @@ class MeshSeq:
         :arg subinterval: subinterval index
         :arg solve_block: taped :class:`firedrake.adjoint.blocks.GenericSolveBlock`
         """
-        if self.field_types[field] == "unsteady":
+        if self.field_types[field] == "steady":
             return
         fs = self.function_spaces[field][subinterval]
-        assert isinstance(solve_block, GenericSolveBlock)
 
         # Loop through the solve block's dependencies
         candidates = []
         for dep in solve_block._dependencies:
             # Look for Functions with matching function spaces
             if not isinstance(dep.output, Function):
-                continue
-            if not hasattr(dep.output, "function_space"):
                 continue
             if dep.output.function_space() != fs:
                 continue
