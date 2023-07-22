@@ -5,7 +5,7 @@ from .log import debug
 from .utility import AttrDict
 from collections.abc import Iterable
 import numpy as np
-from typing import List, Union
+from typing import List, Optional, Union
 
 
 __all__ = ["TimePartition", "TimeInterval", "TimeInstant"]
@@ -13,12 +13,10 @@ __all__ = ["TimePartition", "TimeInterval", "TimeInstant"]
 
 class TimePartition:
     """
-    Object describing the partition of the time
-    interval of interest into subintervals.
+    A partition of the time interval of interest into subintervals.
 
-    For now, the subintervals are assumed to be
-    uniform in length. However, different values
-    may be used of the timestep on each.
+    The subintervals are assumed to be uniform in length. However, different timestep
+    values may be used on each subinterval.
     """
 
     def __init__(
@@ -27,31 +25,25 @@ class TimePartition:
         num_subintervals: int,
         timesteps: Union[List[float], float],
         fields: Union[List[str], str],
-        **kwargs,
+        timesteps_per_export: int = 1,
+        start_time: float = 0.0,
+        subintervals: Optional[List[float]] = None,
     ):
         """
-        :arg end_time: end time of the interval
-            of interest
-        :arg num_subintervals: number of
-            subintervals in the partition
-        :arg timesteps: (list of values for the)
-            timestep used on each subinterval
-        :arg fields: (list of) field names ordered
-            by call sequence
-        :kwarg timesteps_per_export: (list of)
-            timesteps per export (default 1)
-        :kwarg start_time: start time of the
-            interval of interest (default 0.0)
-        :kwarg subinterals: user-provided sequence
-            of subintervals, which need not be of
-            uniform length (defaults to None)
+        :arg end_time: end time of the interval of interest
+        :arg num_subintervals: number of subintervals in the partition
+        :arg timesteps: (list of values for the) timestep used on each subinterval
+        :arg fields: (list of) field names ordered by call sequence
+        :kwarg timesteps_per_export: (list of) timesteps per export
+        :kwarg start_time: start time of the interval of interest
+        :kwarg subinterals: user-provided sequence of subintervals, which need not be of
+            uniform length
         """
         debug(100 * "-")
         if isinstance(fields, str):
             fields = [fields]
         self.fields = fields
-        timesteps_per_export = kwargs.get("timesteps_per_export", 1)
-        self.start_time = kwargs.get("start_time", 0.0)
+        self.start_time = start_time
         self.end_time = end_time
         self.num_subintervals = int(np.round(num_subintervals))
         if not np.isclose(num_subintervals, self.num_subintervals):
@@ -63,7 +55,7 @@ class TimePartition:
         self.debug("interval")
 
         # Get subintervals
-        self.subintervals = kwargs.get("subintervals")
+        self.subintervals = subintervals
         if self.subintervals is None:
             subinterval_time = (self.end_time - self.start_time) / num_subintervals
             self.subintervals = [
