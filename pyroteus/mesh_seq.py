@@ -58,6 +58,10 @@ class MeshSeq:
         """
         self.time_partition = time_partition
         self.fields = time_partition.fields
+        self.field_types = {
+            field: field_type
+            for field, field_type in zip(self.fields, time_partition.field_types)
+        }
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
         self.meshes = initial_meshes
@@ -434,6 +438,8 @@ class MeshSeq:
         :arg subinterval: subinterval index
         :arg solve_block: taped :class:`firedrake.adjoint.blocks.GenericSolveBlock`
         """
+        if self.field_types[field] == "unsteady":
+            return
         fs = self.function_spaces[field][subinterval]
         assert isinstance(solve_block, GenericSolveBlock)
 
