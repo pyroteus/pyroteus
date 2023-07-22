@@ -171,6 +171,21 @@ class TestSetup(unittest.TestCase):
         msg = "Attribute 'blah' cannot be debugged because it doesn't exist."
         self.assertEqual(str(cm.exception), msg)
 
+    def test_field_type_error(self):
+        with self.assertRaises(ValueError) as cm:
+            TimeInstant("field", field_types="type")
+        msg = (
+            "Expected field type for field 'field' to be either 'unsteady' or"
+            " 'steady', but got 'type'."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_num_field_types_error(self):
+        with self.assertRaises(ValueError) as cm:
+            TimeInstant("field", field_types=["type1", "type2"])
+        msg = "Number of fields does not match number of field types: 1 != 2."
+        self.assertEqual(str(cm.exception), msg)
+
 
 class TestStringFormatting(unittest.TestCase):
     """
