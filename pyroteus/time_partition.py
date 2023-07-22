@@ -76,16 +76,16 @@ class TimePartition:
         self.debug("timesteps")
 
         # Get number of timesteps on each subinterval
-        self.timesteps_per_subinterval = []
+        self.num_timesteps_per_subinterval = []
         for i, ((ts, tf), dt) in enumerate(zip(self.subintervals, self.timesteps)):
             num_timesteps = (tf - ts) / dt
-            self.timesteps_per_subinterval.append(int(np.round(num_timesteps)))
-            if not np.isclose(num_timesteps, self.timesteps_per_subinterval[-1]):
+            self.num_timesteps_per_subinterval.append(int(np.round(num_timesteps)))
+            if not np.isclose(num_timesteps, self.num_timesteps_per_subinterval[-1]):
                 raise ValueError(
                     f"Non-integer number of timesteps on subinterval {i}:"
                     f" {num_timesteps}."
                 )
-        self.debug("timesteps_per_subinterval")
+        self.debug("num_timesteps_per_subinterval")
 
         # Get timesteps per export
         if not isinstance(timesteps_per_export, Iterable):
@@ -97,14 +97,14 @@ class TimePartition:
                 int(np.round(timesteps_per_export)) for subinterval in self.subintervals
             ]
         self.timesteps_per_export = np.array(timesteps_per_export, dtype=np.int32)
-        if len(self.timesteps_per_export) != len(self.timesteps_per_subinterval):
+        if len(self.timesteps_per_export) != len(self.num_timesteps_per_subinterval):
             raise ValueError(
                 "Number of timesteps per export and subinterval do not match"
                 f" ({len(self.timesteps_per_export)}"
-                f" vs. {len(self.timesteps_per_subinterval)})."
+                f" vs. {len(self.num_timesteps_per_subinterval)})."
             )
         for i, (tspe, tsps) in enumerate(
-            zip(self.timesteps_per_export, self.timesteps_per_subinterval)
+            zip(self.timesteps_per_export, self.num_timesteps_per_subinterval)
         ):
             if tsps % tspe != 0:
                 raise ValueError(
@@ -119,14 +119,14 @@ class TimePartition:
             [
                 tsps // tspe + 1
                 for tspe, tsps in zip(
-                    self.timesteps_per_export, self.timesteps_per_subinterval
+                    self.timesteps_per_export, self.num_timesteps_per_subinterval
                 )
             ],
             dtype=np.int32,
         )
         self.debug("exports_per_subinterval")
         self.steady = (
-            self.num_subintervals == 1 and self.timesteps_per_subinterval[0] == 1
+            self.num_subintervals == 1 and self.num_timesteps_per_subinterval[0] == 1
         )
         self.debug("steady")
         debug(100 * "-")
@@ -173,7 +173,7 @@ class TimePartition:
                 "timestep": self.timesteps[i],
                 "timesteps_per_export": self.timesteps_per_export[i],
                 "num_exports": self.exports_per_subinterval[i],
-                "num_timesteps": self.timesteps_per_subinterval[i],
+                "num_timesteps": self.num_timesteps_per_subinterval[i],
                 "start_time": self.subintervals[i][0],
                 "end_time": self.subintervals[i][1],
             }
