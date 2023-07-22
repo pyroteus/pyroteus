@@ -138,7 +138,7 @@ class TestSetup(unittest.TestCase):
     def test_noninteger_timesteps_per_subinterval(self):
         with self.assertRaises(ValueError) as cm:
             TimePartition(1.0, 1, [0.4], "field")
-        msg = "Non-integer timesteps per subinterval ([2.5])."
+        msg = "Non-integer number of timesteps on subinterval 0: 2.5."
         self.assertEqual(str(cm.exception), msg)
 
     def test_noninteger_timesteps_per_export(self):

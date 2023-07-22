@@ -76,17 +76,15 @@ class TimePartition:
         self.debug("timesteps")
 
         # Get number of timesteps on each subinterval
-        _timesteps_per_subinterval = [
-            (t[1] - t[0]) / dt for t, dt in zip(self.subintervals, self.timesteps)
-        ]
-        self.timesteps_per_subinterval = [
-            int(np.round(tsps)) for tsps in _timesteps_per_subinterval
-        ]
-        if not np.allclose(self.timesteps_per_subinterval, _timesteps_per_subinterval):
-            raise ValueError(
-                "Non-integer timesteps per subinterval"
-                f" ({_timesteps_per_subinterval})."
-            )
+        self.timesteps_per_subinterval = []
+        for i, ((ts, tf), dt) in enumerate(zip(self.subintervals, self.timesteps)):
+            num_timesteps = (tf - ts) / dt
+            self.timesteps_per_subinterval.append(int(np.round(num_timesteps)))
+            if not np.isclose(num_timesteps, self.timesteps_per_subinterval[-1]):
+                raise ValueError(
+                    f"Non-integer number of timesteps on subinterval {i}:"
+                    f" {num_timesteps}."
+                )
         self.debug("timesteps_per_subinterval")
 
         # Get timesteps per export
