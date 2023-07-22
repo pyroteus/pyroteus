@@ -3,10 +3,13 @@ Testing for the mesh sequence objects.
 """
 from pyroteus.mesh_seq import MeshSeq
 from pyroteus.time_partition import TimePartition, TimeInterval
-from firedrake import UnitCubeMesh, UnitSquareMesh, UnitTriangleMesh
+from firedrake import *
+from pyadjoint.block_variable import BlockVariable
+from dolfin_adjoint_common.blocks.solving import GenericSolveBlock
 import numpy as np
 import re
 import unittest
+from unittest.mock import patch
 
 
 class TestGeneric(unittest.TestCase):
@@ -135,3 +138,94 @@ class TestStringFormatting(unittest.TestCase):
             "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
         )
         self.assertTrue(re.match(repr(mesh_seq), expected))
+
+
+def get_p0_spaces(mesh):
+    return {"field": FunctionSpace(mesh, "DG", 0)}
+
+
+class TestBlockLogic(unittest.TestCase):
+    """
+    Unit tests for :meth:`MeshSeq._dependency` and :meth:`MeshSeq._output`.
+    """
+
+    def setUp(self):
+        self.time_interval = TimeInterval(1.0, 0.5, "field")
+        self.mesh = UnitTriangleMesh()
+
+    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    def test_dependency_not_function(self, MockSolveBlock):
+        self.mesh_seq = MeshSeq(
+            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
+        )
+        solve_block = MockSolveBlock()
+        block_variable = BlockVariable(1)
+        solve_block._dependencies = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._dependency("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    def test_dependency_wrong_function_space(self, MockSolveBlock):
+        self.mesh_seq = MeshSeq(
+            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
+        )
+        solve_block = MockSolveBlock()
+        block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
+        solve_block._dependencies = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._dependency("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    def test_dependency_wrong_name(self, MockSolveBlock):
+        self.mesh_seq = MeshSeq(
+            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
+        )
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field_new"))
+        solve_block._dependencies = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._dependency("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    def test_dependency_valid(self, MockSolveBlock):
+        self.mesh_seq = MeshSeq(
+            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
+        )
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field_old"))
+        solve_block._dependencies = [block_variable]
+        self.assertIsNotNone(self.mesh_seq._dependency("field", 0, solve_block))
+
+    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    def test_dependency_multiple_valid_error(self, MockSolveBlock):
+        self.mesh_seq = MeshSeq(
+            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
+        )
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field_old"))
+        solve_block._dependencies = [block_variable, block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._dependency("field", 0, solve_block)
+        msg = (
+            "Cannot determine a unique dependency index for the lagged solution"
+            " associated with field 'field' out of 2 candidates."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    def test_dependency_steady(self, MockSolveBlock):
+        time_interval = TimeInterval(1.0, 0.5, "field", field_types="steady")
+        self.mesh_seq = MeshSeq(
+            time_interval, self.mesh, get_function_spaces=get_p0_spaces
+        )
+        solve_block = MockSolveBlock()
+        self.assertIsNone(self.mesh_seq._dependency("field", 0, solve_block))
