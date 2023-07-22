@@ -73,12 +73,21 @@ class TestGeneric(unittest.TestCase):
         mesh_seq.check_element_count_convergence()
         self.assertFalse(mesh_seq.converged)
 
+    def test_counting(self):
+        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(3, 3)])
+        self.assertEqual(mesh_seq.count_elements(), [18])
+        self.assertEqual(mesh_seq.count_vertices(), [16])
 
-class TestStringFormatting(TestGeneric):
+
+class TestStringFormatting(unittest.TestCase):
     """
     Test that the :meth:`__str__` and :meth:`__repr__` methods work as intended for
     Pyroteus' :class:`MeshSeq` object.
     """
+
+    def setUp(self):
+        self.time_partition = TimePartition(1.0, 2, [0.5, 0.5], ["field"])
+        self.time_interval = TimeInterval(1.0, [0.5], ["field"])
 
     def test_mesh_seq_time_interval_str(self):
         mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
@@ -126,14 +135,3 @@ class TestStringFormatting(TestGeneric):
             "Mesh(VectorElement(FiniteElement('Lagrange', triangle, 1), dim=2), .*)])"
         )
         self.assertTrue(re.match(repr(mesh_seq), expected))
-
-
-class TestMeshSeq(TestStringFormatting):
-    """
-    Unit tests for basic :class:`MeshSeq` functionality.
-    """
-
-    def test_counting(self):
-        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(3, 3)])
-        self.assertEqual(mesh_seq.count_elements(), [18])
-        self.assertEqual(mesh_seq.count_vertices(), [16])
