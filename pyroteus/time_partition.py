@@ -89,29 +89,9 @@ class TimePartition:
 
         # Get num timesteps per export
         if not isinstance(num_timesteps_per_export, Iterable):
-            if not np.isclose(num_timesteps_per_export, np.round(num_timesteps_per_export)):
-                raise ValueError(
-                    f"Non-integer timesteps per export ({num_timesteps_per_export})."
-                )
-            num_timesteps_per_export = [
-                int(np.round(num_timesteps_per_export)) for subinterval in self.subintervals
-            ]
-        self.num_timesteps_per_export = np.array(num_timesteps_per_export, dtype=np.int32)
-        if len(self.num_timesteps_per_export) != len(self.num_timesteps_per_subinterval):
-            raise ValueError(
-                "Number of timesteps per export and subinterval do not match"
-                f" ({len(self.num_timesteps_per_export)}"
-                f" vs. {len(self.num_timesteps_per_subinterval)})."
-            )
-        for i, (tspe, tsps) in enumerate(
-            zip(self.num_timesteps_per_export, self.num_timesteps_per_subinterval)
-        ):
-            if tsps % tspe != 0:
-                raise ValueError(
-                    "Number of timesteps per export does not divide number of"
-                    f" timesteps per subinterval ({tspe} vs. {tsps}"
-                    f" on subinterval {i})."
-                )
+            num_timesteps_per_export = [num_timesteps_per_export] * len(self)
+        self.num_timesteps_per_export = num_timesteps_per_export
+        self._check_num_timesteps_per_export()
         self.debug("num_timesteps_per_export")
 
         # Get exports per subinterval
@@ -209,6 +189,28 @@ class TimePartition:
                 "Number of timesteps does not match num_subintervals:"
                 f" {len(self.timesteps)} != {self.num_subintervals}."
             )
+
+    def _check_num_timesteps_per_export(self):
+        if len(self.num_timesteps_per_export) != len(self.num_timesteps_per_subinterval):
+            raise ValueError(
+                "Number of timesteps per export and subinterval do not match:"
+                f" {len(self.num_timesteps_per_export)}"
+                f" != {len(self.num_timesteps_per_subinterval)}."
+            )
+        for i, (tspe, tsps) in enumerate(
+            zip(self.num_timesteps_per_export, self.num_timesteps_per_subinterval)
+        ):
+            if not isinstance(tspe, int):
+                raise TypeError(
+                    f"Expected number of timesteps per export on subinterval {i} to be"
+                    f" an integer, not '{type(tspe)}'."
+                )
+            if tsps % tspe != 0:
+                raise ValueError(
+                    "Number of timesteps per export does not divide number of"
+                    f" timesteps per subinterval on subinterval {i}:"
+                    f" {tsps} | {tspe} != 0."
+                )
 
     def __eq__(self, other):
         if len(self) != len(other):

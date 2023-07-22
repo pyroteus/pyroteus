@@ -142,15 +142,18 @@ class TestSetup(unittest.TestCase):
         self.assertEqual(str(cm.exception), msg)
 
     def test_noninteger_num_timesteps_per_export(self):
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(TypeError) as cm:
             TimePartition(1.0, 1, [0.5], "field", num_timesteps_per_export=1.1)
-        msg = "Non-integer timesteps per export (1.1)."
+        msg = (
+            "Expected number of timesteps per export on subinterval 0 to be an integer,"
+            " not '<class 'float'>'."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_nonmatching_num_num_timesteps_per_export(self):
         with self.assertRaises(ValueError) as cm:
             TimePartition(1.0, 1, [0.5], "field", num_timesteps_per_export=[1, 2])
-        msg = "Number of timesteps per export and subinterval do not match (2 vs. 1)."
+        msg = "Number of timesteps per export and subinterval do not match: 2 != 1."
         self.assertEqual(str(cm.exception), msg)
 
     def test_indivisible_num_timesteps_per_export(self):
@@ -158,7 +161,7 @@ class TestSetup(unittest.TestCase):
             TimePartition(1.0, 1, [0.5], "field", num_timesteps_per_export=4)
         msg = (
             "Number of timesteps per export does not divide number of timesteps per"
-            " subinterval (4 vs. 2 on subinterval 0)."
+            " subinterval on subinterval 0: 2 | 4 != 0."
         )
         self.assertEqual(str(cm.exception), msg)
 
