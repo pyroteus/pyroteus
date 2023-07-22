@@ -96,10 +96,37 @@ class TestSetup(unittest.TestCase):
         time_interval = TimeInterval(1.0, 0.5, "field")
         self.assertFalse(time_partition != time_interval)
 
-    def test_noninteger_subintervals(self):
+    def test_noninteger_num_subintervals(self):
         with self.assertRaises(ValueError) as cm:
             TimePartition(1.0, 1.1, 0.5, "field")
         msg = "Non-integer number of subintervals '1.1'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_wrong_number_of_subintervals(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 1, 0.5, "field", subintervals=[(0.0, 0.5), (0.5, 1.0)])
+        msg = "Number of subintervals provided differs from num_subintervals: 2 != 1."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_wrong_subinterval_start(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 1, 0.5, "field", subintervals=[(0.1, 1.0)])
+        msg = "The first subinterval does not start at the start time: 0.1 != 0.0."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_inconsistent_subintervals(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 2, 0.5, "field", subintervals=[(0.0, 0.6), (0.5, 1.0)])
+        msg = (
+            "The end of subinterval 0 does not match the start of subinterval 1:"
+            " 0.6 != 0.5."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_wrong_subinterval_end(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 1, 0.5, "field", subintervals=[(0.0, 1.1)])
+        msg = "The final subinterval does not end at the end time: 1.1 != 1.0."
         self.assertEqual(str(cm.exception), msg)
 
     def test_wrong_num_timesteps(self):
