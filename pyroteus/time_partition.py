@@ -94,17 +94,14 @@ class TimePartition:
         self._check_num_timesteps_per_export()
         self.debug("num_timesteps_per_export")
 
-        # Get exports per subinterval
-        self.exports_per_subinterval = np.array(
-            [
-                tsps // tspe + 1
-                for tspe, tsps in zip(
-                    self.num_timesteps_per_export, self.num_timesteps_per_subinterval
-                )
-            ],
-            dtype=np.int32,
-        )
-        self.debug("exports_per_subinterval")
+        # Get num exports per subinterval
+        self.num_exports_per_subinterval = [
+            tsps // tspe + 1
+            for tspe, tsps in zip(
+                self.num_timesteps_per_export, self.num_timesteps_per_subinterval
+            )
+        ]
+        self.debug("num_exports_per_subinterval")
         self.steady = (
             self.num_subintervals == 1 and self.num_timesteps_per_subinterval[0] == 1
         )
@@ -152,7 +149,7 @@ class TimePartition:
                 "subinterval": self.subintervals[i],
                 "timestep": self.timesteps[i],
                 "num_timesteps_per_export": self.num_timesteps_per_export[i],
-                "num_exports": self.exports_per_subinterval[i],
+                "num_exports": self.num_exports_per_subinterval[i],
                 "num_timesteps": self.num_timesteps_per_subinterval[i],
                 "start_time": self.subintervals[i][0],
                 "end_time": self.subintervals[i][1],
@@ -218,7 +215,7 @@ class TimePartition:
         return (
             np.allclose(self.subintervals, other.subintervals)
             and np.allclose(self.timesteps, other.timesteps)
-            and np.allclose(self.exports_per_subinterval, other.exports_per_subinterval)
+            and np.allclose(self.num_exports_per_subinterval, other.num_exports_per_subinterval)
             and self.fields == other.fields
         )
 
@@ -229,7 +226,7 @@ class TimePartition:
             not np.allclose(self.subintervals, other.subintervals)
             or not np.allclose(self.timesteps, other.timesteps)
             or not np.allclose(
-                self.exports_per_subinterval, other.exports_per_subinterval
+                self.num_exports_per_subinterval, other.num_exports_per_subinterval
             )
             or not self.fields == other.fields
         )

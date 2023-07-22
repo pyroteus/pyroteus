@@ -270,7 +270,7 @@ def plot_solutions(problem, qoi_type, debug=True):
         outfiles.adjoint_next = File(os.path.join(output_dir, "adjoint_next.pvd"))
         outfiles.adj_value = File(os.path.join(output_dir, "adj_value.pvd"))
     for label in outfiles:
-        for k in range(time_partition.exports_per_subinterval[0] - 1):
+        for k in range(time_partition.num_exports_per_subinterval[0] - 1):
             to_plot = []
             for field in time_partition.fields:
                 sol = solutions[field][label][0][k]

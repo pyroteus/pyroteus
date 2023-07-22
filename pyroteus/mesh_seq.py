@@ -513,7 +513,7 @@ class MeshSeq:
                         label: [
                             [
                                 Function(fs, name=f"{field}_{label}")
-                                for j in range(P.exports_per_subinterval[i] - 1)
+                                for j in range(P.num_exports_per_subinterval[i] - 1)
                             ]
                             for i, fs in enumerate(function_spaces[field])
                         ]
@@ -532,7 +532,7 @@ class MeshSeq:
         checkpoint = self.initial_condition
         for i in range(num_subintervals):
             stride = P.num_timesteps_per_export[i]
-            num_exports = P.exports_per_subinterval[i]
+            num_exports = P.num_exports_per_subinterval[i]
 
             # Annotate tape on current subinterval
             checkpoint = solver(i, checkpoint, **solver_kwargs)
