@@ -154,6 +154,74 @@ class TestBlockLogic(unittest.TestCase):
         self.mesh = UnitTriangleMesh()
 
     @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    def test_output_not_function(self, MockSolveBlock):
+        self.mesh_seq = MeshSeq(
+            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
+        )
+        solve_block = MockSolveBlock()
+        block_variable = BlockVariable(1)
+        solve_block._outputs = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._output("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no outputs."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    def test_output_wrong_function_space(self, MockSolveBlock):
+        self.mesh_seq = MeshSeq(
+            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
+        )
+        solve_block = MockSolveBlock()
+        block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
+        solve_block._outputs = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._output("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no outputs."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    def test_output_wrong_name(self, MockSolveBlock):
+        self.mesh_seq = MeshSeq(
+            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
+        )
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field2"))
+        solve_block._outputs = [block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._output("field", 0, solve_block)
+        msg = "Solve block for field 'field' on subinterval 0 has no outputs."
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    def test_output_valid(self, MockSolveBlock):
+        self.mesh_seq = MeshSeq(
+            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
+        )
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field"))
+        solve_block._outputs = [block_variable]
+        self.assertIsNotNone(self.mesh_seq._output("field", 0, solve_block))
+
+    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    def test_output_multiple_valid_error(self, MockSolveBlock):
+        self.mesh_seq = MeshSeq(
+            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
+        )
+        solve_block = MockSolveBlock()
+        function_space = FunctionSpace(self.mesh, "DG", 0)
+        block_variable = BlockVariable(Function(function_space, name="field"))
+        solve_block._outputs = [block_variable, block_variable]
+        with self.assertRaises(AttributeError) as cm:
+            self.mesh_seq._output("field", 0, solve_block)
+        msg = (
+            "Cannot determine a unique output index for the solution associated with"
+            " field 'field' out of 2 candidates."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
     def test_dependency_not_function(self, MockSolveBlock):
         self.mesh_seq = MeshSeq(
             self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
