@@ -608,7 +608,7 @@ def space_time_normalise(
         exponent = 0.5 if np.isinf(p) else p / (2 * p + d)
         for metric, S in zip(metrics, time_partition):
             dX = (ufl.ds if boundary else ufl.dx)(metric.function_space().mesh())
-            scaling = pow(S.length / S.timestep, 2 * exponent)
+            scaling = pow(S.num_timesteps, 2 * exponent)
             integral += scaling * assemble(pow(ufl.det(metric), exponent) * dX)
         target = mp["dm_plex_metric_target_complexity"] * time_partition.num_timesteps
         debug(f"space_time_normalise: target space-time complexity={target:.4e}")
@@ -626,7 +626,7 @@ def space_time_normalise(
 
         # Apply the separate scale factors for each metric
         if not np.isinf(p):
-            metric *= pow(S.length / S.timestep, -2 / (2 * p + d))
+            metric *= pow(S.num_timesteps, -2 / (2 * p + d))
         metric.enforce_spd(
             restrict_sizes=restrict_sizes,
             restrict_anisotropy=restrict_anisotropy,
