@@ -150,7 +150,7 @@ class TestSetup(unittest.TestCase):
         )
         self.assertEqual(str(cm.exception), msg)
 
-    def test_nonmatching_num_num_timesteps_per_export(self):
+    def test_nonmatching_num_timesteps_per_export(self):
         with self.assertRaises(ValueError) as cm:
             TimePartition(1.0, 1, [0.5], "field", num_timesteps_per_export=[1, 2])
         msg = "Number of timesteps per export and subinterval do not match: 2 != 1."
