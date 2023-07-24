@@ -134,6 +134,7 @@ def adaptor(mesh_seq, solutions):
         }
     }
 
+    # Construct the metric on each subinterval
     for i, mesh in enumerate(mesh_seq):
         sols = solutions["u"]["forward"][i]
         dt = mesh_seq.time_partition.timesteps[i]
@@ -145,9 +146,9 @@ def adaptor(mesh_seq, solutions):
         # Recover the Hessian at each timestep and time integrate
         hessians = [RiemannianMetric(P1_ten) for _ in range(2)]
         for sol in sols:
-            for i, hessian in enumerate(hessians):
+            for j, hessian in enumerate(hessians):
                 hessian.set_parameters(mp)
-                hessian.compute_hessian(sol[i])
+                hessian.compute_hessian(sol[j])
                 hessian.enforce_spd(restrict_sizes=True)
             metric += dt * hessians[0].intersect(hessians[1])
         metrics.append(metric)
