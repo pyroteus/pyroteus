@@ -170,6 +170,10 @@ class TimePartition:
             }
         )
 
+    @property
+    def num_timesteps(self):
+        return sum(self.num_timesteps_per_subinterval)
+
     def _check_subintervals(self):
         if len(self.subintervals) != self.num_subintervals:
             raise ValueError(
