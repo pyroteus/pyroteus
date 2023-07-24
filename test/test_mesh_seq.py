@@ -140,24 +140,23 @@ class TestStringFormatting(unittest.TestCase):
         self.assertTrue(re.match(repr(mesh_seq), expected))
 
 
-def get_p0_spaces(mesh):
-    return {"field": FunctionSpace(mesh, "DG", 0)}
-
-
 class TestBlockLogic(unittest.TestCase):
     """
     Unit tests for :meth:`MeshSeq._dependency` and :meth:`MeshSeq._output`.
     """
+    @staticmethod
+    def get_p0_spaces(mesh):
+        return {"field": FunctionSpace(mesh, "DG", 0)}
 
     def setUp(self):
         self.time_interval = TimeInterval(1.0, 0.5, "field")
         self.mesh = UnitTriangleMesh()
+        self.mesh_seq = MeshSeq(
+            self.time_interval, self.mesh, get_function_spaces=self.get_p0_spaces
+        )
 
     @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
     def test_output_not_function(self, MockSolveBlock):
-        self.mesh_seq = MeshSeq(
-            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
-        )
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(1)
         solve_block._outputs = [block_variable]
@@ -168,9 +167,6 @@ class TestBlockLogic(unittest.TestCase):
 
     @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
     def test_output_wrong_function_space(self, MockSolveBlock):
-        self.mesh_seq = MeshSeq(
-            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
-        )
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
         solve_block._outputs = [block_variable]
@@ -181,9 +177,6 @@ class TestBlockLogic(unittest.TestCase):
 
     @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
     def test_output_wrong_name(self, MockSolveBlock):
-        self.mesh_seq = MeshSeq(
-            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
-        )
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "DG", 0)
         block_variable = BlockVariable(Function(function_space, name="field2"))
@@ -195,9 +188,6 @@ class TestBlockLogic(unittest.TestCase):
 
     @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
     def test_output_valid(self, MockSolveBlock):
-        self.mesh_seq = MeshSeq(
-            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
-        )
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "DG", 0)
         block_variable = BlockVariable(Function(function_space, name="field"))
@@ -206,9 +196,6 @@ class TestBlockLogic(unittest.TestCase):
 
     @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
     def test_output_multiple_valid_error(self, MockSolveBlock):
-        self.mesh_seq = MeshSeq(
-            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
-        )
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "DG", 0)
         block_variable = BlockVariable(Function(function_space, name="field"))
@@ -223,9 +210,6 @@ class TestBlockLogic(unittest.TestCase):
 
     @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
     def test_dependency_not_function(self, MockSolveBlock):
-        self.mesh_seq = MeshSeq(
-            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
-        )
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(1)
         solve_block._dependencies = [block_variable]
@@ -236,9 +220,6 @@ class TestBlockLogic(unittest.TestCase):
 
     @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
     def test_dependency_wrong_function_space(self, MockSolveBlock):
-        self.mesh_seq = MeshSeq(
-            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
-        )
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
         solve_block._dependencies = [block_variable]
@@ -249,9 +230,6 @@ class TestBlockLogic(unittest.TestCase):
 
     @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
     def test_dependency_wrong_name(self, MockSolveBlock):
-        self.mesh_seq = MeshSeq(
-            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
-        )
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "DG", 0)
         block_variable = BlockVariable(Function(function_space, name="field_new"))
@@ -263,9 +241,6 @@ class TestBlockLogic(unittest.TestCase):
 
     @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
     def test_dependency_valid(self, MockSolveBlock):
-        self.mesh_seq = MeshSeq(
-            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
-        )
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "DG", 0)
         block_variable = BlockVariable(Function(function_space, name="field_old"))
@@ -274,9 +249,6 @@ class TestBlockLogic(unittest.TestCase):
 
     @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
     def test_dependency_multiple_valid_error(self, MockSolveBlock):
-        self.mesh_seq = MeshSeq(
-            self.time_interval, self.mesh, get_function_spaces=get_p0_spaces
-        )
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "DG", 0)
         block_variable = BlockVariable(Function(function_space, name="field_old"))
@@ -292,8 +264,8 @@ class TestBlockLogic(unittest.TestCase):
     @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
     def test_dependency_steady(self, MockSolveBlock):
         time_interval = TimeInterval(1.0, 0.5, "field", field_types="steady")
-        self.mesh_seq = MeshSeq(
-            time_interval, self.mesh, get_function_spaces=get_p0_spaces
+        mesh_seq = MeshSeq(
+            time_interval, self.mesh, get_function_spaces=self.get_p0_spaces
         )
         solve_block = MockSolveBlock()
-        self.assertIsNone(self.mesh_seq._dependency("field", 0, solve_block))
+        self.assertIsNone(mesh_seq._dependency("field", 0, solve_block))
