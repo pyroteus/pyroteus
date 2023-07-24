@@ -4,7 +4,6 @@ Sequences of meshes corresponding to a :class:`~.TimePartition`.
 import firedrake
 from firedrake.petsc import PETSc
 from firedrake.adjoint.solving import get_solve_blocks
-from firedrake.adjoint.blocks import GenericSolveBlock
 from pyadjoint import get_working_tape, Block
 from .interpolation import project
 from .log import pyrint, debug, warning, info, logger, DEBUG
@@ -58,6 +57,10 @@ class MeshSeq:
         """
         self.time_partition = time_partition
         self.fields = time_partition.fields
+        self.field_types = {
+            field: field_type
+            for field, field_type in zip(self.fields, time_partition.field_types)
+        }
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
         self.meshes = initial_meshes
@@ -387,7 +390,6 @@ class MeshSeq:
         :arg solve_block: taped :class:`firedrake.adjoint.blocks.GenericSolveBlock`
         """
         fs = self.function_spaces[field][subinterval]
-        assert isinstance(solve_block, GenericSolveBlock)
 
         # Loop through the solve block's outputs
         candidates = []
@@ -395,16 +397,12 @@ class MeshSeq:
             # Look for Functions with matching function spaces
             if not isinstance(out.output, Function):
                 continue
-            if not hasattr(out.output, "function_space"):
-                continue
             if out.output.function_space() != fs:
                 continue
 
             # Look for Functions whose name matches that of the field
             # NOTE: Here we assume that the user has set this correctly in their
             #       get_solver method
-            if not hasattr(out.output, "name"):
-                continue
             if not out.output.name() == field:
                 continue
 
@@ -416,8 +414,8 @@ class MeshSeq:
             return candidates[0]
         elif len(candidates) > 1:
             raise AttributeError(
-                "Cannot determine a unique output for the solution"
-                f" associated with field '{field}'. Candidates: {candidates}."
+                "Cannot determine a unique output index for the solution associated"
+                f" with field '{field}' out of {len(candidates)} candidates."
             )
         elif not self.steady:
             raise AttributeError(
@@ -434,8 +432,9 @@ class MeshSeq:
         :arg subinterval: subinterval index
         :arg solve_block: taped :class:`firedrake.adjoint.blocks.GenericSolveBlock`
         """
+        if self.field_types[field] == "steady":
+            return
         fs = self.function_spaces[field][subinterval]
-        assert isinstance(solve_block, GenericSolveBlock)
 
         # Loop through the solve block's dependencies
         candidates = []
@@ -443,16 +442,12 @@ class MeshSeq:
             # Look for Functions with matching function spaces
             if not isinstance(dep.output, Function):
                 continue
-            if not hasattr(dep.output, "function_space"):
-                continue
             if dep.output.function_space() != fs:
                 continue
 
             # Look for Functions whose name is the lagged version of the field's
             # NOTE: Here we assume that the user has set this correctly in their
             #       get_solver method
-            if not hasattr(dep.output, "name"):
-                continue
             if not dep.output.name() == f"{field}_old":
                 continue
 
@@ -465,7 +460,7 @@ class MeshSeq:
         elif len(candidates) > 1:
             raise AttributeError(
                 "Cannot determine a unique dependency index for the lagged solution"
-                f" associated with field '{field}'. Candidates: {candidates}."
+                f" associated with field '{field}' out of {len(candidates)} candidates."
             )
         elif not self.steady:
             raise AttributeError(
