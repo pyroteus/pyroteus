@@ -5,7 +5,7 @@ from .log import debug
 from .utility import AttrDict
 from collections.abc import Iterable
 import numpy as np
-from typing import List, Union
+from typing import List, Optional, Union
 
 
 __all__ = ["TimePartition", "TimeInterval", "TimeInstant"]
@@ -13,12 +13,10 @@ __all__ = ["TimePartition", "TimeInterval", "TimeInstant"]
 
 class TimePartition:
     """
-    Object describing the partition of the time
-    interval of interest into subintervals.
+    A partition of the time interval of interest into subintervals.
 
-    For now, the subintervals are assumed to be
-    uniform in length. However, different values
-    may be used of the timestep on each.
+    The subintervals are assumed to be uniform in length. However, different timestep
+    values may be used on each subinterval.
     """
 
     def __init__(
@@ -27,31 +25,25 @@ class TimePartition:
         num_subintervals: int,
         timesteps: Union[List[float], float],
         fields: Union[List[str], str],
-        **kwargs,
+        num_timesteps_per_export: int = 1,
+        start_time: float = 0.0,
+        subintervals: Optional[List[float]] = None,
     ):
         """
-        :arg end_time: end time of the interval
-            of interest
-        :arg num_subintervals: number of
-            subintervals in the partition
-        :arg timesteps: (list of values for the)
-            timestep used on each subinterval
-        :arg fields: (list of) field names ordered
-            by call sequence
-        :kwarg timesteps_per_export: (list of)
-            timesteps per export (default 1)
-        :kwarg start_time: start time of the
-            interval of interest (default 0.0)
-        :kwarg subinterals: user-provided sequence
-            of subintervals, which need not be of
-            uniform length (defaults to None)
+        :arg end_time: end time of the interval of interest
+        :arg num_subintervals: number of subintervals in the partition
+        :arg timesteps: (list of values for the) timestep used on each subinterval
+        :arg fields: (list of) field names
+        :kwarg num_timesteps_per_export: (list of) number of timesteps per export
+        :kwarg start_time: start time of the interval of interest
+        :kwarg subinterals: user-provided sequence of subintervals, which need not be of
+            uniform length
         """
         debug(100 * "-")
         if isinstance(fields, str):
             fields = [fields]
         self.fields = fields
-        timesteps_per_export = kwargs.get("timesteps_per_export", 1)
-        self.start_time = kwargs.get("start_time", 0.0)
+        self.start_time = start_time
         self.end_time = end_time
         self.num_subintervals = int(np.round(num_subintervals))
         if not np.isclose(num_subintervals, self.num_subintervals):
@@ -63,7 +55,7 @@ class TimePartition:
         self.debug("interval")
 
         # Get subintervals
-        self.subintervals = kwargs.get("subintervals")
+        self.subintervals = subintervals
         if self.subintervals is None:
             subinterval_time = (self.end_time - self.start_time) / num_subintervals
             self.subintervals = [
@@ -73,78 +65,45 @@ class TimePartition:
                 )
                 for i in range(num_subintervals)
             ]
-        assert len(self.subintervals) == num_subintervals
-        assert np.isclose(self.subintervals[0][0], self.start_time)
-        for i in range(1, num_subintervals):
-            assert np.isclose(self.subintervals[i][0], self.subintervals[i - 1][1])
-        assert np.isclose(self.subintervals[-1][1], self.end_time)
+        self._check_subintervals()
         self.debug("subintervals")
 
         # Get timestep on each subinterval
         if not isinstance(timesteps, Iterable):
-            timesteps = [timesteps for subinterval in self.subintervals]
-        self.timesteps = np.array(timesteps)
+            timesteps = [timesteps] * len(self)
+        self.timesteps = timesteps
+        self._check_timesteps()
         self.debug("timesteps")
-        if len(self.timesteps) != num_subintervals:
-            raise ValueError(
-                "Number of timesteps and subintervals do not match"
-                f" ({len(self.timesteps)} vs. {num_subintervals})."
-            )
 
         # Get number of timesteps on each subinterval
-        _timesteps_per_subinterval = [
-            (t[1] - t[0]) / dt for t, dt in zip(self.subintervals, self.timesteps)
-        ]
-        self.timesteps_per_subinterval = [
-            int(np.round(tsps)) for tsps in _timesteps_per_subinterval
-        ]
-        if not np.allclose(self.timesteps_per_subinterval, _timesteps_per_subinterval):
-            raise ValueError(
-                "Non-integer timesteps per subinterval"
-                f" ({_timesteps_per_subinterval})."
-            )
-        self.debug("timesteps_per_subinterval")
-
-        # Get timesteps per export
-        if not isinstance(timesteps_per_export, Iterable):
-            if not np.isclose(timesteps_per_export, np.round(timesteps_per_export)):
+        self.num_timesteps_per_subinterval = []
+        for i, ((ts, tf), dt) in enumerate(zip(self.subintervals, self.timesteps)):
+            num_timesteps = (tf - ts) / dt
+            self.num_timesteps_per_subinterval.append(int(np.round(num_timesteps)))
+            if not np.isclose(num_timesteps, self.num_timesteps_per_subinterval[-1]):
                 raise ValueError(
-                    f"Non-integer timesteps per export ({timesteps_per_export})."
+                    f"Non-integer number of timesteps on subinterval {i}:"
+                    f" {num_timesteps}."
                 )
-            timesteps_per_export = [
-                int(np.round(timesteps_per_export)) for subinterval in self.subintervals
-            ]
-        self.timesteps_per_export = np.array(timesteps_per_export, dtype=np.int32)
-        if len(self.timesteps_per_export) != len(self.timesteps_per_subinterval):
-            raise ValueError(
-                "Number of timesteps per export and subinterval do not match"
-                f" ({len(self.timesteps_per_export)}"
-                f" vs. {len(self.timesteps_per_subinterval)})."
-            )
-        for i, (tspe, tsps) in enumerate(
-            zip(self.timesteps_per_export, self.timesteps_per_subinterval)
-        ):
-            if tsps % tspe != 0:
-                raise ValueError(
-                    "Number of timesteps per export does not divide number of"
-                    f" timesteps per subinterval ({tspe} vs. {tsps}"
-                    f" on subinterval {i})."
-                )
-        self.debug("timesteps_per_export")
+        self.debug("num_timesteps_per_subinterval")
 
-        # Get exports per subinterval
-        self.exports_per_subinterval = np.array(
-            [
-                tsps // tspe + 1
-                for tspe, tsps in zip(
-                    self.timesteps_per_export, self.timesteps_per_subinterval
-                )
-            ],
-            dtype=np.int32,
-        )
-        self.debug("exports_per_subinterval")
+        # Get num timesteps per export
+        if not isinstance(num_timesteps_per_export, Iterable):
+            num_timesteps_per_export = [num_timesteps_per_export] * len(self)
+        self.num_timesteps_per_export = num_timesteps_per_export
+        self._check_num_timesteps_per_export()
+        self.debug("num_timesteps_per_export")
+
+        # Get num exports per subinterval
+        self.num_exports_per_subinterval = [
+            tsps // tspe + 1
+            for tspe, tsps in zip(
+                self.num_timesteps_per_export, self.num_timesteps_per_subinterval
+            )
+        ]
+        self.debug("num_exports_per_subinterval")
         self.steady = (
-            self.num_subintervals == 1 and self.timesteps_per_subinterval[0] == 1
+            self.num_subintervals == 1 and self.num_timesteps_per_subinterval[0] == 1
         )
         self.debug("steady")
         debug(100 * "-")
@@ -189,13 +148,66 @@ class TimePartition:
             {
                 "subinterval": self.subintervals[i],
                 "timestep": self.timesteps[i],
-                "timesteps_per_export": self.timesteps_per_export[i],
-                "num_exports": self.exports_per_subinterval[i],
-                "num_timesteps": self.timesteps_per_subinterval[i],
+                "num_timesteps_per_export": self.num_timesteps_per_export[i],
+                "num_exports": self.num_exports_per_subinterval[i],
+                "num_timesteps": self.num_timesteps_per_subinterval[i],
                 "start_time": self.subintervals[i][0],
                 "end_time": self.subintervals[i][1],
             }
         )
+
+    def _check_subintervals(self):
+        if len(self.subintervals) != self.num_subintervals:
+            raise ValueError(
+                "Number of subintervals provided differs from num_subintervals:"
+                f" {len(self.subintervals)} != {self.num_subintervals}."
+            )
+        if not np.isclose(self.subintervals[0][0], self.start_time):
+            raise ValueError(
+                "The first subinterval does not start at the start time:"
+                f" {self.subintervals[0][0]} != {self.start_time}."
+            )
+        for i in range(self.num_subintervals-1):
+            if not np.isclose(self.subintervals[i][1], self.subintervals[i+1][0]):
+                raise ValueError(
+                    f"The end of subinterval {i} does not match the start of"
+                    f" subinterval {i+1}: {self.subintervals[i][1]} !="
+                    f" {self.subintervals[i+1][0]}."
+                )
+        if not np.isclose(self.subintervals[-1][1], self.end_time):
+            raise ValueError(
+                "The final subinterval does not end at the end time:"
+                f" {self.subintervals[-1][1]} != {self.end_time}."
+            )
+
+    def _check_timesteps(self):
+        if len(self.timesteps) != self.num_subintervals:
+            raise ValueError(
+                "Number of timesteps does not match num_subintervals:"
+                f" {len(self.timesteps)} != {self.num_subintervals}."
+            )
+
+    def _check_num_timesteps_per_export(self):
+        if len(self.num_timesteps_per_export) != len(self.num_timesteps_per_subinterval):
+            raise ValueError(
+                "Number of timesteps per export and subinterval do not match:"
+                f" {len(self.num_timesteps_per_export)}"
+                f" != {len(self.num_timesteps_per_subinterval)}."
+            )
+        for i, (tspe, tsps) in enumerate(
+            zip(self.num_timesteps_per_export, self.num_timesteps_per_subinterval)
+        ):
+            if not isinstance(tspe, int):
+                raise TypeError(
+                    f"Expected number of timesteps per export on subinterval {i} to be"
+                    f" an integer, not '{type(tspe)}'."
+                )
+            if tsps % tspe != 0:
+                raise ValueError(
+                    "Number of timesteps per export does not divide number of"
+                    f" timesteps per subinterval on subinterval {i}:"
+                    f" {tsps} | {tspe} != 0."
+                )
 
     def __eq__(self, other):
         if len(self) != len(other):
@@ -203,7 +215,7 @@ class TimePartition:
         return (
             np.allclose(self.subintervals, other.subintervals)
             and np.allclose(self.timesteps, other.timesteps)
-            and np.allclose(self.exports_per_subinterval, other.exports_per_subinterval)
+            and np.allclose(self.num_exports_per_subinterval, other.num_exports_per_subinterval)
             and self.fields == other.fields
         )
 
@@ -214,7 +226,7 @@ class TimePartition:
             not np.allclose(self.subintervals, other.subintervals)
             or not np.allclose(self.timesteps, other.timesteps)
             or not np.allclose(
-                self.exports_per_subinterval, other.exports_per_subinterval
+                self.num_exports_per_subinterval, other.num_exports_per_subinterval
             )
             or not self.fields == other.fields
         )
@@ -258,13 +270,14 @@ class TimeInstant(TimeInterval):
     """
 
     def __init__(self, fields: Union[List[str], str], **kwargs):
-        time = kwargs.get("time", 1.0)
         if "end_time" in kwargs:
             if "time" in kwargs:
                 raise ValueError("Both 'time' and 'end_time' are set.")
-            time = kwargs.get("end_time")
+            time = kwargs.pop("end_time")
+        else:
+            time = kwargs.pop("time", 1.0)
         timestep = time
-        super().__init__(time, timestep, fields)
+        super().__init__(time, timestep, fields, **kwargs)
 
     def __str__(self) -> str:
         return f"({self.end_time})"

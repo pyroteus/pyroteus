@@ -117,7 +117,7 @@ end_time = 0.5
 dt = 1 / n
 num_subintervals = len(meshes)
 time_partition = TimePartition(
-    end_time, num_subintervals, dt, ["u"], timesteps_per_export=2
+    end_time, num_subintervals, dt, ["u"], num_timesteps_per_export=2
 )
 
 # The only difference when defining the :class:`AdjointMeshSeq`

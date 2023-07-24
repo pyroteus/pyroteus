@@ -144,7 +144,7 @@ time_partition = TimePartition(
     num_subintervals,
     dt,
     fields,
-    timesteps_per_export=dt_per_export,
+    num_timesteps_per_export=dt_per_export,
     subintervals=[
         (0.0, 0.001),
         (0.001, 0.01),

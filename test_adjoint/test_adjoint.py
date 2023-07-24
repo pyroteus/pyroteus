@@ -124,7 +124,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         end_time,
         test_case.dt,
         test_case.fields,
-        timesteps_per_export=test_case.dt_per_export,
+        num_timesteps_per_export=test_case.dt_per_export,
     )
     mesh_seq = AdjointMeshSeq(
         time_partition,
@@ -174,7 +174,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
             N,
             test_case.dt,
             test_case.fields,
-            timesteps_per_export=test_case.dt_per_export,
+            num_timesteps_per_export=test_case.dt_per_export,
         )
         mesh_seq = AdjointMeshSeq(
             time_partition,
@@ -245,7 +245,7 @@ def plot_solutions(problem, qoi_type, debug=True):
         end_time,
         test_case.dt,
         test_case.fields,
-        timesteps_per_export=test_case.dt_per_export,
+        num_timesteps_per_export=test_case.dt_per_export,
     )
     solutions = AdjointMeshSeq(
         time_partition,
@@ -270,7 +270,7 @@ def plot_solutions(problem, qoi_type, debug=True):
         outfiles.adjoint_next = File(os.path.join(output_dir, "adjoint_next.pvd"))
         outfiles.adj_value = File(os.path.join(output_dir, "adj_value.pvd"))
     for label in outfiles:
-        for k in range(time_partition.exports_per_subinterval[0] - 1):
+        for k in range(time_partition.num_exports_per_subinterval[0] - 1):
             to_plot = []
             for field in time_partition.fields:
                 sol = solutions[field][label][0][k]

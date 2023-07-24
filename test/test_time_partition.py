@@ -32,7 +32,7 @@ class TestSetup(unittest.TestCase):
         self.assertTrue(time_partition1 != time_partition2)
 
     def test_time_partition_ne_negative(self):
-        time_partition1 = TimePartition(1.0, 1, [1.0], "field", timesteps_per_export=1)
+        time_partition1 = TimePartition(1.0, 1, [1.0], "field", num_timesteps_per_export=1)
         time_partition2 = TimePartition(1.0, 1, [1.0], "field")
         self.assertFalse(time_partition1 != time_partition2)
 
@@ -96,42 +96,72 @@ class TestSetup(unittest.TestCase):
         time_interval = TimeInterval(1.0, 0.5, "field")
         self.assertFalse(time_partition != time_interval)
 
-    def test_noninteger_subintervals(self):
+    def test_noninteger_num_subintervals(self):
         with self.assertRaises(ValueError) as cm:
             TimePartition(1.0, 1.1, 0.5, "field")
         msg = "Non-integer number of subintervals '1.1'."
         self.assertEqual(str(cm.exception), msg)
 
+    def test_wrong_number_of_subintervals(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 1, 0.5, "field", subintervals=[(0.0, 0.5), (0.5, 1.0)])
+        msg = "Number of subintervals provided differs from num_subintervals: 2 != 1."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_wrong_subinterval_start(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 1, 0.5, "field", subintervals=[(0.1, 1.0)])
+        msg = "The first subinterval does not start at the start time: 0.1 != 0.0."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_inconsistent_subintervals(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 2, 0.5, "field", subintervals=[(0.0, 0.6), (0.5, 1.0)])
+        msg = (
+            "The end of subinterval 0 does not match the start of subinterval 1:"
+            " 0.6 != 0.5."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_wrong_subinterval_end(self):
+        with self.assertRaises(ValueError) as cm:
+            TimePartition(1.0, 1, 0.5, "field", subintervals=[(0.0, 1.1)])
+        msg = "The final subinterval does not end at the end time: 1.1 != 1.0."
+        self.assertEqual(str(cm.exception), msg)
+
     def test_wrong_num_timesteps(self):
         with self.assertRaises(ValueError) as cm:
             TimePartition(1.0, 1, [0.5, 0.5], "field")
-        msg = "Number of timesteps and subintervals do not match (2 vs. 1)."
+        msg = "Number of timesteps does not match num_subintervals: 2 != 1."
         self.assertEqual(str(cm.exception), msg)
 
-    def test_noninteger_timesteps_per_subinterval(self):
+    def test_noninteger_num_timesteps_per_subinterval(self):
         with self.assertRaises(ValueError) as cm:
             TimePartition(1.0, 1, [0.4], "field")
-        msg = "Non-integer timesteps per subinterval ([2.5])."
+        msg = "Non-integer number of timesteps on subinterval 0: 2.5."
         self.assertEqual(str(cm.exception), msg)
 
-    def test_noninteger_timesteps_per_export(self):
-        with self.assertRaises(ValueError) as cm:
-            TimePartition(1.0, 1, [0.5], "field", timesteps_per_export=1.1)
-        msg = "Non-integer timesteps per export (1.1)."
+    def test_noninteger_num_timesteps_per_export(self):
+        with self.assertRaises(TypeError) as cm:
+            TimePartition(1.0, 1, [0.5], "field", num_timesteps_per_export=1.1)
+        msg = (
+            "Expected number of timesteps per export on subinterval 0 to be an integer,"
+            " not '<class 'float'>'."
+        )
         self.assertEqual(str(cm.exception), msg)
 
     def test_nonmatching_num_timesteps_per_export(self):
         with self.assertRaises(ValueError) as cm:
-            TimePartition(1.0, 1, [0.5], "field", timesteps_per_export=[1, 2])
-        msg = "Number of timesteps per export and subinterval do not match (2 vs. 1)."
+            TimePartition(1.0, 1, [0.5], "field", num_timesteps_per_export=[1, 2])
+        msg = "Number of timesteps per export and subinterval do not match: 2 != 1."
         self.assertEqual(str(cm.exception), msg)
 
-    def test_indivisible_timesteps_per_export(self):
+    def test_indivisible_num_timesteps_per_export(self):
         with self.assertRaises(ValueError) as cm:
-            TimePartition(1.0, 1, [0.5], "field", timesteps_per_export=4)
+            TimePartition(1.0, 1, [0.5], "field", num_timesteps_per_export=4)
         msg = (
             "Number of timesteps per export does not divide number of timesteps per"
-            " subinterval (4 vs. 2 on subinterval 0)."
+            " subinterval on subinterval 0: 2 | 4 != 0."
         )
         self.assertEqual(str(cm.exception), msg)
 

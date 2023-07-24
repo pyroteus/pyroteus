@@ -148,7 +148,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                     [
                         Function(fs, name=f"{field}_error_indicator")
                         for _ in range(
-                            self.time_partition.exports_per_subinterval[i] - 1
+                            self.time_partition.num_exports_per_subinterval[i] - 1
                         )
                     ]
                     for i, fs in enumerate(P0_spaces)

@@ -106,7 +106,7 @@ time_partition = TimeInterval(
     end_time,
     dt,
     fields,
-    timesteps_per_export=25,
+    num_timesteps_per_export=25,
 )
 
 # For the purposes of plotting, we set up a :class:`MeshSeq` with

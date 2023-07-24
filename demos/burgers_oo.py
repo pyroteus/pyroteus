@@ -21,6 +21,9 @@ from firedrake import *
 from pyroteus_adjoint import *
 
 
+set_log_level(DEBUG)
+
+
 class BurgersMeshSeq(AdjointMeshSeq):
     @staticmethod
     def get_function_spaces(mesh):
@@ -110,7 +113,7 @@ end_time = 0.5
 dt = 1 / n
 num_subintervals = len(meshes)
 P = TimePartition(
-    end_time, num_subintervals, dt, ["u"], timesteps_per_export=2, debug=True
+    end_time, num_subintervals, dt, ["u"], num_timesteps_per_export=2
 )
 mesh_seq = BurgersMeshSeq(P, meshes, qoi_type="end_time")
 solutions = mesh_seq.solve_adjoint()

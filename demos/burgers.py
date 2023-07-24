@@ -151,7 +151,7 @@ time_partition = TimePartition(
     num_subintervals,
     dt,
     fields,
-    timesteps_per_export=2,
+    num_timesteps_per_export=2,
 )
 
 # Finally, we are able to construct a :class:`MeshSeq` and
