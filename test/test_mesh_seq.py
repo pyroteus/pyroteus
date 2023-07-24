@@ -5,7 +5,6 @@ from pyroteus.mesh_seq import MeshSeq
 from pyroteus.time_partition import TimePartition, TimeInterval
 from firedrake import *
 from pyadjoint.block_variable import BlockVariable
-from dolfin_adjoint_common.blocks.solving import GenericSolveBlock
 import numpy as np
 import re
 import unittest
