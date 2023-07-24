@@ -33,8 +33,8 @@ class TimePartition:
         :arg end_time: end time of the interval of interest
         :arg num_subintervals: number of subintervals in the partition
         :arg timesteps: (list of values for the) timestep used on each subinterval
-        :arg fields: (list of) field names ordered by call sequence
-        :kwarg num_timesteps_per_export: (list of) timesteps per export
+        :arg fields: (list of) field names
+        :kwarg num_timesteps_per_export: (list of) number of timesteps per export
         :kwarg start_time: start time of the interval of interest
         :kwarg subinterals: user-provided sequence of subintervals, which need not be of
             uniform length
