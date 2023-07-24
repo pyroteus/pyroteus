@@ -542,6 +542,8 @@ def space_time_normalise(
     r"""
     Apply :math:`L^p` normalisation in both space and time.
 
+    Based on Equation (1) in :cite:`Barral:2016`.
+
     :arg metrics: list of :class:`firedrake.meshadapt.RiemannianMetric`\s corresponding
         to the metric associated with each subinterval
     :arg time_partition: :class:`TimePartition` for the problem at hand
@@ -603,24 +605,33 @@ def space_time_normalise(
     if global_factor is None:
         integral = 0
         p = mp["dm_plex_metric_p"]
-        exponent = 0.5 if np.isinf(p) else (p / (2 * p + d))
+        exponent = 0.5 if np.isinf(p) else p / (2 * p + d)
         for metric, S in zip(metrics, time_partition):
             dX = (ufl.ds if boundary else ufl.dx)(metric.function_space().mesh())
-            scaling = S.length / S.timestep
-            integral += assemble(pow(scaling * ufl.det(metric), exponent) * dX)
-            metric *= scaling ** 2
-        target = mp["dm_plex_metric_target_complexity"] * time_partition.end_time
+            scaling = pow(S.length / S.timestep, 2 * exponent)
+            integral += scaling * assemble(pow(ufl.det(metric), exponent) * dX)
+        target = mp["dm_plex_metric_target_complexity"] * time_partition.num_timesteps
         debug(f"space_time_normalise: target space-time complexity={target:.4e}")
         global_factor = firedrake.Constant(pow(target / integral, 2 / d))
     debug(f"space_time_normalise: global scale factor={float(global_factor):.4e}")
 
-    # Normalise on each subinterval
-    for metric in metrics:
+    for metric, S in zip(metrics, time_partition):
+
+        # Normalise according to the global normalisation factor
         metric.normalise(
             global_factor=global_factor,
+            restrict_sizes=False,
+            restrict_anisotropy=False,
+        )
+
+        # Apply the separate scale factors for each metric
+        if not np.isinf(p):
+            metric *= pow(S.length / S.timestep, -2 / (2 * p + d))
+        metric.enforce_spd(
             restrict_sizes=restrict_sizes,
             restrict_anisotropy=restrict_anisotropy,
         )
+
     return metrics
 
 
