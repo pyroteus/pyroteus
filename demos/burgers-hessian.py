@@ -178,7 +178,7 @@ def adaptor(mesh_seq, solutions):
 
     # Since we have two subintervals, we should check if the target complexity has been
     # (approximately) reached on each subinterval
-    continue_unconditionally = np.any(np.array(complexities) < 0.95 * target)
+    continue_unconditionally = np.array(complexities) < 0.90 * target
     return continue_unconditionally
 
 
@@ -191,47 +191,25 @@ solutions = mesh_seq.fixed_point_iteration(adaptor)
 # .. code-block:: console
 #
 #     fixed point iteration 1:
-#       subinterval 0, complexity:  515, dofs:  714, elements: 1320
-#       subinterval 1, complexity:  437, dofs:  570, elements: 1055
+#       subinterval 0, complexity:  433, dofs:  622, elements: 1150
+#       subinterval 1, complexity:  368, dofs:  508, elements:  932
 #     fixed point iteration 2:
-#       subinterval 0, complexity:  787, dofs:  956, elements: 1786
-#       subinterval 1, complexity:  644, dofs:  758, elements: 1416
+#       subinterval 0, complexity:  662, dofs:  812, elements: 1510
+#       subinterval 1, complexity:  541, dofs:  652, elements: 1213
 #     fixed point iteration 3:
-#       subinterval 0, complexity: 1044, dofs: 1225, elements: 2319
-#       subinterval 1, complexity:  861, dofs:  993, elements: 1871
+#       subinterval 0, complexity:  878, dofs: 1015, elements: 1909
+#       subinterval 1, complexity:  724, dofs:  841, elements: 1578
 #     fixed point iteration 4:
-#       subinterval 0, complexity: 1301, dofs: 1491, elements: 2838
-#       subinterval 1, complexity: 1080, dofs: 1236, elements: 2346
+#       subinterval 0, complexity: 1095, dofs: 1318, elements: 2501
+#       subinterval 1, complexity:  908, dofs: 1043, elements: 1973
 #     fixed point iteration 5:
-#       subinterval 0, complexity: 1300, dofs: 1538, elements: 2929
-#       subinterval 1, complexity: 1081, dofs: 1259, elements: 2392
+#       subinterval 0, complexity: 1093, dofs: 1332, elements: 2527
+#       subinterval 1, complexity:  909, dofs: 1077, elements: 2037
 #     fixed point iteration 6:
-#       subinterval 0, complexity: 1299, dofs: 1554, elements: 2960
-#       subinterval 1, complexity: 1081, dofs: 1265, elements: 2403
-#     fixed point iteration 7:
-#       subinterval 0, complexity: 1298, dofs: 1560, elements: 2972
-#       subinterval 1, complexity: 1082, dofs: 1278, elements: 2427
-#     fixed point iteration 8:
-#       subinterval 0, complexity: 1298, dofs: 1573, elements: 2998
-#       subinterval 1, complexity: 1083, dofs: 1292, elements: 2453
-#     fixed point iteration 9:
-#       subinterval 0, complexity: 1297, dofs: 1575, elements: 3001
-#       subinterval 1, complexity: 1084, dofs: 1300, elements: 2466
-#     fixed point iteration 10:
-#       subinterval 0, complexity: 1297, dofs: 1581, elements: 3013
-#       subinterval 1, complexity: 1084, dofs: 1309, elements: 2484
-#     fixed point iteration 11:
-#       subinterval 0, complexity: 1296, dofs: 1583, elements: 3016
-#       subinterval 1, complexity: 1084, dofs: 1317, elements: 2503
-#     Element count converged on subinterval 0 after 11 iterations under relative tolerance 0.001.
-#     fixed point iteration 12:
-#       subinterval 0, complexity: 1296, dofs: 1583, elements: 3016
-#       subinterval 1, complexity: 1085, dofs: 1318, elements: 2505
-#     Element count converged on subinterval 1 after 12 iterations under relative tolerance 0.001.
-#
-# In the sample output above, we reach convergence on the first subinterval before the
-# second. Notice that the DoF and element counts do not change after this point for this
-# subinterval, as expected.
+#       subinterval 0, complexity: 1092, dofs: 1331, elements: 2525
+#       subinterval 1, complexity:  910, dofs: 1078, elements: 2037
+#     Element count converged on subinterval 0 after 6 iterations under relative tolerance 0.001.
+#     Element count converged on subinterval 1 after 6 iterations under relative tolerance 0.001.
 #
 # Finally, let's plot the adapted meshes. ::
 
