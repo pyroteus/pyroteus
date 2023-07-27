@@ -143,7 +143,8 @@ def adaptor(mesh_seq, solutions):
         P1_ten = TensorFunctionSpace(mesh, "CG", 1)
         metric = RiemannianMetric(P1_ten)
 
-        # Recover the Hessian at each timestep and time integrate
+        # At each timestep, recover Hessians of the two components of the solution
+        # vector. Then time integrate over the contributions
         hessians = [RiemannianMetric(P1_ten) for _ in range(2)]
         for sol in sols:
             for j, hessian in enumerate(hessians):
