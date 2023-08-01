@@ -88,7 +88,7 @@ mesh_seq = AdjointMeshSeq(
 )
 solutions = mesh_seq.solve_adjoint()
 
-if os.environ.get("PYROTEUS_REGRESSION_TEST") is None:
+if not test:
     for field, sols in solutions.items():
         fwd_outfile = File(f"solid_body_rotation_split/{field}_forward.pvd")
         adj_outfile = File(f"solid_body_rotation_split/{field}_adjoint.pvd")

@@ -256,7 +256,7 @@ solutions = mesh_seq.solve_adjoint()
 # following. The `if` statement is used here to check whether this demo is being run as
 # part of Pyroteus' continuous integration testing and can be ignored. ::
 
-if os.environ.get("PYROTEUS_REGRESSION_TEST") is None:
+if not test:
     for field, sols in solutions.items():
         fwd_outfile = File(f"solid_body_rotation/{field}_forward.pvd")
         adj_outfile = File(f"solid_body_rotation/{field}_adjoint.pvd")

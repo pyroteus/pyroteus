@@ -131,7 +131,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         estimator = indicators2estimator({"field": [[indicator]]}, time_instant)
         self.assertAlmostEqual(estimator, 1.0)
 
-    @parameterized.expand([False, True])
+    @parameterized.expand([[False], [True]])
     def test_unit_time_instant_abs(self, absolute_value):
         time_instant = TimeInstant("field", time=1.0)
         indicator = form2indicator(-self.one * dx)

@@ -8,7 +8,6 @@ SPHINXPROJ    = Pyroteus
 SOURCEDIR     = source
 BUILDDIR      = build
 PYTHON        = ${VIRTUAL_ENV}/bin/python3
-PYLIT         = ${VIRTUAL_ENV}/src/firedrake/pylit/pylit.py
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -27,7 +26,7 @@ copy_demos:
 	cp ../demos/*.py source/demos
 	cp ../demos/*.jpg source/demos
 	cp ../demos/demo_references.bib source/demos
-	for file in source/demos/*.py; do $(PYLIT) -c $$file; mv $$file.txt $$file.rst; done
+	for file in source/demos/*.py; do pylit -c $$file; mv $$file.txt $$file.rst; done
 	install -d $(BUILDDIR)/html/demos
 	cp source/demos/*.py $(BUILDDIR)/html/demos
 	cp source/demos/*.jpg $(BUILDDIR)/html/demos

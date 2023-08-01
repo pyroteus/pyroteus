@@ -102,7 +102,13 @@ def get_qoi(mesh_seq, sol, index):
 # we add another relative tolerance condition for the change in QoI value between
 # iterations. ::
 
-params = GoalOrientedMetricParameters({"element_rtol": 0.005, "qoi_rtol": 0.005})
+params = GoalOrientedMetricParameters(
+    {
+        "element_rtol": 0.005,
+        "qoi_rtol": 0.005,
+        "maxiter": 35 if os.environ.get("PYROTEUS_REGRESSION_TEST") is None else 3,
+    }
+)
 
 mesh = RectangleMesh(50, 10, 50, 10)
 time_partition = TimeInstant(fields)
@@ -168,8 +174,8 @@ def adaptor(mesh_seq, solutions, indicators):
     metric.normalise()
     complexity = metric.complexity()
     mesh_seq[0] = adapt(mesh_seq[0], metric)
-    num_dofs = mesh_seq.vertex_counts[-1][0]
-    num_elem = mesh_seq.element_counts[-1][0]
+    num_dofs = mesh_seq.count_vertices()[0]
+    num_elem = mesh_seq.count_elements()[0]
     pyrint(
         f"{iteration + 1:2d}, complexity: {complexity:4.0f}"
         f", dofs: {num_dofs:4d}, elements: {num_elem:4d}"
@@ -216,11 +222,14 @@ dofs_iso = mesh_seq.vertex_counts
 #
 # .. code-block:: console
 #
-#     1, complexity:  371, dofs:  561, elements: 1000
-#     2, complexity:  588, dofs:  526, elements:  988
-#     3, complexity:  785, dofs:  729, elements: 1392
-#     4, complexity:  982, dofs:  916, elements: 1754
-#    Terminated due to QoI convergence after 5 iterations
+#     1, complexity:  371, dofs:  526, elements:  988
+#     2, complexity:  588, dofs:  729, elements: 1392
+#     3, complexity:  785, dofs:  916, elements: 1754
+#     4, complexity:  982, dofs: 1171, elements: 2264
+#     5, complexity:  984, dofs: 1151, elements: 2225
+#     6, complexity:  988, dofs: 1174, elements: 2269
+#     7, complexity:  985, dofs: 1170, elements: 2264
+#    Element count converged after 7 iterations under relative tolerance 0.005.
 #
 # ::
 
@@ -290,8 +299,8 @@ def adaptor(mesh_seq, solutions, indicators):
 
     # Adapt the mesh
     mesh_seq[0] = adapt(mesh_seq[0], metric)
-    num_dofs = mesh_seq.vertex_counts[-1][0]
-    num_elem = mesh_seq.element_counts[-1][0]
+    num_dofs = mesh_seq.count_vertices()[0]
+    num_elem = mesh_seq.count_elements()[0]
     pyrint(
         f"{iteration + 1:2d}, complexity: {complexity:4.0f}"
         f", dofs: {num_dofs:4d}, elements: {num_elem:4d}"
@@ -342,11 +351,21 @@ dofs_aniso = mesh_seq.vertex_counts
 
 # .. code-block:: console
 #
-#     1, complexity:  400, dofs:  561, elements: 1000
-#     2, complexity:  600, dofs:  590, elements: 1121
-#     3, complexity:  800, dofs:  876, elements: 1700
-#     4, complexity: 1000, dofs: 1079, elements: 2101
-#    Terminated due to QoI convergence after 5 iterations
+#     1, complexity:  400, dofs:  542, elements: 1030
+#     2, complexity:  600, dofs:  749, elements: 1450
+#     3, complexity:  800, dofs:  977, elements: 1908
+#     4, complexity: 1000, dofs: 1204, elements: 2364
+#     5, complexity: 1000, dofs: 1275, elements: 2506
+#     6, complexity: 1000, dofs: 1254, elements: 2464
+#     7, complexity: 1000, dofs: 1315, elements: 2584
+#     8, complexity: 1000, dofs: 1281, elements: 2519
+#     9, complexity: 1000, dofs: 1351, elements: 2657
+#    10, complexity: 1000, dofs: 1295, elements: 2546
+#    11, complexity: 1000, dofs: 1283, elements: 2523
+#    12, complexity: 1000, dofs: 1336, elements: 2628
+#    13, complexity: 1000, dofs: 1309, elements: 2574
+#    14, complexity: 1000, dofs: 1304, elements: 2564
+#    Element count converged after 14 iterations under relative tolerance 0.005.
 #
 # ::
 
@@ -380,5 +399,8 @@ plt.close()
 # This time, the elements are clearly anisotropic. This anisotropy is inherited from the
 # Hessian of the adjoint solution. There is still high resolution at the source and
 # receiver, as well as coarse resolution downstream.
+#
+# In the `next demo <./burgers-hessian.py.html>`__, we consider mesh adaptation in the
+# time-dependent case.
 #
 # This demo can also be accessed as a `Python script <point_discharge2d-goal_oriented.py>`__.

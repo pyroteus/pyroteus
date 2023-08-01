@@ -2,6 +2,7 @@
 Driver functions for metric-based mesh adaptation.
 """
 import firedrake.meshadapt
+from .log import debug
 from .time_partition import TimePartition
 from .recovery import *
 from typing import List, Optional, Tuple, Union
@@ -502,7 +503,7 @@ def enforce_element_constraints(
                     f"Encountered hmax value smaller than hmin: {_hmax} vs. {_hmin}."
                 )
             dx = ufl.dx(domain=mesh)
-            integral = firedrake.assemble(ufl.conditional(hmax < hmin, 1, 0) * dx)
+            integral = assemble(ufl.conditional(hmax < hmin, 1, 0) * dx)
             if not np.isclose(integral, 0.0):
                 raise ValueError(
                     f"Encountered regions where hmax < hmin: volume {integral}."
@@ -535,32 +536,54 @@ def space_time_normalise(
     metric_parameters: Union[dict, list],
     global_factor: Optional[float] = None,
     boundary: bool = False,
-    **kwargs,
+    restrict_sizes: bool = True,
+    restrict_anisotropy: bool = True,
 ) -> List[RiemannianMetric]:
     r"""
     Apply :math:`L^p` normalisation in both space and time.
 
-    :arg metrics: list of :class:`firedrake.meshadapt.RiemannianMetric`\s
-        corresponding to the metric associated with
-        each subinterval
+    Based on Equation (1) in :cite:`Barral:2016`.
+
+    :arg metrics: list of :class:`firedrake.meshadapt.RiemannianMetric`\s corresponding
+        to the metric associated with each subinterval
     :arg time_partition: :class:`TimePartition` for the problem at hand
-    :arg metric_parameters: dictionary containing the target *space-time*
-        metric complexity under `dm_plex_metric_target_complexity` and the
-        normalisation order under `dm_plex_metric_p`, or a list thereof
+    :arg metric_parameters: dictionary containing the target *space-time* metric
+        complexity under `dm_plex_metric_target_complexity` and the normalisation order
+        under `dm_plex_metric_p`, or a list thereof
     :kwarg global_factor: pre-computed global normalisation factor
     :kwarg boundary: is the normalisation to be done over the boundary?
-    :kwarg restrict_sizes: should minimum and maximum metric magnitudes
-        be enforced?
+    :kwarg restrict_sizes: should minimum and maximum metric magnitudes be enforced?
     :kwarg restrict_anisotropy: should maximum anisotropy be enforced?
     """
     if isinstance(metric_parameters, dict):
         metric_parameters = [metric_parameters for _ in range(len(time_partition))]
-    for mp in metric_parameters:
+    d = metrics[0].function_space().mesh().topological_dimension()
+    if len(metrics) != len(time_partition):
+        raise ValueError(
+            "Number of metrics does not match number of subintervals:"
+            f" {len(metrics)} vs. {len(time_partition)}."
+        )
+    if len(metrics) != len(metric_parameters):
+        raise ValueError(
+            "Number of metrics does not match number of sets of metric parameters:"
+            f" {len(metrics)} vs. {len(metric_parameters)}."
+        )
+
+    # Preparation step
+    metric_parameters = metric_parameters.copy()
+    for metric, mp in zip(metrics, metric_parameters):
         if not isinstance(mp, dict):
             raise TypeError(
                 "Expected metric_parameters to consist of dictionaries,"
                 f" not objects of type '{type(mp)}'."
             )
+
+        # Allow concise notation
+        if "dm_plex_metric" in mp and isinstance(mp["dm_plex_metric"], dict):
+            for key, value in mp["dm_plex_metric"].items():
+                mp[f"dm_plex_metric_{key}"] = value
+            mp.pop("dm_plex_metric")
+
         p = mp.get("dm_plex_metric_p")
         if p is None:
             raise ValueError("Normalisation order 'dm_plex_metric_p' must be set.")
@@ -575,34 +598,40 @@ def space_time_normalise(
             )
         if target <= 0.0:
             raise ValueError(f"Target complexity '{target}' is not positive.")
-    d = metrics[0].function_space().mesh().topological_dimension()
-
-    # Compute timestep on each subinterval
-    assert len(metrics) == len(time_partition)
-    subinterval_timestep = [S.timestep for S in time_partition]
-
-    # Enforce that the metric is SPD
-    for metric in metrics:
+        metric.set_parameters(mp)
         metric.enforce_spd(restrict_sizes=False, restrict_anisotropy=False)
 
     # Compute global normalisation factor
     if global_factor is None:
         integral = 0
-        for metric, tau, mp in zip(metrics, subinterval_timestep, metric_parameters):
-            p = mp["dm_plex_metric_p"]
-            target = mp["dm_plex_metric_target_complexity"]
-            detM = ufl.det(metric)
-            dX = (ufl.ds if boundary else ufl.dx)(metric.function_space().mesh())
-            exponent = 0.5 if np.isinf(p) else (p / (2 * p + d))
-            integral += firedrake.assemble(pow(detM, exponent) * dX) * pow(tau, -1)
-        global_factor = firedrake.Constant(pow(target / integral, 2 / d))
-
-    # Normalise on each subinterval
-    for metric, tau, mp in zip(metrics, subinterval_timestep, metric_parameters):
         p = mp["dm_plex_metric_p"]
-        metric.set_parameters(mp)
-        metric.normalise(global_factor=global_factor)
-        metric.enforce_spd(**kwargs)
+        exponent = 0.5 if np.isinf(p) else p / (2 * p + d)
+        for metric, S in zip(metrics, time_partition):
+            dX = (ufl.ds if boundary else ufl.dx)(metric.function_space().mesh())
+            scaling = pow(S.num_timesteps, 2 * exponent)
+            integral += scaling * assemble(pow(ufl.det(metric), exponent) * dX)
+        target = mp["dm_plex_metric_target_complexity"] * time_partition.num_timesteps
+        debug(f"space_time_normalise: target space-time complexity={target:.4e}")
+        global_factor = firedrake.Constant(pow(target / integral, 2 / d))
+    debug(f"space_time_normalise: global scale factor={float(global_factor):.4e}")
+
+    for metric, S in zip(metrics, time_partition):
+
+        # Normalise according to the global normalisation factor
+        metric.normalise(
+            global_factor=global_factor,
+            restrict_sizes=False,
+            restrict_anisotropy=False,
+        )
+
+        # Apply the separate scale factors for each metric
+        if not np.isinf(p):
+            metric *= pow(S.num_timesteps, -2 / (2 * p + d))
+        metric.enforce_spd(
+            restrict_sizes=restrict_sizes,
+            restrict_anisotropy=restrict_anisotropy,
+        )
+
     return metrics
 
 
@@ -639,10 +668,8 @@ def determine_metric_complexity(
     gbar = pow(gbar, d / (2 * p + d - 1))
 
     # Compute coefficients for the algebraic problem
-    a = firedrake.assemble(g * pow(ufl.det(H_interior), p / (2 * p + d)) * ufl.dx)
-    b = firedrake.assemble(
-        gbar * pow(ufl.det(H_boundary), p / (2 * p + d - 1)) * ufl.ds
-    )
+    a = assemble(g * pow(ufl.det(H_interior), p / (2 * p + d)) * ufl.dx)
+    b = assemble(gbar * pow(ufl.det(H_boundary), p / (2 * p + d - 1)) * ufl.ds)
 
     # Solve algebraic problem
     c = sympy.Symbol("c")

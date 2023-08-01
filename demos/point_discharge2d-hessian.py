@@ -94,9 +94,17 @@ def get_solver(mesh_seq):
 # steady-state problem), and put everything together in a :class:`MeshSeq`. For this
 # demo, we also create a :class:`MetricParameters` object and set the `element_rtol`
 # parameter to 0.005. This means that the fixed point iteration will terminate if the
-# element count changes by less than 0.5% between iterations. ::
+# element count changes by less than 0.5% between iterations. As standard, we allow
+# 35 iterations before establishing that the iteration is not going to converge.
+# To cut down the cost of the regresssion tests, we just use three iterations
+# instead. ::
 
-params = MetricParameters({"element_rtol": 0.005})
+params = MetricParameters(
+    {
+        "element_rtol": 0.005,
+        "maxiter": 35 if os.environ.get("PYROTEUS_REGRESSION_TEST") is None else 3,
+    }
+)
 
 mesh = RectangleMesh(50, 10, 50, 10)
 time_partition = TimeInstant(fields)
@@ -177,8 +185,8 @@ def adaptor(mesh_seq, solutions):
     metric.normalise()
     complexity = metric.complexity()
     mesh_seq[0] = adapt(mesh_seq[0], metric)
-    num_dofs = mesh_seq.vertex_counts[-1][0]
-    num_elem = mesh_seq.element_counts[-1][0]
+    num_dofs = mesh_seq.count_vertices()[0]
+    num_elem = mesh_seq.count_elements()[0]
     pyrint(
         f"{iteration + 1:2d}, complexity: {complexity:4.0f}"
         f", dofs: {num_dofs:4d}, elements: {num_elem:4d}"
@@ -209,14 +217,14 @@ solutions = mesh_seq.fixed_point_iteration(adaptor)
 #
 # .. code-block:: console
 #
-#     1, complexity:  433, dofs:  561, elements: 1000
-#     2, complexity:  630, dofs:  618, elements: 1161
-#     3, complexity:  825, dofs:  898, elements: 1725
-#     4, complexity: 1023, dofs: 1128, elements: 2180
-#     5, complexity: 1020, dofs: 1336, elements: 2592
-#     6, complexity: 1022, dofs: 1354, elements: 2629
-#     7, complexity: 1022, dofs: 1362, elements: 2643
-#    Terminated due to element count convergence after 7 iterations
+#     1, complexity:  433, dofs:  618, elements: 1161
+#     2, complexity:  630, dofs:  898, elements: 1725
+#     3, complexity:  825, dofs: 1128, elements: 2180
+#     4, complexity: 1023, dofs: 1336, elements: 2592
+#     5, complexity: 1020, dofs: 1354, elements: 2629
+#     6, complexity: 1022, dofs: 1362, elements: 2643
+#     7, complexity: 1022, dofs: 1356, elements: 2635
+#    Element count converged after 7 iterations under relative tolerance 0.005.
 #
 # We can plot the final mesh and the corresponding solution as follows. ::
 

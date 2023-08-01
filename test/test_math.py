@@ -72,13 +72,13 @@ class TestOrthogonalisation(unittest.TestCase):
         )
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand([2, 3])
+    @parameterized.expand([[2], [3]])
     def test_gram_schmidt_orthonormal_numpy(self, dim):
         v = np.random.rand(dim, dim)
         u = np.array(gram_schmidt(*v, normalise=True))
         self.assertTrue(np.allclose(u.transpose() @ u, np.eye(dim)))
 
-    @parameterized.expand([2, 3])
+    @parameterized.expand([[2], [3]])
     def test_gram_schmidt_nonorthonormal_numpy(self, dim):
         v = np.random.rand(dim, dim)
         u = gram_schmidt(*v, normalise=False)
@@ -105,12 +105,12 @@ class TestOrthogonalisation(unittest.TestCase):
         msg = "Expected UFL Expr, not '<class 'firedrake.mesh.MeshGeometry'>'."
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand([2, 3])
+    @parameterized.expand([[2], [3]])
     def test_basis_orthonormal_numpy(self, dim):
         u = np.array(construct_basis(np.random.rand(dim), normalise=True))
         self.assertTrue(np.allclose(u.transpose() @ u, np.eye(dim)))
 
-    @parameterized.expand([2, 3])
+    @parameterized.expand([[2], [3]])
     def test_basis_orthogonal_numpy(self, dim):
         u = construct_basis(np.random.rand(dim), normalise=False)
         for i, ui in enumerate(u):

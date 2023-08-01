@@ -63,7 +63,7 @@ class TestClement(unittest.TestCase):
         msg = "Target space provided must be P1."
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand([0, 1, 2])
+    @parameterized.expand([[0], [1], [2]])
     def test_volume_average_2d(self, rank):
         exact = self.analytic(rank)
         P0 = self.get_space(rank, "DG", 0)
@@ -74,7 +74,7 @@ class TestClement(unittest.TestCase):
         err = assemble(self.interior * (target - expected) ** 2 * dx)
         self.assertAlmostEqual(err, 0)
 
-    @parameterized.expand([0, 1, 2])
+    @parameterized.expand([[0], [1], [2]])
     def test_facet_average_2d(self, rank):
         exact = self.analytic(rank)
         P0 = self.get_space(rank, "DG", 0)
@@ -110,7 +110,7 @@ class TestProject(unittest.TestCase):
         msg = "Can only currently project Functions."
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand([False, True])
+    @parameterized.expand([[False], [True]])
     def test_no_sub_source_space(self, adjoint):
         Vs = FunctionSpace(self.source_mesh, "CG", 1)
         Vt = FunctionSpace(self.target_mesh, "CG", 1)
@@ -123,7 +123,7 @@ class TestProject(unittest.TestCase):
             msg = "Target space has multiple components but source space does not."
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand([False, True])
+    @parameterized.expand([[False], [True]])
     def test_no_sub_target_space(self, adjoint):
         Vs = FunctionSpace(self.source_mesh, "CG", 1)
         Vt = FunctionSpace(self.target_mesh, "CG", 1)
@@ -146,7 +146,7 @@ class TestProject(unittest.TestCase):
         msg = "Inconsistent numbers of components in source and target spaces: 3 vs. 2."
         self.assertEqual(str(cm.exception), msg)
 
-    @parameterized.expand([False, True])
+    @parameterized.expand([[False], [True]])
     def test_project_same_space(self, adjoint):
         Vs = FunctionSpace(self.source_mesh, "CG", 1)
         source = interpolate(self.sinusoid(), Vs)
@@ -155,7 +155,7 @@ class TestProject(unittest.TestCase):
         expected = source
         self.assertAlmostEqual(errornorm(expected, target), 0)
 
-    @parameterized.expand([False, True])
+    @parameterized.expand([[False], [True]])
     def test_project_same_space_mixed(self, adjoint):
         P1 = FunctionSpace(self.source_mesh, "CG", 1)
         Vs = P1 * P1
@@ -168,7 +168,7 @@ class TestProject(unittest.TestCase):
         expected = source
         self.assertAlmostEqual(errornorm(expected, target), 0)
 
-    @parameterized.expand([False, True])
+    @parameterized.expand([[False], [True]])
     def test_project_same_mesh(self, adjoint):
         Vs = FunctionSpace(self.source_mesh, "CG", 1)
         Vt = FunctionSpace(self.source_mesh, "DG", 0)
@@ -179,7 +179,7 @@ class TestProject(unittest.TestCase):
         expected.project(source)
         self.assertAlmostEqual(errornorm(expected, target), 0)
 
-    @parameterized.expand([False, True])
+    @parameterized.expand([[False], [True]])
     def test_project_same_mesh_mixed(self, adjoint):
         P1 = FunctionSpace(self.source_mesh, "CG", 1)
         P0 = FunctionSpace(self.source_mesh, "DG", 0)

@@ -166,8 +166,13 @@ class TimePartition:
                 "num_timesteps": self.num_timesteps_per_subinterval[i],
                 "start_time": self.subintervals[i][0],
                 "end_time": self.subintervals[i][1],
+                "length": self.subintervals[i][1] - self.subintervals[i][0],
             }
         )
+
+    @property
+    def num_timesteps(self):
+        return sum(self.num_timesteps_per_subinterval)
 
     def _check_subintervals(self):
         if len(self.subintervals) != self.num_subintervals:

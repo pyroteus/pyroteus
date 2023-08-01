@@ -94,3 +94,4 @@ earlier ones.
 
     Hessian-based mesh adaptation for a 2D steady-state problem <demos/point_discharge2d-hessian.py>
     Goal-oriented mesh adaptation for a 2D steady-state problem <demos/point_discharge2d-goal_oriented.py>
+    Hessian-based mesh adaptation for a 2D time-dependent problem <demos/burgers-hessian.py>
