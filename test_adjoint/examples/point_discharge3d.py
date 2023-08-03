@@ -5,7 +5,7 @@ point source. Extended from
 [Riadh et al. 2014] as in
 [Wallwork et al. 2020].
 
-This test case is notable for Pyroteus
+This test case is notable for Goalie
 because it is in 3D and has an
 analytical solution, meaning the
 effectivity index can be computed.
@@ -25,7 +25,7 @@ effectivity index can be computed.
     Meshing Roundtable (2020).
 """
 from firedrake import *
-from pyroteus.math import bessk0
+from goalie.math import bessk0
 import numpy as np
 
 

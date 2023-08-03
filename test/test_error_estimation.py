@@ -1,10 +1,10 @@
 from firedrake import *
-from pyroteus.error_estimation import (
+from goalie.error_estimation import (
     form2indicator,
     indicators2estimator,
     get_dwr_indicator,
 )
-from pyroteus.time_partition import TimeInstant, TimePartition
+from goalie.time_partition import TimeInstant, TimePartition
 from parameterized import parameterized
 import unittest
 

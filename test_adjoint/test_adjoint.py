@@ -2,7 +2,7 @@
 Test adjoint drivers.
 """
 from firedrake import *
-from pyroteus_adjoint import *
+from goalie_adjoint import *
 import pytest
 import importlib
 import os
@@ -166,7 +166,7 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     # Loop over having one or two subintervals
     for N in range(1, 2 if steady else 3):
         pl = "" if N == 1 else "s"
-        pyrint(f"\n--- Adjoint solve on {N} subinterval{pl} using pyroteus\n")
+        pyrint(f"\n--- Adjoint solve on {N} subinterval{pl} using goalie\n")
 
         # Solve forward and adjoint on each subinterval
         time_partition = TimePartition(

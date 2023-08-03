@@ -28,10 +28,10 @@ RUN bash -c "source firedrake/bin/activate; \
 	git switch jwallwork23/parmmg-metric-based; \
 	firedrake-update"
 
-# Install Pyroteus
+# Install Goalie
 RUN bash -c "source firedrake/bin/activate; \
 	cd firedrake/src; \
-	git clone https://github.com/pyroteus/pyroteus.git; \
-	cd pyroteus; \
+	git clone https://github.com/pyroteus/goalie.git; \
+	cd goalie; \
 	python3 -m pip install -r requirements.txt; \
 	python3 -m pip install -e ."

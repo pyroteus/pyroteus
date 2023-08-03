@@ -2,20 +2,20 @@
 # ===========================================================
 #
 # Previous demos have covered the fundamental time partition and mesh sequence objects
-# of Pyroteus, using them to solve PDEs over multiple meshes and perform
+# of Goalie, using them to solve PDEs over multiple meshes and perform
 # goal-oriented error estimation. Here, we demonstrate how to use them for Hessian-based
 # mesh adaptation for a steady-state problem in 2D.
 #
 # It is recommended that you read the documentation on metric-based mesh adaptation
 # before progressing with this demo.
 #
-# In addition to importing from Firedrake and Pyroteus, we also import the mesh
+# In addition to importing from Firedrake and Goalie, we also import the mesh
 # adaptation functionality from Firedrake, which can be found in ``firedrake.meshadapt``.
 # ::
 
 from firedrake import *
 from firedrake.meshadapt import *
-from pyroteus import *
+from goalie import *
 
 
 # We again consider the "point discharge with diffusion" test case from the
@@ -102,7 +102,7 @@ def get_solver(mesh_seq):
 params = MetricParameters(
     {
         "element_rtol": 0.005,
-        "maxiter": 35 if os.environ.get("PYROTEUS_REGRESSION_TEST") is None else 3,
+        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
     }
 )
 

@@ -1,6 +1,6 @@
 from firedrake import TensorFunctionSpace
 from firedrake.meshadapt import RiemannianMetric
-from pyroteus.options import *
+from goalie.options import *
 from utility import uniform_mesh
 import unittest
 
@@ -198,7 +198,7 @@ class TestMetricParameters(unittest.TestCase):
         with self.assertRaises(TypeError) as cm:
             MetricParameters().export(1)
         msg = (
-            "<class 'pyroteus.options.MetricParameters'> can only be exported to"
+            "<class 'goalie.options.MetricParameters'> can only be exported to"
             " RiemannianMetric, not '<class 'int'>'."
         )
         self.assertEqual(str(cm.exception), msg)

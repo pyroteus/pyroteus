@@ -46,7 +46,7 @@ def annotate_qoi(get_qoi: Callable) -> Callable:
         else:
             raise ValueError(f"QoI should have 0 or 1 args, not {num_args}.")
 
-        @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.evaluate_qoi")
+        @PETSc.Log.EventDecorator("goalie.AdjointMeshSeq.evaluate_qoi")
         @wraps(qoi)
         def wrap_qoi(*args, **kwargs):
             j = firedrake.assemble(qoi(*args, **kwargs))
@@ -257,7 +257,7 @@ class AdjointMeshSeq(MeshSeq):
             }
         )
 
-        @PETSc.Log.EventDecorator("pyroteus.AdjointMeshSeq.solve_adjoint.evaluate_fwd")
+        @PETSc.Log.EventDecorator("goalie.AdjointMeshSeq.solve_adjoint.evaluate_fwd")
         @wraps(solver)
         def wrapped_solver(subinterval, ic, **kwargs):
             """
@@ -307,7 +307,7 @@ class AdjointMeshSeq(MeshSeq):
                     block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
-            with PETSc.Log.Event("pyroteus.AdjointMeshSeq.solve_adjoint.evaluate_adj"):
+            with PETSc.Log.Event("goalie.AdjointMeshSeq.solve_adjoint.evaluate_adj"):
                 m = pyadjoint.enlisting.Enlist(self.controls)
                 with pyadjoint.stop_annotating():
                     with tape.marked_nodes(m):

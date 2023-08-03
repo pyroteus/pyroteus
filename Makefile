@@ -6,7 +6,7 @@ install:
 	@echo "Installing dependencies..."
 	@python3 -m pip install -r requirements.txt
 	@echo "Done."
-	@echo "Installing Pyroteus..."
+	@echo "Installing Goalie..."
 	@python3 -m pip install -e .
 	@echo "Done."
 
@@ -24,8 +24,8 @@ test: lint
 coverage:
 	@echo "Generating coverage report..."
 	@python3 -m coverage erase
-	@python3 -m coverage run -a --source=pyroteus -m pytest -v test
-	@python3 -m coverage run -a --source=pyroteus -m pytest -v test_adjoint
+	@python3 -m coverage run -a --source=goalie -m pytest -v test
+	@python3 -m coverage run -a --source=goalie -m pytest -v test_adjoint
 	@python3 -m coverage html
 
 demo:

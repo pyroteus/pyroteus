@@ -11,7 +11,7 @@
 
 from firedrake import *
 from firedrake.meshadapt import adapt
-from pyroteus import *
+from goalie import *
 import matplotlib.pyplot as plt
 
 
@@ -88,7 +88,7 @@ time_partition = TimePartition(
 params = MetricParameters(
     {
         "element_rtol": 0.001,
-        "maxiter": 35 if os.environ.get("PYROTEUS_REGRESSION_TEST") is None else 3,
+        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
     }
 )
 mesh_seq = MeshSeq(
@@ -110,7 +110,7 @@ mesh_seq = MeshSeq(
 # to give the metric contribution from each subinterval. Given that we use a simple
 # implicit Euler method for time integration in the PDE, we do the same here, too.
 #
-# Pyroteus provides functionality to normalise a list of metrics using *space-time*
+# Goalie provides functionality to normalise a list of metrics using *space-time*
 # normalisation. This ensures that the target complexity is attained on average across
 # all timesteps.
 #

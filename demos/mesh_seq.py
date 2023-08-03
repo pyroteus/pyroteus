@@ -3,16 +3,16 @@
 #
 # In the `previous demo <./time_partition.py.html>`__,
 # we saw how to create a :class:`TimePartition` instance
-# - one of the fundamental objects in Pyroteus. Another
+# - one of the fundamental objects in Goalie. Another
 # fundamental object is the mesh sequence, :class:`MeshSeq`,
 # which is built on top of a time partition. The idea is
 # that a single mesh is associated with each subinterval.
 #
 # For this and subsequent demos, we import from the namespaces
-# of both Firedrake and Pyroteus. ::
+# of both Firedrake and Goalie. ::
 
 from firedrake import *
-from pyroteus import *
+from goalie import *
 
 # Again, turn debugging mode on to get verbose output. ::
 

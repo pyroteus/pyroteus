@@ -1,6 +1,6 @@
 from firedrake import *
-from pyroteus import *
-from pyroteus.metric import P0Metric
+from goalie import *
+from goalie.metric import P0Metric
 from utility import *
 from parameterized import parameterized
 import unittest

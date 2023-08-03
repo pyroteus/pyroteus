@@ -4,7 +4,7 @@
 SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
 SPHINXAPIDOC  = sphinx-apidoc
-SPHINXPROJ    = Pyroteus
+SPHINXPROJ    = Goalie
 SOURCEDIR     = source
 BUILDDIR      = build
 PYTHON        = ${VIRTUAL_ENV}/bin/python3
@@ -48,16 +48,16 @@ html: apidoc $(GENERATED_FILES)
 
 .PHONY: apidoc
 apidoc:
-	$(SPHINXAPIDOC) $$($(PYTHON) -c 'import pyroteus; import os; print(os.path.dirname(pyroteus.__file__))') -o source -f -T
+	$(SPHINXAPIDOC) $$($(PYTHON) -c 'import goalie; import os; print(os.path.dirname(goalie.__file__))') -o source -f -T
 	# TODO: Do this in a less hacky way
-	echo "" >> source/pyroteus.rst
-	echo "References" >> source/pyroteus.rst
-	echo "----------" >> source/pyroteus.rst
-	echo "" >> source/pyroteus.rst
-	echo ".. rubric:: References" >> source/pyroteus.rst
-	echo "" >> source/pyroteus.rst
-	echo ".. bibliography:: references.bib" >> source/pyroteus.rst
-	echo "    :all:" >> source/pyroteus.rst
+	echo "" >> source/goalie.rst
+	echo "References" >> source/goalie.rst
+	echo "----------" >> source/goalie.rst
+	echo "" >> source/goalie.rst
+	echo ".. rubric:: References" >> source/goalie.rst
+	echo "" >> source/goalie.rst
+	echo ".. bibliography:: references.bib" >> source/goalie.rst
+	echo "    :all:" >> source/goalie.rst
 
 
 clean:

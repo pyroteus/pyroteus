@@ -3,7 +3,7 @@ Problem specification for a simple steady
 state flow-past-a-cylinder test case which
 solves a Stokes problem.
 
-The test case is notable for Pyroteus
+The test case is notable for Goalie
 because the prognostic equation is
 nonlinear.
 

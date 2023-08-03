@@ -10,7 +10,7 @@
 # diffusivities and react with one another nonlinearly. ::
 
 from firedrake import *
-from pyroteus_adjoint import *
+from goalie_adjoint import *
 
 # The problem is defined on a doubly periodic mesh of squares. ::
 
@@ -123,10 +123,10 @@ def get_qoi(mesh_seq, sols, index):
 
 
 # This problem is multi-scale in time and requires spinning up by gradually increasing
-# the timestep. This is straightforwardly done in Pyroteus using :class:`TimePartition`.
+# the timestep. This is straightforwardly done in Goalie using :class:`TimePartition`.
 # ::
 
-test = os.environ.get("PYROTEUS_REGRESSION_TEST") is not None
+test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
 end_time = 10.0 if test else 2000.0
 dt = [0.0001, 0.001, 0.01, 0.1, (end_time - 1) / end_time]
 num_subintervals = 5

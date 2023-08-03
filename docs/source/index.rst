@@ -1,11 +1,11 @@
-.. title:: Pyroteus Goal-Oriented Mesh Adaptation Toolkit
+.. title:: Goalie Goal-Oriented Mesh Adaptation Toolkit
 
 .. only:: html
 
-Pyroteus Goal-Oriented Mesh Adaptation Toolkit
-==============================================
+Goalie Goal-Oriented Mesh Adaptation Toolkit
+============================================
 
-Pyroteus provides metric-based goal-oriented mesh adaptation
+Goalie provides metric-based goal-oriented mesh adaptation
 functionality to the Python-based finite element library
 `Firedrake <http://www.firedrakeproject.org/>`__. The 'y' is
 silent, so its pronunciation is identical to 'Proteus' - the
@@ -20,44 +20,44 @@ examples of the intersection between adjoint methods and mesh
 adaptation. It is an advanced topic, so it is highly
 recommended that users are familiar with adjoint methods,
 mesh adaptation and the goal-oriented framework before
-starting with Pyroteus.
+starting with Goalie.
 
 We refer to the `Firedrake documentation
 <https://firedrakeproject.org/documentation.html>`__
 for an introduction to the finite element method - the
 discretisation approach assumed throughout. The
-`dolfin-adjoint` package (which Pyroteus uses to solve adjoint
+`dolfin-adjoint` package (which Goalie uses to solve adjoint
 problems) contains some `excellent documentation
 <http://www.dolfin-adjoint.org/en/latest/documentation/maths/index.html>`__
 on the mathematical background of adjoint problems. The
 goal-oriented error estimation and metric-based mesh adaptation
-functionalities provided by Pyroteus are described in the manual.
+functionalities provided by Goalie are described in the manual.
 
 .. toctree::
     :maxdepth: 2
 
-    Pyroteus manual <maths/index>
+    Goalie manual <maths/index>
 
 
 .. rubric:: API documentation
 
-The classes and functions which comprise Pyroteus may be found
+The classes and functions which comprise Goalie may be found
 in the API documentation.
 
 .. toctree::
     :maxdepth: 1
 
-    Pyroteus API documentation <pyroteus>
+    Goalie API documentation <goalie>
 
 They are also listed alphabetically on the :ref:`index <genindex>`
 page. The index may be searched using the inbuilt
-:ref:`search engine <search>`. Pyroteus source code is hosted on
-`GitHub <https://github.com/pyroteus/pyroteus/>`__.
+:ref:`search engine <search>`. Goalie source code is hosted on
+`GitHub <https://github.com/pyroteus/goalie/>`__.
 
 
 .. rubric:: Demos
 
-Pyroteus contains a number of demos to illustrate the correct
+Goalie contains a number of demos to illustrate the correct
 usage of its different functionalities. It is highly recommended
 that these are read in order, as many of the demos build upon
 earlier ones.

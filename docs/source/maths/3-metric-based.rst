@@ -2,7 +2,7 @@
 The metric-based framework
 ==========================
 
-The goal-oriented mesh adaptation functionality in Pyroteus
+The goal-oriented mesh adaptation functionality in Goalie
 is designed such that it is agnostic of the specific method
 used to modify the mesh. However, to give a concrete example,
 this section describes the *metric-based* mesh adaptation
@@ -116,7 +116,7 @@ The following example code snippet defines a uniform metric, for example:
 
    from firedrake import *
    from firedrake.meshadapt import RiemannianMetric
-   from pyroteus import *
+   from goalie import *
 
    mesh = UnitSquareMesh(10, 10)
    P1_ten = TensorFunctionSpace(mesh, "CG", 1)
@@ -164,7 +164,7 @@ represented by a unit circle.
    Image taken from :cite:`Wallwork:21` with author's permission.
 
 Given a metric field, the eigendecomposition may be
-computed in Pyroteus using the function
+computed in Goalie using the function
 :func:`~.compute_eigendecomposition`. Similarly, given
 :class:`firedrake.function.Function`\s representing the eigenvectors and
 eigenvalues of a metric, it may be assembled using the
@@ -211,7 +211,7 @@ These are the three aspects of a mesh that metric-based
 mesh adaptation is able to control, whereas other mesh
 adaptation methods can only usually control element sizes.
 
-The metric decomposition above can be computed in Pyroteus
+The metric decomposition above can be computed in Goalie
 using the function :func:`~.density_and_quotients`.
 
 
@@ -381,14 +381,14 @@ average in general. See :cite:`PUDG:01` for details.
    in terms of their elliptical representations.
    Image taken from :cite:`Wallwork:21` with author's permission.
 
-Metric combination may be achieved in Pyroteus using the
+Metric combination may be achieved in Goalie using the
 function :func:`~.combine_metrics`, which defaults to the
 metric average.
 
 
 Now that a concrete example of a mesh adaptation approach has
 been described, we move on to discuss goal-oriented mesh
-adaptation using Pyroteus in the `following section
+adaptation using Goalie in the `following section
 <4-goal-oriented-mesh-adaptation.html>`__.
 
 References

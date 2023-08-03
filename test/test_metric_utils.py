@@ -1,4 +1,4 @@
-from pyroteus import *
+from goalie import *
 import unittest
 
 

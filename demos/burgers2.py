@@ -6,11 +6,10 @@
 # is still no error estimation or mesh adaptation; the same mesh
 # is used in each case to verify that the framework works.
 #
-# Again, begin by importing Pyroteus with adjoint mode
-# activated. ::
+# Again, begin by importing Goalie with adjoint mode activated. ::
 
 from firedrake import *
-from pyroteus_adjoint import *
+from goalie_adjoint import *
 
 
 set_log_level(DEBUG)
@@ -137,7 +136,7 @@ fig.savefig("burgers2-end_time.jpg")
 #
 # The adjoint solution fields at each time level appear to match
 # those due to the previous demo at each timestep. That they actually
-# do coincide is checked in Pyroteus' test suite.
+# do coincide is checked in Goalie's test suite.
 #
 # .. rubric:: Exercise
 #

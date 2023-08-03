@@ -6,11 +6,10 @@
 # For some problems, it is more suitable to have a QoI
 # which integrates in time as well as space.
 #
-# Begin by importing from Pyroteus and the first Burgers
-# demo. ::
+# Begin by importing from Goalie and the first Burgers demo. ::
 
 from firedrake import *
-from pyroteus_adjoint import *
+from goalie_adjoint import *
 
 # Redefine the ``get_initial_condition``, ``get_function_spaces``,
 # and ``get_form`` functions as in the first Burgers demo. ::

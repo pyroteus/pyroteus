@@ -1,8 +1,8 @@
 """
 Testing for the mesh sequence objects.
 """
-from pyroteus.mesh_seq import MeshSeq
-from pyroteus.time_partition import TimePartition, TimeInterval
+from goalie.mesh_seq import MeshSeq
+from goalie.time_partition import TimePartition, TimeInterval
 from firedrake import *
 from pyadjoint.block_variable import BlockVariable
 import numpy as np
@@ -84,7 +84,7 @@ class TestGeneric(unittest.TestCase):
 class TestStringFormatting(unittest.TestCase):
     """
     Test that the :meth:`__str__` and :meth:`__repr__` methods work as intended for
-    Pyroteus' :class:`MeshSeq` object.
+    Goalie's :class:`MeshSeq` object.
     """
 
     def setUp(self):

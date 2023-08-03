@@ -76,7 +76,7 @@ As described in the `previous section <3-metric-based.html>`__,
 metric-based mesh adaptation is another approach which is currently
 being integrated into Firedrake and is supported on developer branches.
 In that case, we need to construct a Riemannian metric from an
-error indicator field. Pyroteus provides a number of different
+error indicator field. Goalie provides a number of different
 driver functions for doing this. The simplest is
 :func:`~.isotropic_metric`, which takes an error indicator field
 and constructs a metric that specifies how a mesh should be adapted
@@ -87,7 +87,7 @@ fields are provided by :func:`~.anisotropic_metric`. See the API
 documentation (and references therein) for details.
 
 The metric-based framework has been the main backend used for
-goal-oriented mesh adaptation during the development of Pyroteus.
+goal-oriented mesh adaptation during the development of Goalie.
 However, this does not mean other approaches would not work.
 Mesh movement (or :math:`r`-adaptation) has been implemented in
 Firedrake on a number of occasions (such as :cite:`MCB:18,CWK+:22`)
@@ -99,7 +99,7 @@ Fixed point iteration loops
 In some mesh adaptation approaches, it is common practice to adapt
 the mesh multiple times until convergence is attained, in some
 sense. This is often the case under metric based mesh adaptation,
-for example. Pyroteus includes two methods to facilitate such
+for example. Goalie includes two methods to facilitate such
 iterative adaptation approaches, as described in the following.
 
 In the non-goal-oriented case, there is the

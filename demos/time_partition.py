@@ -1,7 +1,7 @@
 # Partitioning a time interval
 # ============================
 #
-# Pyroteus is focused on solving PDEs and
+# Goalie is focused on solving PDEs and
 # their adjoints over some time interval
 # on sequences of meshes.
 #
@@ -13,7 +13,7 @@
 # for simulation start and end times
 # :math:`0 \leq t_{\mathrm{start}} < t_{\mathrm{end}}`.
 # One of the fundamental objects in
-# Pyroteus is the :class:`TimePartition`,
+# Goalie is the :class:`TimePartition`,
 # which subdivides :math:`\mathcal T` into
 # :math:`n\in\mathbb N` subintervals,
 #
@@ -26,9 +26,9 @@
 # each subinterval will be associated with a
 # single mesh.
 #
-# We begin by importing Pyroteus. ::
+# We begin by importing Goalie. ::
 
-from pyroteus import *
+from goalie import *
 
 # To create a :class:`TimePartition`, we
 # need at least four ingredients:
@@ -57,7 +57,7 @@ fields = ["solution"]
 # one subinterval of :math:`(0,1]` containing
 # eight timesteps. When constructing a
 # :class:`TimePartition` (or any other object),
-# it is often useful to use Pyroteus' debugging
+# it is often useful to use Goalie's debugging
 # mode. This is specified using :func:`set_log_level`. ::
 
 set_log_level(DEBUG)

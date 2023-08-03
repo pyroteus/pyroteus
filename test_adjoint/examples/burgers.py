@@ -2,7 +2,7 @@
 Problem specification for a simple Burgers
 equation test case.
 
-The test case is notable for Pyroteus
+The test case is notable for Goalie
 because the prognostic equation is
 nonlinear.
 

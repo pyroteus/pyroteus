@@ -11,7 +11,7 @@ import sys
 
 # Set environment variable to specify that tests are being run so that we can
 # cut down the length of the demos
-os.environ["PYROTEUS_REGRESSION_TEST"] = "1"
+os.environ["GOALIE_REGRESSION_TEST"] = "1"
 
 cwd = os.path.abspath(os.path.dirname(__file__))
 demo_dir = os.path.abspath(os.path.join(cwd, "..", "demos"))

@@ -98,8 +98,8 @@ def recover_boundary_hessian(
     :kwarg target_space: the :func:`firedrake.functionspace.TensorFunctionSpace`
         in which the metric will exist
     """
-    from pyroteus.math import construct_basis
-    from pyroteus.metric import get_metric_kernel
+    from goalie.math import construct_basis
+    from goalie.metric import get_metric_kernel
 
     mesh = ufl.domain.extract_unique_domain(f)
     d = mesh.topological_dimension()

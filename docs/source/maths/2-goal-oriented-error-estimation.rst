@@ -7,7 +7,7 @@ the `dolfin-adjoint
 <http://www.dolfin-adjoint.org/en/latest/documentation/maths/index.html>`__
 training material on adjoint methods.
 
-Pyroteus has been designed with time-dependent problems in mind. However,
+Goalie has been designed with time-dependent problems in mind. However,
 the exposition of goal-oriented error estimation is most clearly presented
 in the steady-state case. Therefore, suppose we have a "forward" PDE that
 contains only derivatives in space and is written in the residual form,
@@ -94,7 +94,7 @@ residual error estimates in an approximate sense. Typically, this means approxim
 the true adjoint and/or forward solution using a higher order method. A simple -- but
 computationally intensive -- approach is to solve the appropriate equation again in a
 globally "enriched" finite element space. For example, on a uniformly refined mesh or
-in a function space with higher polynomial order. This can be achieved in Pyroteus
+in a function space with higher polynomial order. This can be achieved in Goalie
 using :meth:`~.GoalOrientedMeshSeq.indicate_errors`. See `the Burgers error estimation demo
 <../demos/burgers_ee.py.html>`__ for example usage.
 

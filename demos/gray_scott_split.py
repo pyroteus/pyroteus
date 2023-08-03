@@ -9,7 +9,7 @@
 # equations differ in both the diffusion and reaction terms. ::
 
 from firedrake import *
-from pyroteus_adjoint import *
+from goalie_adjoint import *
 
 # This time, we have two fields instead of one, as well as two function spaces. ::
 
@@ -134,7 +134,7 @@ def get_qoi(mesh_seq, sols, index):
     return qoi
 
 
-test = os.environ.get("PYROTEUS_REGRESSION_TEST") is not None
+test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
 end_time = 10.0 if test else 2000.0
 dt = [0.0001, 0.001, 0.01, 0.1, (end_time - 1) / end_time]
 num_subintervals = 5

@@ -3,7 +3,7 @@ Problem specification for a simple
 advection-diffusion test case with a
 point source, from [Riadh et al. 2014].
 
-This test case is notable for Pyroteus
+This test case is notable for Goalie
 because it has an analytical solution,
 meaning the effectivity index can be
 computed.
@@ -16,7 +16,7 @@ computed.
     p. 134 (2014).
 """
 from firedrake import *
-from pyroteus.math import bessk0
+from goalie.math import bessk0
 import numpy as np
 
 

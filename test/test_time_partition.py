@@ -1,7 +1,7 @@
 """
 Testing for the time partition objects.
 """
-from pyroteus.time_partition import TimePartition, TimeInterval, TimeInstant
+from goalie.time_partition import TimePartition, TimeInterval, TimeInstant
 import unittest
 
 
@@ -190,7 +190,7 @@ class TestSetup(unittest.TestCase):
 class TestStringFormatting(unittest.TestCase):
     """
     Test that the :meth:`__str__`` and :meth:`__repr__`` methods work as intended for
-    Pyroteus' time partition objects.
+    Goalie's time partition objects.
     """
 
     def setUp(self):

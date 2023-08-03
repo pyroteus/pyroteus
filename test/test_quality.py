@@ -1,6 +1,6 @@
 from firedrake import *
-from pyroteus import *
-from pyroteus.quality import QualityMeasure
+from goalie import *
+from goalie.quality import QualityMeasure
 from parameterized import parameterized
 import pytest
 import unittest
