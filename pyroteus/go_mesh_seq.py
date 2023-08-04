@@ -31,10 +31,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self, enrichment_method: str = "p", num_enrichments: int = 1
     ) -> AdjointMeshSeq:
         """
-        Solve the forward and adjoint problems
-        associated with
-        :meth:`~.GoalOrientedMeshSeq.solver`
-        in a sequence of globally enriched spaces.
+        Construct a sequence of globally enriched spaces.
 
         Currently, global enrichment may be
         achieved using one of:
@@ -49,37 +46,32 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         if num_enrichments <= 0:
             raise ValueError("A positive number of enrichments is required")
 
+        # Construct object to hold enriched spaces
+        mesh_seq_e=self.__class__(
+                    self.time_partition,
+                    self.meshes,
+                    get_function_spaces=self._get_function_spaces,
+                    get_initial_condition=self._get_initial_condition,
+                    get_form=self._get_form,
+                    get_solver=self._get_solver,
+                    get_qoi=self._get_qoi,
+                    get_bcs=self._get_bcs,
+                    qoi_type=self.qoi_type,
+                )
+
         # Apply h-refinement
         if enrichment_method == "h":
-            meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in self.meshes]
-        else:
-            meshes = self.meshes
+            mesh_seq_e.meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in mesh_seq_e.meshes]
 
-        def get_function_spaces(mesh):
-            """
-            Apply p-refinement, if requested.
-            """
-            if enrichment_method == "h":
-                return self._get_function_spaces(mesh)
-            enriched_spaces = {}
-            for label, fs in self.function_spaces.items():
-                element = fs[0].ufl_element()
-                element = element.reconstruct(degree=element.degree() + num_enrichments)
-                enriched_spaces[label] = FunctionSpace(mesh, element)
-            return enriched_spaces
+        # Apply p-refinement
+        if enrichment_method == "p":
+            for label, fs in mesh_seq_e.function_spaces.items():
+                for n, _space in enumerate(fs):
+                    element = _space.ufl_element()
+                    element = element.reconstruct(degree=element.degree() + num_enrichments)
+                    mesh_seq_e._fs[label][n] = FunctionSpace(mesh_seq_e.meshes[n], element) 
 
-        # Construct enriched AdjointMeshSeq
-        return AdjointMeshSeq(
-            self.time_partition,
-            meshes,
-            get_function_spaces=get_function_spaces,
-            get_initial_condition=self._get_initial_condition,
-            get_form=self._get_form,
-            get_solver=self._get_solver,
-            get_qoi=self._get_qoi,
-            get_bcs=self._get_bcs,
-            qoi_type=self.qoi_type,
-        )
+        return mesh_seq_e
 
     @PETSc.Log.EventDecorator("pyroteus.GoalOrientedMeshSeq.global_enrichment")
     def global_enrichment(
