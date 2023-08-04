@@ -116,17 +116,24 @@ num_subintervals = len(meshes)
 P = TimePartition(
     end_time, num_subintervals, dt, ["u"], num_timesteps_per_export=2
 )
-mesh_seq = BurgersMeshSeq(P, meshes, qoi_type="end_time")
+mesh_seq = BurgersMeshSeq(P, meshes, qoi_type="time_integrated")
 solutions, indicators = mesh_seq.indicate_errors(
     enrichment_kwargs={"enrichment_method": "h"}
 )
 
-# Plotting this, we find that the results are identical to those generated previously. ::
+# Plotting this, we find that the results are consistent with those generated previously. ::
 
 fig, axes, tcs = plot_indicator_snapshots(indicators, P, "u", levels=50)
-fig.savefig("burgers-oo.jpg")
+fig.savefig("burgers-oo_ee.jpg")
 
-# .. figure:: burgers-oo.jpg
+# .. figure:: burgers-oo_ee.jpg
+#    :figwidth: 90%
+#    :align: center
+
+fig, axes, tcs = plot_snapshots(solutions, P, "u", "adjoint")
+fig.savefig("burgers-oo-time_integrated.jpg")
+
+# .. figure:: burgers-time_integrated.jpg
 #    :figwidth: 90%
 #    :align: center
 
