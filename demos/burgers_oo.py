@@ -3,11 +3,12 @@
 
 # You may have noticed that the functions :func:`get_form`,
 # :func:`get_solver`, :func:`get_initial_condition` and
-# :func:`get_qoi` all take a :class:`MeshSeq` as input and return
-# a function. If this all feels a lot like writing methods for a
-# :class:`MeshSeq` subclass, that's because this is exactly what
-# we are doing. The constructors for :class:`MeshSeq` and
-# :class:`AdjointMeshSeq` simply take these functions and adopt
+# :func:`get_qoi` all take a :class:`MeshSeq`, :class:`AdjointMeshSeq`
+# or :class:`GoalOrientedMeshSeq` as input and return a function.
+# If this all feels a lot like writing methods for a
+# subclass, that's because this is exactly what we are doing. 
+# The constructors for :class:`MeshSeq`, :class:`AdjointMeshSeq` and
+# :class:`GoalOrientedMeshSeq` simply take these functions and adopt
 # them as methods. A more natural way to write the subclass yourself.
 #
 # In the following, we mostly copy the contents from the previous
@@ -24,7 +25,7 @@ from goalie_adjoint import *
 set_log_level(DEBUG)
 
 
-class BurgersMeshSeq(AdjointMeshSeq):
+class BurgersMeshSeq(GoalOrientedMeshSeq):
     @staticmethod
     def get_function_spaces(mesh):
         return {"u": VectorFunctionSpace(mesh, "CG", 2)}
@@ -118,13 +119,13 @@ P = TimePartition(
     end_time, num_subintervals, dt, ["u"], num_timesteps_per_export=2
 )
 mesh_seq = BurgersMeshSeq(P, meshes, qoi_type="end_time")
-solutions = mesh_seq.solve_adjoint()
+solutions, indicators = mesh_seq.indicate_errors(
+    enrichment_kwargs={"enrichment_method": "h"}
+)
 
 # Plotting this, we find that the results are identical to those generated previously. ::
 
-fig, axes, tcs = plot_snapshots(
-    solutions, P, "u", "adjoint", levels=np.linspace(0, 0.8, 9)
-)
+fig, axes, tcs = plot_indicator_snapshots(indicators, P, "u", levels=50)
 fig.savefig("burgers-oo.jpg")
 
 # .. figure:: burgers-oo.jpg
