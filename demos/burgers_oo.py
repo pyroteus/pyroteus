@@ -6,7 +6,7 @@
 # :func:`get_qoi` all take a :class:`MeshSeq`, :class:`AdjointMeshSeq`
 # or :class:`GoalOrientedMeshSeq` as input and return a function.
 # If this all feels a lot like writing methods for a
-# subclass, that's because this is exactly what we are doing. 
+# subclass, that's because this is exactly what we are doing.
 # The constructors for :class:`MeshSeq`, :class:`AdjointMeshSeq` and
 # :class:`GoalOrientedMeshSeq` simply take these functions and adopt
 # them as methods. A more natural way to write the subclass yourself.
