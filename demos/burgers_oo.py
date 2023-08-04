@@ -113,24 +113,24 @@ meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="
 end_time = 0.5
 dt = 1 / n
 num_subintervals = len(meshes)
-P = TimePartition(
+time_partition = TimePartition(
     end_time, num_subintervals, dt, ["u"], num_timesteps_per_export=2
 )
-mesh_seq = BurgersMeshSeq(P, meshes, qoi_type="time_integrated")
+mesh_seq = BurgersMeshSeq(time_partition, meshes, qoi_type="time_integrated")
 solutions, indicators = mesh_seq.indicate_errors(
     enrichment_kwargs={"enrichment_method": "h"}
 )
 
 # Plotting this, we find that the results are consistent with those generated previously. ::
 
-fig, axes, tcs = plot_indicator_snapshots(indicators, P, "u", levels=50)
+fig, axes, tcs = plot_indicator_snapshots(indicators, time_partition, "u", levels=50)
 fig.savefig("burgers-oo_ee.jpg")
 
 # .. figure:: burgers-oo_ee.jpg
 #    :figwidth: 90%
 #    :align: center
 
-fig, axes, tcs = plot_snapshots(solutions, P, "u", "adjoint")
+fig, axes, tcs = plot_snapshots(solutions, time_partition, "u", "adjoint")
 fig.savefig("burgers-oo-time_integrated.jpg")
 
 # .. figure:: burgers-time_integrated.jpg
