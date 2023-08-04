@@ -47,17 +47,17 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             raise ValueError("A positive number of enrichments is required")
 
         # Construct object to hold enriched spaces
-        mesh_seq_e=self.__class__(
-                    self.time_partition,
-                    self.meshes,
-                    get_function_spaces=self._get_function_spaces,
-                    get_initial_condition=self._get_initial_condition,
-                    get_form=self._get_form,
-                    get_solver=self._get_solver,
-                    get_qoi=self._get_qoi,
-                    get_bcs=self._get_bcs,
-                    qoi_type=self.qoi_type,
-                )
+        mesh_seq_e = self.__class__(
+            self.time_partition,
+            self.meshes,
+            get_function_spaces=self._get_function_spaces,
+            get_initial_condition=self._get_initial_condition,
+            get_form=self._get_form,
+            get_solver=self._get_solver,
+            get_qoi=self._get_qoi,
+            get_bcs=self._get_bcs,
+            qoi_type=self.qoi_type,
+        )
 
         # Apply h-refinement
         if enrichment_method == "h":
@@ -69,7 +69,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 for n, _space in enumerate(fs):
                     element = _space.ufl_element()
                     element = element.reconstruct(degree=element.degree() + num_enrichments)
-                    mesh_seq_e._fs[label][n] = FunctionSpace(mesh_seq_e.meshes[n], element) 
+                    mesh_seq_e._fs[label][n] = FunctionSpace(mesh_seq_e.meshes[n], element)
 
         return mesh_seq_e
 
