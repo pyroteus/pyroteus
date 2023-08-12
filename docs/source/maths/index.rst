@@ -1,6 +1,6 @@
-***************
-Pyroteus manual
-***************
+*************
+Goalie manual
+*************
 
 .. toctree::
     :numbered:

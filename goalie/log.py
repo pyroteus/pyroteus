@@ -1,5 +1,5 @@
 """
-Loggers for Pyroteus.
+Loggers for Goalie.
 
 Code mostly copied from `the Thetis project
 <https://thetisproject.org>`__.
@@ -39,7 +39,7 @@ def get_new_logger(
     return logger
 
 
-logger = get_new_logger("pyroteus")
+logger = get_new_logger("goalie")
 logger.setLevel(logging.WARNING)
 log = logger.log
 debug = logger.debug
@@ -48,7 +48,7 @@ warning = logger.warning
 error = logger.error
 critical = logger.critical
 
-output_logger = get_new_logger("pyroteus_output", fmt="%(message)s")
+output_logger = get_new_logger("goalie_output", fmt="%(message)s")
 output_logger.setLevel(logging.INFO)
 pyrint = output_logger.info
 

@@ -2,7 +2,7 @@
 # ======================================================
 
 # So far, we have only considered PDEs with a single
-# prognostic variable. The Pyroteus API can sometimes be
+# prognostic variable. The Goalie API can sometimes be
 # cumbersome for such equations, since solutions are
 # passed between methods in dictionaries, which are
 # indexed by the field name. This approach becomes
@@ -67,7 +67,7 @@ def get_qoi_split(mesh_seq, sols, index):
 # in the same way. ::
 
 dt = pi / 300
-test = os.environ.get("PYROTEUS_REGRESSION_TEST") is not None
+test = os.environ.get("GOALIE_REGRESSION_TEST") is not None
 end_time = pi / 4 if test else 2 * pi
 time_partition = TimeInterval(
     end_time,

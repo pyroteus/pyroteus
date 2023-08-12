@@ -18,7 +18,7 @@
 # ::
 
 from firedrake import *
-from pyroteus_adjoint import *
+from goalie_adjoint import *
 
 
 set_log_level(DEBUG)

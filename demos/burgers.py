@@ -3,7 +3,7 @@
 
 # This demo shows how to solve the `Firedrake`
 # `Burgers equation demo <https://firedrakeproject.org/demos/burgers.py.html>`__
-# on a sequence of meshes using Pyroteus.
+# on a sequence of meshes using Goalie.
 # The PDE
 #
 # .. math::
@@ -21,7 +21,7 @@
 # side. See the Firedrake demo for details on the discretisation used.
 
 from firedrake import *
-from pyroteus import *
+from goalie import *
 
 # In this problem, we have a single prognostic variable,
 # :math:`\mathbf u`. Its name is recorded in a list of
@@ -40,7 +40,7 @@ def get_function_spaces(mesh):
 
 
 # In order to solve PDEs using the finite element method, we
-# require a weak form. For this, Pyroteus requires a function
+# require a weak form. For this, Goalie requires a function
 # that maps the :class:`MeshSeq` index and a dictionary of
 # solution data to the form. For each field, the dictionary
 # should provide a tuple containing the solution :class:`Function`\s
@@ -119,7 +119,7 @@ def get_solver(mesh_seq):
 # simple problem, but it comes in handy when solving adjoint
 # problems associated with coupled systems of equations.
 #
-# Pyroteus also requires a function for generating an initial
+# Goalie also requires a function for generating an initial
 # condition from the function space defined on the
 # :math:`0^{th}` mesh. ::
 
@@ -171,7 +171,7 @@ solutions = mesh_seq.solve_forward()
 # is applied on the first subinterval. The forward solution at the end
 # of that subinterval is transferred to the mesh associated with the
 # second subinterval and used as an initial condition for the same solver
-# applied again there. Pyroteus uses a conservative interpolation
+# applied again there. Goalie uses a conservative interpolation
 # operator to transfer solution data between the two meshes. In this
 # example, the meshes (and hence function spaces) are identical so the
 # projection operation will in fact be the identity.
@@ -200,7 +200,7 @@ fig.savefig("burgers.jpg")
 #
 # We see that the initial sinusoid is nonlinearly advected Eastwards.
 #
-# In the `next demo <./burgers1.py.html>`__, we use Pyroteus to
+# In the `next demo <./burgers1.py.html>`__, we use Goalie to
 # automatically solve the adjoint problem associated with Burgers
 # equation.
 #

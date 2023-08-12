@@ -8,11 +8,11 @@
 # exposition of goal-oriented mesh adaptation in these demos.
 #
 # We copy over the setup as before. The only difference is that we import from
-# `pyroteus_adjoint` rather than `pyroteus`. ::
+# `goalie_adjoint` rather than `goalie`. ::
 
 from firedrake import *
 from firedrake.meshadapt import *
-from pyroteus_adjoint import *
+from goalie_adjoint import *
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib import ticker
@@ -106,7 +106,7 @@ params = GoalOrientedMetricParameters(
     {
         "element_rtol": 0.005,
         "qoi_rtol": 0.005,
-        "maxiter": 35 if os.environ.get("PYROTEUS_REGRESSION_TEST") is None else 3,
+        "maxiter": 35 if os.environ.get("GOALIE_REGRESSION_TEST") is None else 3,
     }
 )
 
@@ -155,7 +155,7 @@ plt.close()
 #    :align: center
 
 # The adaptor takes a different form in this case, depending on adjoint solution data
-# as well as forward solution data. For simplicity, we begin by using Pyroteus' inbuilt
+# as well as forward solution data. For simplicity, we begin by using Goalie's inbuilt
 # isotropic metric function. ::
 
 
@@ -268,7 +268,7 @@ plt.close()
 # because we have an advection-dominated problem, so the QoI value is independent of the
 # dynamics there.
 #
-# Pyroteus also provides drivers for *anisotropic* goal-oriented mesh adaptation. Here,
+# Goalie also provides drivers for *anisotropic* goal-oriented mesh adaptation. Here,
 # we consider the ``anisotropic_dwr_metric`` driver. (See documentation for details.) To
 # use it, we just need to define a different adaptor function. The same error indicator
 # is used as for the isotropic approach. In addition, the Hessian of the forward

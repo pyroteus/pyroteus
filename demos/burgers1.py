@@ -6,12 +6,12 @@
 # automatic differentiation functionality in order to
 # automatically form and solve discrete adjoint problems.
 #
-# We always begin by importing Pyroteus. Adjoint mode is used
+# We always begin by importing Goalie. Adjoint mode is used
 # so that we have access to the :class:`AdjointMeshSeq` class.
 # ::
 
 from firedrake import *
-from pyroteus_adjoint import *
+from goalie_adjoint import *
 
 # For ease, the field list and functions for obtaining the
 # function spaces, forms, solvers, and initial conditions
@@ -108,7 +108,7 @@ end_time = 0.5
 dt = 1 / n
 
 # Another requirement to solve the adjoint problem using
-# Pyroteus is a :class:`TimePartition`. In our case, there is a
+# Goalie is a :class:`TimePartition`. In our case, there is a
 # single mesh, so the partition is trivial and we can use the
 # :class:`TimeInterval` constructor. ::
 

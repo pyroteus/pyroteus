@@ -204,7 +204,7 @@ def project(
     return (_project_adjoint if adjoint else _project)(source, target, **kwargs)
 
 
-@PETSc.Log.EventDecorator("pyroteus.interpolation.project")
+@PETSc.Log.EventDecorator("goalie.interpolation.project")
 def _project(source: Function, target: Function, **kwargs) -> Function:
     """
     Apply a mesh-to-mesh conservative projection to some source
@@ -229,7 +229,7 @@ def _project(source: Function, target: Function, **kwargs) -> Function:
     return target
 
 
-@PETSc.Log.EventDecorator("pyroteus.interpolation.project_adjoint")
+@PETSc.Log.EventDecorator("goalie.interpolation.project_adjoint")
 def _project_adjoint(target_b: Function, source_b: Function, **kwargs) -> Function:
     """
     Apply the adjoint of a mesh-to-mesh conservative projection to some seed

@@ -7,11 +7,11 @@ htmlcov*
 outputs/
 plots/
 __pycache__/
-pyroteus.egg-info/
+goalie.egg-info/
 
 # Specific files
 .coverage
-docs/source/pyroteus.rst
+docs/source/goalie.rst
 
 # File extensions
 *.ipynb*

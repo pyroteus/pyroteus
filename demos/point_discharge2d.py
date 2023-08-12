@@ -1,14 +1,14 @@
 # Point discharge with diffusion
 # ==============================
 
-# Pyroteus has been developed primarily with time-dependent problems in
+# Goalie has been developed primarily with time-dependent problems in
 # mind, since the loop structures required to solve forward and adjoint
 # problems and do goal-oriented error estimation and mesh adaptation are
 # rather complex for such cases. However, it can also be used to solve
 # steady-state problems.
 #
 # Consider the same steady-state advection-diffusion test case as in the
-# motivation for the Pyroteus manual: the "point discharge with diffusion"
+# motivation for the Goalie manual: the "point discharge with diffusion"
 # test case from :cite:`RCJ:14`. In this test case, we solve
 #
 # .. math::
@@ -23,10 +23,10 @@
 # representation :math:`S`. The domain of interest is the rectangle
 # :math:`\Omega = [0, 50] \times [0, 10]`.
 #
-# As always, start by importing Firedrake and Pyroteus. ::
+# As always, start by importing Firedrake and Goalie. ::
 
 from firedrake import *
-from pyroteus_adjoint import *
+from goalie_adjoint import *
 
 # We solve the advection-diffusion problem in :math:`\mathbb P1` space. ::
 
@@ -137,7 +137,7 @@ def get_solver(mesh_seq):
 # The fact that we create a lagged solution :class:`Function`, assign it to
 # some initial conditions and then use the value for a solution :class:`Function`
 # that will immediately get over-written may seem odd. It works this way because
-# Pyroteus is primarily geared up for time-dependent problems, where initialisation
+# Goalie is primarily geared up for time-dependent problems, where initialisation
 # is important. Even for linear, steady-state problems, we need to maintain a
 # programatic dependence on the initial condition so that it is possible to
 # automatically differentiate the QoI with respect to this as an input.

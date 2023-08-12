@@ -2,10 +2,10 @@
 Testing for the mesh sequence objects.
 """
 from firedrake import *
-from pyroteus_adjoint import *
-from pyroteus.log import *
-from pyroteus.mesh_seq import MeshSeq
-from pyroteus.time_partition import TimeInterval
+from goalie_adjoint import *
+from goalie.log import *
+from goalie.mesh_seq import MeshSeq
+from goalie.time_partition import TimeInterval
 import pyadjoint
 import logging
 import pytest

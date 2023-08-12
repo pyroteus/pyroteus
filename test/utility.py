@@ -2,7 +2,7 @@
 Functions used frequently for testing.
 """
 import firedrake
-from pyroteus.metric import RiemannianMetric
+from goalie.metric import RiemannianMetric
 import ufl
 
 

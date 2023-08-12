@@ -1,6 +1,6 @@
 from firedrake import *
-from pyroteus_adjoint import *
-from pyroteus.adjoint import annotate_qoi
+from goalie_adjoint import *
+from goalie.adjoint import annotate_qoi
 import numpy as np
 import unittest
 

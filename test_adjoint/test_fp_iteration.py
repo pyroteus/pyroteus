@@ -1,5 +1,5 @@
 from firedrake import *
-from pyroteus_adjoint import *
+from goalie_adjoint import *
 import unittest
 
 

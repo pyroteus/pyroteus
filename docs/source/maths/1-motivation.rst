@@ -6,7 +6,7 @@ Computational physics contains a wide variety of applications
 for which the accurate evaluation of a diagnostic
 `quantity of interest (QoI)` is more important than the solution
 of the prognostic equation that it is associated with. It is such
-problems that Pyroteus is designed to solve.
+problems that Goalie is designed to solve.
 
 Given a partial differential equation (PDE) and a QoI, we are able
 to formulate and solve the associated `adjoint problem`, which

@@ -1,4 +1,4 @@
-## Installation scripts for Pyroteus' dependencies
+## Installation scripts for Goalie's dependencies
 
 This directory contains a number of bash scripts for installing PETSc and Firedrake.
 First, copy the files to the location where you would like to make the installations.

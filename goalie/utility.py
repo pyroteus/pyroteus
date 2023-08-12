@@ -10,7 +10,7 @@ from collections import OrderedDict
 import numpy as np
 
 
-@PETSc.Log.EventDecorator("pyroteus.Mesh")
+@PETSc.Log.EventDecorator("goalie.Mesh")
 def Mesh(arg, **kwargs) -> MeshGeometry:
     """
     Overload :func:`firedrake.mesh.Mesh` to
@@ -80,7 +80,7 @@ class File(firedrake.output.File):
         return super()._write_vtu(*functions)
 
 
-@PETSc.Log.EventDecorator("pyroteus.assemble_mass_matrix")
+@PETSc.Log.EventDecorator("goalie.assemble_mass_matrix")
 def assemble_mass_matrix(
     space: FunctionSpace, norm_type: str = "L2"
 ) -> petsc4py.PETSc.Mat:
@@ -102,7 +102,7 @@ def assemble_mass_matrix(
     return assemble(lhs).petscmat
 
 
-@PETSc.Log.EventDecorator("pyroteus.norm")
+@PETSc.Log.EventDecorator("goalie.norm")
 def norm(v: Function, norm_type: str = "L2", **kwargs) -> float:
     r"""
     Overload :func:`firedrake.norms.norm` to
@@ -162,7 +162,7 @@ def norm(v: Function, norm_type: str = "L2", **kwargs) -> float:
         return assemble(condition * integrand ** (p / 2) * dX) ** (1 / p)
 
 
-@PETSc.Log.EventDecorator("pyroteus.errornorm")
+@PETSc.Log.EventDecorator("goalie.errornorm")
 def errornorm(u, uh: Function, norm_type: str = "L2", **kwargs) -> float:
     r"""
     Overload :func:`firedrake.norms.errornorm`

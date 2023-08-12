@@ -4,7 +4,7 @@ Test utility functions.
 from firedrake import *
 from firedrake.norms import norm as fnorm
 from firedrake.norms import errornorm as ferrnorm
-from pyroteus import *
+from goalie import *
 from utility import uniform_mesh
 import os
 import pathlib

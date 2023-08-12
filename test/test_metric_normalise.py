@@ -2,7 +2,7 @@
 Test metric normalisation functionality.
 """
 from firedrake import *
-from pyroteus import *
+from goalie import *
 from sensors import *
 from utility import uniform_mesh
 from parameterized import parameterized

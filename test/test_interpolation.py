@@ -2,7 +2,7 @@
 Test interpolation schemes.
 """
 from firedrake import *
-from pyroteus import *
+from goalie import *
 from parameterized import parameterized
 import unittest
 

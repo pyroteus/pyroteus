@@ -28,7 +28,7 @@ class MeshSeq:
     temporal domain.
     """
 
-    @PETSc.Log.EventDecorator("pyroteus.MeshSeq.__init__")
+    @PETSc.Log.EventDecorator("goalie.MeshSeq.__init__")
     def __init__(self, time_partition: TimePartition, initial_meshes: list, **kwargs):
         r"""
         :arg time_partition: the :class:`~.TimePartition` which

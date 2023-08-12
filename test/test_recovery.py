@@ -2,7 +2,7 @@
 Test derivative recovery techniques.
 """
 from firedrake import *
-from pyroteus import *
+from goalie import *
 from sensors import bowl, mesh_for_sensors
 from parameterized import parameterized
 import unittest

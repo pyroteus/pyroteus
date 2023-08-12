@@ -22,10 +22,10 @@
 # obtained by adding more degrees of freedom to the base space. This could
 # be done by solving global or local auxiliary PDEs, or by applying patch
 # recovery type methods. Currently, only global enrichment is supported in
-# Pyroteus. ::
+# Goalie. ::
 
 from firedrake import *
-from pyroteus_adjoint import *
+from goalie_adjoint import *
 
 set_log_level(DEBUG)
 
@@ -128,10 +128,10 @@ mesh_seq = GoalOrientedMeshSeq(
 )
 
 # Given the description of the PDE problem in the form of a :class:`GoalOrientedMeshSeq`,
-# Pyroteus is able to extract all of the relevant information to automatically compute
+# Goalie is able to extract all of the relevant information to automatically compute
 # error estimators. During the computation, we solve the forward and adjoint equations
 # over the mesh sequence, as before. In addition, we solve the adjoint problem again
-# in an *enriched* finite element space. Currently, Pyroteus supports uniform refinement
+# in an *enriched* finite element space. Currently, Goalie supports uniform refinement
 # of the meshes (:math:`h`-refinement) or globally increasing the polynomial order
 # (:math:`p`-refinement). Choosing one (or both) of these as the ``"enrichment_method"``,
 # we are able to compute error indicator fields as follows. ::
