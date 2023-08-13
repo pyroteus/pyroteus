@@ -133,7 +133,7 @@ fig.savefig("burgers-oo_ee.jpg")
 fig, axes, tcs = plot_snapshots(solutions, time_partition, "u", "adjoint")
 fig.savefig("burgers-oo-time_integrated.jpg")
 
-# .. figure:: burgers-time_integrated.jpg
+# .. figure:: burgers-oo-time_integrated.jpg
 #    :figwidth: 90%
 #    :align: center
 
