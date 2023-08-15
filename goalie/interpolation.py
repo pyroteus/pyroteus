@@ -1,7 +1,7 @@
 """
 Driver functions for mesh-to-mesh data transfer.
 """
-from .quality import QualityMeasure
+from animate.quality import QualityMeasure
 from .utility import assemble_mass_matrix, Function, FunctionSpace
 import firedrake
 from firedrake.petsc import PETSc

@@ -1,17 +1,18 @@
 """
 Utility functions and classes for mesh adaptation.
 """
-from .quality import *
-import mpi4py
-import petsc4py
-from firedrake import assemble
-from .log import *
 from collections import OrderedDict
+import firedrake
+from firedrake import PETSc
+import mpi4py
 import numpy as np
+import os
+import petsc4py
+import ufl
 
 
 @PETSc.Log.EventDecorator("goalie.Mesh")
-def Mesh(arg, **kwargs) -> MeshGeometry:
+def Mesh(arg, **kwargs) -> firedrake.mesh.MeshGeometry:
     """
     Overload :func:`firedrake.mesh.Mesh` to
     endow the output mesh with useful quantities.
@@ -28,14 +29,16 @@ def Mesh(arg, **kwargs) -> MeshGeometry:
         mesh = firedrake.Mesh(arg, **kwargs)
     except TypeError:
         mesh = firedrake.Mesh(arg.coordinates, **kwargs)
-    P0 = FunctionSpace(mesh, "DG", 0)
-    P1 = FunctionSpace(mesh, "CG", 1)
+    P0 = firedrake.FunctionSpace(mesh, "DG", 0)
+    P1 = firedrake.FunctionSpace(mesh, "CG", 1)
     dim = mesh.topological_dimension()
 
     # Facet area
     boundary_markers = sorted(mesh.exterior_facets.unique_markers)
-    one = Function(P1).assign(1.0)
-    bnd_len = OrderedDict({i: assemble(one * ufl.ds(int(i))) for i in boundary_markers})
+    one = firedrake.Function(P1).assign(1.0)
+    bnd_len = OrderedDict(
+        {i: firedrake.assemble(one * ufl.ds(int(i))) for i in boundary_markers}
+    )
     if dim == 2:
         mesh.boundary_len = bnd_len
     else:
@@ -82,7 +85,7 @@ class File(firedrake.output.File):
 
 @PETSc.Log.EventDecorator("goalie.assemble_mass_matrix")
 def assemble_mass_matrix(
-    space: FunctionSpace, norm_type: str = "L2"
+    space: firedrake.FunctionSpace, norm_type: str = "L2"
 ) -> petsc4py.PETSc.Mat:
     """
     Assemble the ``norm_type`` mass matrix
@@ -99,11 +102,11 @@ def assemble_mass_matrix(
         )
     else:
         raise ValueError(f"Norm type '{norm_type}' not recognised.")
-    return assemble(lhs).petscmat
+    return firedrake.assemble(lhs).petscmat
 
 
 @PETSc.Log.EventDecorator("goalie.norm")
-def norm(v: Function, norm_type: str = "L2", **kwargs) -> float:
+def norm(v: firedrake.Function, norm_type: str = "L2", **kwargs) -> float:
     r"""
     Overload :func:`firedrake.norms.norm` to
     allow for :math:`\ell^p` norms.
@@ -159,11 +162,11 @@ def norm(v: Function, norm_type: str = "L2", **kwargs) -> float:
             integrand = ufl.inner(v, v) + ufl.inner(ufl.curl(v), ufl.curl(v))
         else:
             raise ValueError(f"Unknown norm type '{norm_type}'.")
-        return assemble(condition * integrand ** (p / 2) * dX) ** (1 / p)
+        return firedrake.assemble(condition * integrand ** (p / 2) * dX) ** (1 / p)
 
 
 @PETSc.Log.EventDecorator("goalie.errornorm")
-def errornorm(u, uh: Function, norm_type: str = "L2", **kwargs) -> float:
+def errornorm(u, uh: firedrake.Function, norm_type: str = "L2", **kwargs) -> float:
     r"""
     Overload :func:`firedrake.norms.errornorm`
     to allow for :math:`\ell^p` norms.
@@ -184,13 +187,13 @@ def errornorm(u, uh: Function, norm_type: str = "L2", **kwargs) -> float:
     if len(u.ufl_shape) != len(uh.ufl_shape):
         raise RuntimeError("Mismatching rank between u and uh.")
 
-    if not isinstance(uh, Function):
+    if not isinstance(uh, firedrake.Function):
         raise TypeError(f"uh should be a Function, is a {type(uh).__name__}.")
     if norm_type[0] == "l":
-        if not isinstance(u, Function):
+        if not isinstance(u, firedrake.Function):
             raise TypeError(f"u should be a Function, is a {type(u).__name__}.")
 
-    if isinstance(u, Function):
+    if isinstance(u, firedrake.Function):
         degree_u = u.function_space().ufl_element().degree()
         degree_uh = uh.function_space().ufl_element().degree()
         if degree_uh > degree_u:
@@ -208,7 +211,7 @@ def errornorm(u, uh: Function, norm_type: str = "L2", **kwargs) -> float:
         if norm_type == "L2":
             vv = [uu - uuh for uu, uuh in zip(u.subfunctions, uh.subfunctions)]
             dX = ufl.ds if kwargs.get("boundary", False) else ufl.dx
-            return ufl.sqrt(assemble(sum([ufl.inner(v, v) for v in vv]) * dX))
+            return ufl.sqrt(firedrake.assemble(sum([ufl.inner(v, v) for v in vv]) * dX))
         else:
             raise NotImplementedError(
                 f"Norm type '{norm_type}' not supported for mixed spaces."
@@ -235,7 +238,7 @@ class AttrDict(dict):
         self.__dict__ = self
 
 
-def effectivity_index(error_indicator: Function, Je: float) -> float:
+def effectivity_index(error_indicator: firedrake.Function, Je: float) -> float:
     r"""
     Overestimation factor of some error estimator
     for the QoI error.
@@ -249,7 +252,7 @@ def effectivity_index(error_indicator: Function, Je: float) -> float:
         to individual elements
     :arg Je: error in quantity of interest
     """
-    if not isinstance(error_indicator, Function):
+    if not isinstance(error_indicator, firedrake.Function):
         raise ValueError("Error indicator must return a Function.")
     el = error_indicator.ufl_element()
     if not (el.family() == "Discontinuous Lagrange" and el.degree() == 0):

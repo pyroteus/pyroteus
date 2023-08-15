@@ -8,7 +8,7 @@ from pyadjoint import get_working_tape, Block
 from .interpolation import project
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
-from .quality import QualityMeasure
+from animate.quality import QualityMeasure
 from .time_partition import TimePartition
 from .utility import AttrDict, Function, Mesh, MeshGeometry
 from collections import OrderedDict
