@@ -46,6 +46,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         if num_enrichments <= 0:
             raise ValueError("A positive number of enrichments is required")
 
+        # Apply h-refinement
+        if enrichment_method == "h":
+            meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in mesh_seq_e.meshes]
+        else:
+            meshes = self.meshes
+
         # Construct object to hold enriched spaces
         mesh_seq_e = self.__class__(
             self.time_partition,
@@ -59,12 +65,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             qoi_type=self.qoi_type,
         )
 
-        # Apply h-refinement
-        if enrichment_method == "h":
-            mesh_seq_e.meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in mesh_seq_e.meshes]
-
         # Apply p-refinement
         if enrichment_method == "p":
+            # ensure function space AttrDict has been defined
+            mesh_seq_e.function_spaces
             for label, fs in mesh_seq_e.function_spaces.items():
                 for n, _space in enumerate(fs):
                     element = _space.ufl_element()
