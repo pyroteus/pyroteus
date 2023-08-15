@@ -48,10 +48,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         # Apply h-refinement
         if enrichment_method == "h":
-            meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in mesh_seq_e.meshes]
+            meshes = [MeshHierarchy(mesh, num_enrichments)[-1] for mesh in self.meshes]
         else:
             meshes = self.meshes
-
+            
         # Construct object to hold enriched spaces
         mesh_seq_e = self.__class__(
             self.time_partition,
