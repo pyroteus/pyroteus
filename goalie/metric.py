@@ -1,7 +1,7 @@
 """
 Driver functions for metric-based mesh adaptation.
 """
-import firedrake.meshadapt
+import animate.metric
 from .log import debug
 from .time_partition import TimePartition
 from .recovery import *
@@ -19,22 +19,9 @@ __all__ = [
 ]
 
 
-def get_metric_kernel(func: str, dim: int) -> op2.Kernel:
+class RiemannianMetric(animate.metric.RiemannianMetric):
     """
-    Helper function to easily pass Eigen kernels
-    for metric utilities to Firedrake via PyOP2.
-
-    :arg func: function name
-    :arg dim: spatial dimension
-    """
-    pwd = os.path.abspath(os.path.join(os.path.dirname(__file__), "cxx"))
-    with open(os.path.join(pwd, f"metric{dim}d.cxx"), "r") as code:
-        return op2.Kernel(code.read(), func, cpp=True, include_dirs=include_dir)
-
-
-class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
-    """
-    Subclass of :class:`firedrake.meshadapt.RiemannianMetric` to allow adding methods.
+    Subclass of :class:`animate.metric.RiemannianMetric` to allow adding methods.
     """
 
     @PETSc.Log.EventDecorator()
@@ -95,9 +82,10 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
         dim = mesh.topological_dimension()
         evectors, evalues = Function(V_ten), Function(V_vec)
         if reorder:
-            kernel = get_metric_kernel("get_reordered_eigendecomposition", dim)
+            name = "get_reordered_eigendecomposition"
         else:
-            kernel = get_metric_kernel("get_eigendecomposition", dim)
+            name = "get_eigendecomposition"
+        kernel = animate.metric.get_metric_kernel(name, dim)
         op2.par_loop(
             kernel,
             V_ten.node_set,
@@ -141,7 +129,7 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
             )
         dim = V_ten.mesh().topological_dimension()
         op2.par_loop(
-            get_metric_kernel("set_eigendecomposition", dim),
+            animate.metric.get_metric_kernel("set_eigendecomposition", dim),
             V_ten.node_set,
             self.dat(op2.RW),
             evectors.dat(op2.READ),
@@ -427,7 +415,7 @@ class RiemannianMetric(firedrake.meshadapt.RiemannianMetric):
 
 class P0Metric(RiemannianMetric):
     r"""
-    Subclass of :class:`firedrake.meshadapt.RiemannianMetric` which allows use of
+    Subclass of :class:`animate.metric.RiemannianMetric` which allows use of
     :math:`\mathbb P0` space.
     """
 
@@ -519,7 +507,7 @@ def enforce_element_constraints(
         else:
             node_set = firedrake.DirichletBC(fs, 0, boundary_tag).node_set
         op2.par_loop(
-            get_metric_kernel("postproc_metric", dim),
+            animate.metric.get_metric_kernel("postproc_metric", dim),
             node_set,
             metric.dat(op2.RW),
             hmin.dat(op2.READ),
@@ -544,7 +532,7 @@ def space_time_normalise(
 
     Based on Equation (1) in :cite:`Barral:2016`.
 
-    :arg metrics: list of :class:`firedrake.meshadapt.RiemannianMetric`\s corresponding
+    :arg metrics: list of :class:`RiemannianMetric`\s corresponding
         to the metric associated with each subinterval
     :arg time_partition: :class:`TimePartition` for the problem at hand
     :arg metric_parameters: dictionary containing the target *space-time* metric
@@ -616,7 +604,6 @@ def space_time_normalise(
     debug(f"space_time_normalise: global scale factor={float(global_factor):.4e}")
 
     for metric, S in zip(metrics, time_partition):
-
         # Normalise according to the global normalisation factor
         metric.normalise(
             global_factor=global_factor,
@@ -737,7 +724,7 @@ def intersect_on_boundary(
     for metric in metrics[1:]:
         Mtmp.assign(intersected_metric)
         op2.par_loop(
-            get_metric_kernel("intersect", dim),
+            animate.metric.get_metric_kernel("intersect", dim),
             node_set,
             intersected_metric.dat(op2.RW),
             Mtmp.dat(op2.READ),
