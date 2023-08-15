@@ -10,7 +10,7 @@ from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
 from animate.quality import QualityMeasure
 from .time_partition import TimePartition
-from .utility import AttrDict, Function, Mesh, MeshGeometry
+from .utility import AttrDict, Mesh
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
 import matplotlib
@@ -122,10 +122,12 @@ class MeshSeq:
     def __len__(self) -> int:
         return len(self.meshes)
 
-    def __getitem__(self, i: int) -> MeshGeometry:
+    def __getitem__(self, i: int) -> firedrake.MeshGeometry:
         return self.meshes[i]
 
-    def __setitem__(self, i: int, mesh: MeshGeometry) -> MeshGeometry:
+    def __setitem__(
+        self, i: int, mesh: firedrake.MeshGeometry
+    ) -> firedrake.MeshGeometry:
         self.meshes[i] = mesh
 
     def count_elements(self) -> list:
@@ -182,7 +184,7 @@ class MeshSeq:
             axes = axes[0]
         return fig, axes
 
-    def get_function_spaces(self, mesh: MeshGeometry) -> Callable:
+    def get_function_spaces(self, mesh: firedrake.MeshGeometry) -> Callable:
         if self._get_function_spaces is None:
             raise NotImplementedError("'get_function_spaces' needs implementing.")
         return self._get_function_spaces(mesh)
@@ -190,7 +192,10 @@ class MeshSeq:
     def get_initial_condition(self) -> dict:
         if self._get_initial_condition is not None:
             return self._get_initial_condition(self)
-        return {field: Function(fs[0]) for field, fs in self.function_spaces.items()}
+        return {
+            field: firedrake.Function(fs[0])
+            for field, fs in self.function_spaces.items()
+        }
 
     def get_form(self) -> Callable:
         if self._get_form is None:
@@ -380,7 +385,9 @@ class MeshSeq:
             )
         return solve_blocks
 
-    def _output(self, field: str, subinterval: int, solve_block: Block) -> Function:
+    def _output(
+        self, field: str, subinterval: int, solve_block: Block
+    ) -> firedrake.Function:
         """
         For a given solve block and solution field, get the block's outputs which
         corresponds to the solution from the current timestep.
@@ -395,7 +402,7 @@ class MeshSeq:
         candidates = []
         for out in solve_block._outputs:
             # Look for Functions with matching function spaces
-            if not isinstance(out.output, Function):
+            if not isinstance(out.output, firedrake.Function):
                 continue
             if out.output.function_space() != fs:
                 continue
@@ -423,7 +430,9 @@ class MeshSeq:
                 " outputs."
             )
 
-    def _dependency(self, field: str, subinterval: int, solve_block: Block) -> Function:
+    def _dependency(
+        self, field: str, subinterval: int, solve_block: Block
+    ) -> firedrake.Function:
         """
         For a given solve block and solution field, get the block's dependency which
         corresponds to the solution from the previous timestep.
@@ -440,7 +449,7 @@ class MeshSeq:
         candidates = []
         for dep in solve_block._dependencies:
             # Look for Functions with matching function spaces
-            if not isinstance(dep.output, Function):
+            if not isinstance(dep.output, firedrake.Function):
                 continue
             if dep.output.function_space() != fs:
                 continue
@@ -507,7 +516,7 @@ class MeshSeq:
                     {
                         label: [
                             [
-                                Function(fs, name=f"{field}_{label}")
+                                firedrake.Function(fs, name=f"{field}_{label}")
                                 for j in range(P.num_exports_per_subinterval[i] - 1)
                             ]
                             for i, fs in enumerate(function_spaces[field])

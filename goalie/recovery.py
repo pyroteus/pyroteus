@@ -1,16 +1,19 @@
 """
 Driver functions for derivative recovery.
 """
+from animate.metric import get_metric_kernel
+from animate.quality import QualityMeasure
 from .interpolation import clement_interpolant
+from .math import construct_basis
 from .utility import *
 from typing import Optional
 
 
 @PETSc.Log.EventDecorator()
 def recover_gradient_l2(
-    f: Function,
-    target_space: Optional[FunctionSpace] = None,
-) -> Function:
+    f: firedrake.Function,
+    target_space: Optional[firedrake.FunctionSpace] = None,
+) -> firedrake.Function:
     r"""
     Recover the gradient of a scalar or vector field using :math:`L^2` projection.
 
@@ -20,7 +23,7 @@ def recover_gradient_l2(
         recovered gradient should live in
     """
     if target_space is None:
-        if not isinstance(f, Function):
+        if not isinstance(f, firedrake.Function):
             raise ValueError(
                 "If a target space is not provided then the input must be a Function."
             )
@@ -40,7 +43,7 @@ def recover_gradient_l2(
 
 
 @PETSc.Log.EventDecorator()
-def recover_hessian_clement(f: Function) -> Function:
+def recover_hessian_clement(f: firedrake.Function) -> firedrake.Function:
     r"""
     Recover the gradient and Hessian of a scalar field using two applications of
     Clement interpolation.
@@ -51,7 +54,7 @@ def recover_hessian_clement(f: Function) -> Function:
 
     :arg f: the scalar field whose derivatives we seek to recover
     """
-    if not isinstance(f, Function):
+    if not isinstance(f, firedrake.Function):
         raise ValueError(
             "Clement interpolation can only be used to compute gradients of"
             " Lagrange Functions of degree > 0."
@@ -85,11 +88,11 @@ def recover_hessian_clement(f: Function) -> Function:
 
 @PETSc.Log.EventDecorator()
 def recover_boundary_hessian(
-    f: Function,
+    f: firedrake.Function,
     method: str = "Clement",
-    target_space: Optional[FunctionSpace] = None,
+    target_space: Optional[firedrake.FunctionSpace] = None,
     **kwargs,
-) -> Function:
+) -> firedrake.Function:
     """
     Recover the Hessian of a scalar field on the domain boundary.
 
@@ -98,8 +101,6 @@ def recover_boundary_hessian(
     :kwarg target_space: the :func:`firedrake.functionspace.TensorFunctionSpace`
         in which the metric will exist
     """
-    from goalie.math import construct_basis
-    from goalie.metric import get_metric_kernel
 
     mesh = ufl.domain.extract_unique_domain(f)
     d = mesh.topological_dimension()
@@ -112,15 +113,17 @@ def recover_boundary_hessian(
     ns = ufl.as_vector(ns)
 
     # Setup
-    P1 = FunctionSpace(mesh, "CG", 1)
+    P1 = firedrake.FunctionSpace(mesh, "CG", 1)
     P1_ten = target_space or firedrake.TensorFunctionSpace(mesh, "CG", 1)
     assert P1_ten.ufl_element().family() == "Lagrange"
     assert P1_ten.ufl_element().degree() == 1
     boundary_tag = kwargs.get("boundary_tag", "on_boundary")
     Hs = firedrake.TrialFunction(P1)
     v = firedrake.TestFunction(P1)
-    l2_proj = [[Function(P1) for i in range(d - 1)] for j in range(d - 1)]
-    h = firedrake.interpolate(ufl.CellDiameter(mesh), FunctionSpace(mesh, "DG", 0))
+    l2_proj = [[firedrake.Function(P1) for i in range(d - 1)] for j in range(d - 1)]
+    h = firedrake.interpolate(
+        ufl.CellDiameter(mesh), firedrake.FunctionSpace(mesh, "DG", 0)
+    )
     h = firedrake.Constant(1 / h.vector().gather().max() ** 2)
     sp = {
         "ksp_type": "gmres",
@@ -158,12 +161,12 @@ def recover_boundary_hessian(
         P0_vec = firedrake.VectorFunctionSpace(mesh, "DG", 0)
         P0_ten = firedrake.TensorFunctionSpace(mesh, "DG", 0)
         P1_vec = firedrake.VectorFunctionSpace(mesh, "CG", 1)
-        H = Function(P1_ten)
+        H = firedrake.Function(P1_ten)
         p0test = firedrake.TestFunction(P0_vec)
         p1test = firedrake.TestFunction(P1)
         fa = QualityMeasure(mesh, python=True)("facet_area")
 
-        source = assemble(ufl.inner(p0test, ufl.grad(f)) / fa * ufl.ds)
+        source = firedrake.assemble(ufl.inner(p0test, ufl.grad(f)) / fa * ufl.ds)
 
         # Recover gradient
         c = clement_interpolant(source, boundary=True, target_space=P1_vec)
@@ -178,7 +181,7 @@ def recover_boundary_hessian(
         # Compute tangential components
         for j, s1 in enumerate(s):
             for i, s0 in enumerate(s):
-                l2_proj[i][j] = assemble(
+                l2_proj[i][j] = firedrake.assemble(
                     p1test * ufl.dot(ufl.dot(s0, H), s1) / fa * ufl.ds
                 )
     else:
@@ -187,13 +190,13 @@ def recover_boundary_hessian(
         )
 
     # Construct tensor field
-    Hbar = Function(P1_ten)
+    Hbar = firedrake.Function(P1_ten)
     if d == 2:
         Hsub = firedrake.interpolate(abs(l2_proj[0][0]), P1)
         H = ufl.as_matrix([[h, 0], [0, Hsub]])
     else:
         fs = firedrake.TensorFunctionSpace(mesh, "CG", 1, shape=(2, 2))
-        Hsub = Function(fs)
+        Hsub = firedrake.Function(fs)
         Hsub.interpolate(
             ufl.as_matrix(
                 [[l2_proj[0][0], l2_proj[0][1]], [l2_proj[1][0], l2_proj[1][1]]]
@@ -201,7 +204,7 @@ def recover_boundary_hessian(
         )
 
         # Enforce SPD
-        metric = Function(fs)
+        metric = firedrake.Function(fs)
         op2.par_loop(
             get_metric_kernel("metric_from_hessian", 2),
             fs.node_set,

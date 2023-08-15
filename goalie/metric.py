@@ -5,6 +5,7 @@ import animate.metric
 from .log import debug
 from .time_partition import TimePartition
 from .recovery import *
+from pyop2 import op2
 from typing import List, Optional, Tuple, Union
 import ufl
 
@@ -25,7 +26,9 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
     """
 
     @PETSc.Log.EventDecorator()
-    def compute_hessian(self, f: Function, method: str = "mixed_L2", **kwargs):
+    def compute_hessian(
+        self, f: firedrake.Function, method: str = "mixed_L2", **kwargs
+    ):
         """
         Recover the Hessian of a scalar field.
 
@@ -53,7 +56,9 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
             raise ValueError(f"Recovery method '{method}' not recognised.")
 
     @PETSc.Log.EventDecorator()
-    def compute_boundary_hessian(self, f: Function, method: str = "mixed_L2", **kwargs):
+    def compute_boundary_hessian(
+        self, f: firedrake.Function, method: str = "mixed_L2", **kwargs
+    ):
         """
         Recover the Hessian of a scalar field on the domain boundary.
 
@@ -65,7 +70,7 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
     @PETSc.Log.EventDecorator()
     def compute_eigendecomposition(
         self, reorder: bool = False
-    ) -> Tuple[Function, Function]:
+    ) -> Tuple[firedrake.Function, firedrake.Function]:
         """
         Compute the eigenvectors and eigenvalues of a matrix-valued function.
 
@@ -80,7 +85,7 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
         fe = (V_ten.ufl_element().family(), V_ten.ufl_element().degree())
         V_vec = firedrake.VectorFunctionSpace(mesh, *fe)
         dim = mesh.topological_dimension()
-        evectors, evalues = Function(V_ten), Function(V_vec)
+        evectors, evalues = firedrake.Function(V_ten), firedrake.Function(V_vec)
         if reorder:
             name = "get_reordered_eigendecomposition"
         else:
@@ -96,7 +101,9 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
         return evectors, evalues
 
     @PETSc.Log.EventDecorator()
-    def assemble_eigendecomposition(self, evectors: Function, evalues: Function):
+    def assemble_eigendecomposition(
+        self, evectors: firedrake.Function, evalues: firedrake.Function
+    ):
         """
         Assemble a matrix from its eigenvectors and eigenvalues.
 
@@ -138,7 +145,7 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
         return self
 
     @PETSc.Log.EventDecorator()
-    def density_and_quotients(self, reorder: bool = False) -> List[Function]:
+    def density_and_quotients(self, reorder: bool = False) -> List[firedrake.Function]:
         r"""
         Extract the density and anisotropy quotients from a metric.
 
@@ -184,9 +191,11 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
         evectors, evalues = self.compute_eigendecomposition(reorder=reorder)
 
         # Extract density and quotients
-        density = Function(FunctionSpace(mesh, *fe), name="Metric density")
+        density = firedrake.Function(
+            firedrake.FunctionSpace(mesh, *fe), name="Metric density"
+        )
         density.interpolate(np.prod([ufl.sqrt(e) for e in evalues]))
-        quotients = Function(
+        quotients = firedrake.Function(
             firedrake.VectorFunctionSpace(mesh, *fe), name="Anisotropic quotients"
         )
         quotients.interpolate(
@@ -207,7 +216,10 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
 
     @PETSc.Log.EventDecorator()
     def compute_isotropic_metric(
-        self, error_indicator: Function, interpolant: str = "Clement", **kwargs
+        self,
+        error_indicator: firedrake.Function,
+        interpolant: str = "Clement",
+        **kwargs,
     ):
         r"""
         Compute an isotropic metric from some error indicator.
@@ -228,7 +240,7 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
             P1_indicator = clement_interpolant(error_indicator)
         elif interpolant == "L2":
             P1_indicator = firedrake.project(
-                error_indicator, FunctionSpace(mesh, "CG", 1)
+                error_indicator, firedrake.FunctionSpace(mesh, "CG", 1)
             )
         else:
             raise ValueError(f"Interpolant '{interpolant}' not recognised.")
@@ -236,7 +248,7 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
 
     def compute_isotropic_dwr_metric(
         self,
-        error_indicator: Function,
+        error_indicator: firedrake.Function,
         convergence_rate: float = 1.0,
         min_eigenvalue: float = 1.0e-05,
         interpolant: str = "Clement",
@@ -271,8 +283,8 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
     @PETSc.Log.EventDecorator()
     def compute_anisotropic_dwr_metric(
         self,
-        error_indicator: Function,
-        hessian: Optional[Function] = None,
+        error_indicator: firedrake.Function,
+        hessian: Optional[firedrake.Function] = None,
         convergence_rate: float = 1.0,
         min_eigenvalue: float = 1.0e-05,
         interpolant: str = "Clement",
@@ -323,12 +335,12 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
         K = K_hat * abs(ufl.JacobianDeterminant(mesh))
 
         # Get optimal element volume
-        P0 = FunctionSpace(mesh, "DG", 0)
+        P0 = firedrake.FunctionSpace(mesh, "DG", 0)
         K_opt = pow(error_indicator, 1 / (convergence_rate + 1))
-        K_opt_av = K_opt / interpolate(K_opt, P0).vector().gather().sum()
+        K_opt_av = K_opt / firedrake.interpolate(K_opt, P0).vector().gather().sum()
         K_ratio = target_complexity * pow(abs(K_opt_av * K_hat / K), 2 / dim)
 
-        if self._any_inf(interpolate(K_ratio, P0)):
+        if self._any_inf(firedrake.interpolate(K_ratio, P0)):
             raise ValueError("K_ratio contains non-finite values.")
 
         # Interpolate from P1 to P0
@@ -371,8 +383,8 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
     @PETSc.Log.EventDecorator()
     def compute_weighted_hessian_metric(
         self,
-        error_indicators: List[Function],
-        hessians: List[Function],
+        error_indicators: List[firedrake.Function],
+        hessians: List[firedrake.Function],
         average: bool = False,
         interpolant: str = "Clement",
     ):
@@ -388,12 +400,12 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
         :kwarg average: should metric components be averaged or intersected?
         :kwarg interpolant: choose from 'Clement' or 'L2'
         """
-        if isinstance(error_indicators, Function):
+        if isinstance(error_indicators, firedrake.Function):
             error_indicators = [error_indicators]
-        if isinstance(hessians, Function):
+        if isinstance(hessians, firedrake.Function):
             hessians = [hessians]
         mesh = self.function_space().mesh()
-        P1 = FunctionSpace(mesh, "CG", 1)
+        P1 = firedrake.FunctionSpace(mesh, "CG", 1)
         for error_indicator, hessian in zip(error_indicators, hessians):
             if mesh != error_indicator.function_space().mesh():
                 raise ValueError("Cannot use an error indicator from a different mesh.")
@@ -429,12 +441,12 @@ class P0Metric(RiemannianMetric):
 @PETSc.Log.EventDecorator()
 def enforce_element_constraints(
     metrics: List[RiemannianMetric],
-    h_min: List[Function],
-    h_max: List[Function],
-    a_max: List[Function],
+    h_min: List[firedrake.Function],
+    h_max: List[firedrake.Function],
+    a_max: List[firedrake.Function],
     boundary_tag: Optional[Union[str, int]] = None,
     optimise: bool = False,
-) -> List[Function]:
+) -> List[firedrake.Function]:
     """
     Post-process a list of metrics to enforce minimum and
     maximum element sizes, as well as maximum anisotropy.
@@ -453,7 +465,6 @@ def enforce_element_constraints(
     :kwarg optimise: is this a timed run?
     """
     from collections.abc import Iterable
-    from firedrake import Function
 
     if isinstance(metrics, RiemannianMetric):
         metrics = [metrics]
@@ -466,13 +477,13 @@ def enforce_element_constraints(
     for metric, hmin, hmax, amax in zip(metrics, h_min, h_max, a_max):
         fs = metric.function_space()
         mesh = fs.mesh()
-        P1 = FunctionSpace(mesh, "CG", 1)
+        P1 = firedrake.FunctionSpace(mesh, "CG", 1)
 
         def interp(f):
-            if isinstance(f, Function):
+            if isinstance(f, firedrake.Function):
                 return clement_interpolant(f)
             else:
-                return Function(P1).assign(f)
+                return firedrake.Function(P1).assign(f)
 
         # Interpolate hmin, hmax and amax into P1
         hmin = interp(hmin)
@@ -491,7 +502,7 @@ def enforce_element_constraints(
                     f"Encountered hmax value smaller than hmin: {_hmax} vs. {_hmin}."
                 )
             dx = ufl.dx(domain=mesh)
-            integral = assemble(ufl.conditional(hmax < hmin, 1, 0) * dx)
+            integral = firedrake.assemble(ufl.conditional(hmax < hmin, 1, 0) * dx)
             if not np.isclose(integral, 0.0):
                 raise ValueError(
                     f"Encountered regions where hmax < hmin: volume {integral}."
@@ -597,7 +608,9 @@ def space_time_normalise(
         for metric, S in zip(metrics, time_partition):
             dX = (ufl.ds if boundary else ufl.dx)(metric.function_space().mesh())
             scaling = pow(S.num_timesteps, 2 * exponent)
-            integral += scaling * assemble(pow(ufl.det(metric), exponent) * dX)
+            integral += scaling * firedrake.assemble(
+                pow(ufl.det(metric), exponent) * dX
+            )
         target = mp["dm_plex_metric_target_complexity"] * time_partition.num_timesteps
         debug(f"space_time_normalise: target space-time complexity={target:.4e}")
         global_factor = firedrake.Constant(pow(target / integral, 2 / d))
@@ -624,7 +637,11 @@ def space_time_normalise(
 
 @PETSc.Log.EventDecorator()
 def determine_metric_complexity(
-    H_interior: Function, H_boundary: Function, target: float, p: float, **kwargs
+    H_interior: firedrake.Function,
+    H_boundary: firedrake.Function,
+    target: float,
+    p: float,
+    **kwargs,
 ) -> float:
     """
     Solve an algebraic problem to obtain coefficients for the interior and boundary
@@ -655,8 +672,10 @@ def determine_metric_complexity(
     gbar = pow(gbar, d / (2 * p + d - 1))
 
     # Compute coefficients for the algebraic problem
-    a = assemble(g * pow(ufl.det(H_interior), p / (2 * p + d)) * ufl.dx)
-    b = assemble(gbar * pow(ufl.det(H_boundary), p / (2 * p + d - 1)) * ufl.ds)
+    a = firedrake.assemble(g * pow(ufl.det(H_interior), p / (2 * p + d)) * ufl.dx)
+    b = firedrake.assemble(
+        gbar * pow(ufl.det(H_boundary), p / (2 * p + d - 1)) * ufl.ds
+    )
 
     # Solve algebraic problem
     c = sympy.Symbol("c")
@@ -677,7 +696,7 @@ def determine_metric_complexity(
 def intersect_on_boundary(
     *metrics: Tuple[RiemannianMetric],
     boundary_tag: Union[str, int] = "on_boundary",
-) -> Function:
+) -> firedrake.Function:
     """
     Combine a list of metrics by intersection.
 

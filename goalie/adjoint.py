@@ -8,7 +8,7 @@ from .interpolation import project
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
 from .time_partition import TimePartition
-from .utility import AttrDict, norm, Function, pyrint
+from .utility import AttrDict, pyrint
 from collections.abc import Callable
 from functools import wraps
 import numpy as np
@@ -167,7 +167,7 @@ class AdjointMeshSeq(MeshSeq):
         # Default adjoint solution to zero, rather than None
         for block in solve_blocks:
             if block.adj_sol is None:
-                block.adj_sol = Function(
+                block.adj_sol = firedrake.Function(
                     self.function_spaces[field][subinterval], name=field
                 )
         return solve_blocks
@@ -245,7 +245,7 @@ class AdjointMeshSeq(MeshSeq):
                     {
                         label: [
                             [
-                                Function(fs, name=f"{field}_{label}")
+                                firedrake.Function(fs, name=f"{field}_{label}")
                                 for j in range(P.num_exports_per_subinterval[i] - 1)
                             ]
                             for i, fs in enumerate(function_spaces[field])
@@ -386,12 +386,14 @@ class AdjointMeshSeq(MeshSeq):
                             )
 
                 # Check non-zero adjoint solution/value
-                if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
+                if np.isclose(firedrake.norm(solutions[field].adjoint[i][0]), 0.0):
                     self.warning(
                         f"Adjoint solution for field '{field}' on {self.th(i)}"
                         " subinterval is zero."
                     )
-                if get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
+                if get_adj_values and np.isclose(
+                    firedrake.norm(sols.adj_value[i][0]), 0.0
+                ):
                     self.warning(
                         f"Adjoint action for field '{field}' on {self.th(i)}"
                         " subinterval is zero."
@@ -399,13 +401,13 @@ class AdjointMeshSeq(MeshSeq):
 
             # Get adjoint action on each subinterval
             seeds = {
-                field: Function(
+                field: firedrake.Function(
                     function_spaces[field][i], val=control.block_variable.adj_value
                 )
                 for field, control in zip(self.fields, self.controls)
             }
             for field, seed in seeds.items():
-                if not self.steady and np.isclose(norm(seed), 0.0):
+                if not self.steady and np.isclose(firedrake.norm(seed), 0.0):
                     self.warning(
                         f"Adjoint action for field '{field}' on {self.th(i)}"
                         " subinterval is zero."

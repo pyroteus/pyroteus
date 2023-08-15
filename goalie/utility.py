@@ -3,7 +3,7 @@ Utility functions and classes for mesh adaptation.
 """
 from collections import OrderedDict
 import firedrake
-from firedrake import PETSc
+from firedrake.petsc import PETSc
 import mpi4py
 import numpy as np
 import os
