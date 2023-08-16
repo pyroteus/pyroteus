@@ -118,7 +118,7 @@ class MeshSeq:
     def count_vertices(self) -> list:
         return [mesh.num_vertices() for mesh in self]  # TODO: make parallel safe
 
-    def set_meshes(meshes):
+    def set_meshes(self, meshes):
         """
         Validate the current meshes and update the associated attributes.
         """
