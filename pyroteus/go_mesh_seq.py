@@ -67,8 +67,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
 
         # Apply p-refinement
         if enrichment_method == "p":
-            # create function spaces AttrDict
-            mesh_seq_e.function_spaces
             for label, fs in mesh_seq_e.function_spaces.items():
                 for n, _space in enumerate(fs):
                     element = _space.ufl_element()
