@@ -139,7 +139,6 @@ class MeshSeq:
                     f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}"
                 )
             debug(100 * "-")
-            
 
     def plot(
         self, **kwargs
