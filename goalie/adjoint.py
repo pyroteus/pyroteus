@@ -8,7 +8,8 @@ from .interpolation import project
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
 from .time_partition import TimePartition
-from .utility import AttrDict, pyrint
+from .utility import AttrDict
+from .log import pyrint
 from collections.abc import Callable
 from functools import wraps
 import numpy as np
