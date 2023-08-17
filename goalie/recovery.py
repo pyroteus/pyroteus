@@ -1,9 +1,9 @@
 """
 Driver functions for derivative recovery.
 """
+from animate.interpolation import clement_interpolant
 from animate.metric import get_metric_kernel
 from animate.quality import QualityMeasure
-from .interpolation import clement_interpolant
 from .math import construct_basis
 from .utility import *
 from typing import Optional
