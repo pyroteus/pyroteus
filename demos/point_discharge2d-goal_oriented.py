@@ -11,7 +11,7 @@
 # `goalie_adjoint` rather than `goalie`. ::
 
 from firedrake import *
-from firedrake.meshadapt import *
+from animate.adapt import adapt
 from goalie_adjoint import *
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors

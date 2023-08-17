@@ -1,8 +1,8 @@
 """
 Driver functions for mesh-to-mesh data transfer.
 """
-from .quality import QualityMeasure
-from .utility import assemble_mass_matrix, Function, FunctionSpace
+from animate.quality import QualityMeasure
+from .utility import assemble_mass_matrix
 import firedrake
 from firedrake.petsc import PETSc
 from petsc4py import PETSc as petsc4py
@@ -17,10 +17,10 @@ __all__ = ["clement_interpolant", "project"]
 
 @PETSc.Log.EventDecorator()
 def clement_interpolant(
-    source: Function,
-    target_space: Optional[FunctionSpace] = None,
+    source: firedrake.Function,
+    target_space: Optional[firedrake.FunctionSpace] = None,
     boundary: bool = False,
-) -> Function:
+) -> firedrake.Function:
     r"""
     Compute the Clement interpolant of a :math:`\mathbb P0` source field, i.e. take the
     volume average over neighbouring cells at each vertex. See :cite:`Cle:75`.
@@ -45,7 +45,7 @@ def clement_interpolant(
     Vt = target_space
     if Vt is None:
         if rank == 0:
-            Vt = FunctionSpace(mesh, "CG", 1)
+            Vt = firedrake.FunctionSpace(mesh, "CG", 1)
         elif rank == 1:
             Vt = firedrake.VectorFunctionSpace(mesh, "CG", 1)
         else:
@@ -53,11 +53,11 @@ def clement_interpolant(
     Vt_e = Vt.ufl_element()
     if not (Vt_e.family() == "Lagrange" and Vt_e.degree() == 1):
         raise ValueError("Target space provided must be P1.")
-    target = Function(Vt)
+    target = firedrake.Function(Vt)
 
     # Scalar P0 and P1 spaces to hold volumes, etc.
-    P0 = FunctionSpace(mesh, "DG", 0)
-    P1 = FunctionSpace(mesh, "CG", 1)
+    P0 = firedrake.FunctionSpace(mesh, "DG", 0)
+    P1 = firedrake.FunctionSpace(mesh, "CG", 1)
 
     # Determine target domain
     if rank == 0:
@@ -75,7 +75,7 @@ def clement_interpolant(
         volume = QualityMeasure(mesh, python=True)("volume")
 
         # Compute patch volume
-        patch_volume = Function(P1)
+        patch_volume = firedrake.Function(P1)
         domain = "{[i]: 0 <= i < patch.dofs}"
         instructions = "patch[i] = patch[i] + vol[0]"
         keys = {"vol": (volume, op2.READ), "patch": (patch_volume, op2.RW)}
@@ -98,20 +98,20 @@ def clement_interpolant(
         dX = ufl.ds(domain=mesh)
 
         # Indicate appropriate boundary
-        bnd_indicator = Function(P1)
+        bnd_indicator = firedrake.Function(P1)
         firedrake.DirichletBC(P1, 1, "on_boundary").apply(bnd_indicator)
 
         # Determine facet area for boundary edges
         v = firedrake.TestFunction(P0)
         u = firedrake.TrialFunction(P0)
-        bnd_volume = Function(P0)
+        bnd_volume = firedrake.Function(P0)
         mass_term = v * u * dX
         rhs = v * ufl.FacetArea(mesh) * dX
         sp = {"snes_type": "ksponly", "ksp_type": "preonly", "pc_type": "jacobi"}
         firedrake.solve(mass_term == rhs, bnd_volume, solver_parameters=sp)
 
         # Compute patch volume
-        patch_volume = Function(P1)
+        patch_volume = firedrake.Function(P1)
         domain = "{[i]: 0 <= i < patch.dofs}"
         instructions = "patch[i] = patch[i] + indicator[i] * bnd_vol[0]"
         keys = {
@@ -148,11 +148,11 @@ def clement_interpolant(
 
 
 def project(
-    source: Function,
-    target_space: Union[FunctionSpace, Function],
+    source: firedrake.Function,
+    target_space: Union[firedrake.FunctionSpace, firedrake.Function],
     adjoint: bool = False,
     **kwargs,
-) -> Function:
+) -> firedrake.Function:
     """
     Overload :func:`firedrake.projection.project` to account for the case of two mixed
     function spaces defined on different meshes and for the adjoint projection operator.
@@ -164,15 +164,15 @@ def project(
         seek to project into
     :kwarg adjoint: apply the transposed projection operator?
     """
-    if not isinstance(source, Function):
+    if not isinstance(source, firedrake.Function):
         raise NotImplementedError("Can only currently project Functions.")  # TODO
     Vs = source.function_space()
-    if isinstance(target_space, Function):
+    if isinstance(target_space, firedrake.Function):
         target = target_space
         Vt = target.function_space()
     else:
         Vt = target_space
-        target = Function(Vt)
+        target = firedrake.Function(Vt)
 
     # Account for the case where the meshes match
     source_mesh = ufl.domain.extract_unique_domain(source)
@@ -205,7 +205,9 @@ def project(
 
 
 @PETSc.Log.EventDecorator("goalie.interpolation.project")
-def _project(source: Function, target: Function, **kwargs) -> Function:
+def _project(
+    source: firedrake.Function, target: firedrake.Function, **kwargs
+) -> firedrake.Function:
     """
     Apply a mesh-to-mesh conservative projection to some source
     :class:`firedrake.function.Function`, mapping to a target
@@ -219,7 +221,7 @@ def _project(source: Function, target: Function, **kwargs) -> Function:
     :arg source: the `Function` to be projected
     :arg target: the `Function` which we seek to project onto
     """
-    assert isinstance(target, Function)
+    assert isinstance(target, firedrake.Function)
     if hasattr(target.function_space(), "num_sub_spaces"):
         assert hasattr(source.function_space(), "num_sub_spaces")
         for s, t in zip(source.subfunctions, target.subfunctions):
@@ -230,7 +232,9 @@ def _project(source: Function, target: Function, **kwargs) -> Function:
 
 
 @PETSc.Log.EventDecorator("goalie.interpolation.project_adjoint")
-def _project_adjoint(target_b: Function, source_b: Function, **kwargs) -> Function:
+def _project_adjoint(
+    target_b: firedrake.Function, source_b: firedrake.Function, **kwargs
+) -> firedrake.Function:
     """
     Apply the adjoint of a mesh-to-mesh conservative projection to some seed
     :class:`firedrake.function.Function`, mapping to an output
@@ -250,7 +254,7 @@ def _project_adjoint(target_b: Function, source_b: Function, **kwargs) -> Functi
     from firedrake.supermeshing import assemble_mixed_mass_matrix
 
     Vt = target_b.function_space()
-    assert isinstance(source_b, Function)
+    assert isinstance(source_b, firedrake.Function)
     Vs = source_b.function_space()
 
     # Get subspaces

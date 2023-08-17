@@ -27,6 +27,13 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
+      - name: Install Animate
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          cd ..
+          git clone https://github.com/pyroteus/animate.git
+          cd animate
+          python -m pip install -e .
       - name: Install Goalie
         run: |
           . /home/firedrake/firedrake/bin/activate

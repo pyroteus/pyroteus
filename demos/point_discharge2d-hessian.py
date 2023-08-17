@@ -14,7 +14,7 @@
 # ::
 
 from firedrake import *
-from firedrake.meshadapt import *
+from animate.adapt import adapt
 from goalie import *
 
 

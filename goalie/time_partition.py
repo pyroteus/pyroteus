@@ -185,8 +185,8 @@ class TimePartition:
                 "The first subinterval does not start at the start time:"
                 f" {self.subintervals[0][0]} != {self.start_time}."
             )
-        for i in range(self.num_subintervals-1):
-            if not np.isclose(self.subintervals[i][1], self.subintervals[i+1][0]):
+        for i in range(self.num_subintervals - 1):
+            if not np.isclose(self.subintervals[i][1], self.subintervals[i + 1][0]):
                 raise ValueError(
                     f"The end of subinterval {i} does not match the start of"
                     f" subinterval {i+1}: {self.subintervals[i][1]} !="
@@ -206,7 +206,9 @@ class TimePartition:
             )
 
     def _check_num_timesteps_per_export(self):
-        if len(self.num_timesteps_per_export) != len(self.num_timesteps_per_subinterval):
+        if len(self.num_timesteps_per_export) != len(
+            self.num_timesteps_per_subinterval
+        ):
             raise ValueError(
                 "Number of timesteps per export and subinterval do not match:"
                 f" {len(self.num_timesteps_per_export)}"
@@ -246,7 +248,9 @@ class TimePartition:
         return (
             np.allclose(self.subintervals, other.subintervals)
             and np.allclose(self.timesteps, other.timesteps)
-            and np.allclose(self.num_exports_per_subinterval, other.num_exports_per_subinterval)
+            and np.allclose(
+                self.num_exports_per_subinterval, other.num_exports_per_subinterval
+            )
             and self.fields == other.fields
             and self.field_types == other.field_types
         )
