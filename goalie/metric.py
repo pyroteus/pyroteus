@@ -1,6 +1,7 @@
 """
 Driver functions for metric-based mesh adaptation.
 """
+from animate.interpolation import clement_interpolant
 import animate.metric
 from .log import debug
 from .time_partition import TimePartition
