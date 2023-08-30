@@ -3,6 +3,7 @@ Driver functions for metric-based mesh adaptation.
 """
 from animate.interpolation import clement_interpolant
 import animate.metric
+import animate.recovery
 from .log import debug
 from .time_partition import TimePartition
 from animate.recovery import *
@@ -51,7 +52,7 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
             name = "get_reordered_eigendecomposition"
         else:
             name = "get_eigendecomposition"
-        kernel = animate.metric.get_metric_kernel(name, dim)
+        kernel = animate.recovery.get_metric_kernel(name, dim)
         op2.par_loop(
             kernel,
             V_ten.node_set,
@@ -97,7 +98,7 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
             )
         dim = V_ten.mesh().topological_dimension()
         op2.par_loop(
-            animate.metric.get_metric_kernel("set_eigendecomposition", dim),
+            animate.recovery.get_metric_kernel("set_eigendecomposition", dim),
             V_ten.node_set,
             self.dat(op2.RW),
             evectors.dat(op2.READ),
@@ -479,7 +480,7 @@ def enforce_element_constraints(
         else:
             node_set = firedrake.DirichletBC(fs, 0, boundary_tag).node_set
         op2.par_loop(
-            animate.metric.get_metric_kernel("postproc_metric", dim),
+            animate.recovery.get_metric_kernel("postproc_metric", dim),
             node_set,
             metric.dat(op2.RW),
             hmin.dat(op2.READ),
@@ -704,7 +705,7 @@ def intersect_on_boundary(
     for metric in metrics[1:]:
         Mtmp.assign(intersected_metric)
         op2.par_loop(
-            animate.metric.get_metric_kernel("intersect", dim),
+            animate.recovery.get_metric_kernel("intersect", dim),
             node_set,
             intersected_metric.dat(op2.RW),
             Mtmp.dat(op2.READ),
