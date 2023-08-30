@@ -5,6 +5,7 @@ from firedrake import *
 from goalie import *
 from sensors import *
 from utility import uniform_mesh
+import numpy as np
 from parameterized import parameterized
 import pytest
 import unittest

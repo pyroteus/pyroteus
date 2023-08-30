@@ -1,9 +1,7 @@
 from firedrake import UnitTriangleMesh
 from goalie.math import *
 import numpy as np
-from parameterized import parameterized
 import scipy as sp
-import ufl
 import unittest
 
 
