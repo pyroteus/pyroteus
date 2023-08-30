@@ -3,9 +3,13 @@ Driver functions for metric-based mesh adaptation.
 """
 from animate.interpolation import clement_interpolant
 import animate.metric
+import animate.recovery
 from .log import debug
 from .time_partition import TimePartition
-from .recovery import *
+from animate.recovery import *
+import firedrake
+from firedrake.petsc import PETSc
+import numpy as np
 from pyop2 import op2
 from typing import List, Optional, Tuple, Union
 import ufl
@@ -25,48 +29,6 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
     """
     Subclass of :class:`animate.metric.RiemannianMetric` to allow adding methods.
     """
-
-    @PETSc.Log.EventDecorator()
-    def compute_hessian(
-        self, f: firedrake.Function, method: str = "mixed_L2", **kwargs
-    ):
-        """
-        Recover the Hessian of a scalar field.
-
-        :arg f: the scalar field whose Hessian we seek to recover
-        :kwarg method: recovery method
-
-        All other keyword arguments are passed to the chosen recovery routine.
-
-        In the case of the `'L2'` method, the `target_space` keyword argument is used
-        for the gradient recovery. The target space for the Hessian recovery is
-        inherited from the metric itself.
-        """
-        if method == "L2":
-            g = recover_gradient_l2(f, target_space=kwargs.get("target_space"))
-            return self.assign(recover_gradient_l2(g))
-        elif method == "mixed_L2":
-            return super().compute_hessian(f, **kwargs)
-        elif method == "Clement":
-            return self.assign(recover_hessian_clement(f, **kwargs)[1])
-        elif method == "ZZ":
-            raise NotImplementedError(
-                "Zienkiewicz-Zhu recovery not yet implemented."
-            )  # TODO
-        else:
-            raise ValueError(f"Recovery method '{method}' not recognised.")
-
-    @PETSc.Log.EventDecorator()
-    def compute_boundary_hessian(
-        self, f: firedrake.Function, method: str = "mixed_L2", **kwargs
-    ):
-        """
-        Recover the Hessian of a scalar field on the domain boundary.
-
-        :arg f: field to recover over the domain boundary
-        :kwarg method: choose from 'mixed_L2' and 'Clement'
-        """
-        return self.assign(recover_boundary_hessian(f, method=method, **kwargs))
 
     @PETSc.Log.EventDecorator()
     def compute_eigendecomposition(
@@ -91,7 +53,7 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
             name = "get_reordered_eigendecomposition"
         else:
             name = "get_eigendecomposition"
-        kernel = animate.metric.get_metric_kernel(name, dim)
+        kernel = animate.recovery.get_metric_kernel(name, dim)
         op2.par_loop(
             kernel,
             V_ten.node_set,
@@ -137,7 +99,7 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
             )
         dim = V_ten.mesh().topological_dimension()
         op2.par_loop(
-            animate.metric.get_metric_kernel("set_eigendecomposition", dim),
+            animate.recovery.get_metric_kernel("set_eigendecomposition", dim),
             V_ten.node_set,
             self.dat(op2.RW),
             evectors.dat(op2.READ),
@@ -519,7 +481,7 @@ def enforce_element_constraints(
         else:
             node_set = firedrake.DirichletBC(fs, 0, boundary_tag).node_set
         op2.par_loop(
-            animate.metric.get_metric_kernel("postproc_metric", dim),
+            animate.recovery.get_metric_kernel("postproc_metric", dim),
             node_set,
             metric.dat(op2.RW),
             hmin.dat(op2.READ),
@@ -744,7 +706,7 @@ def intersect_on_boundary(
     for metric in metrics[1:]:
         Mtmp.assign(intersected_metric)
         op2.par_loop(
-            animate.metric.get_metric_kernel("intersect", dim),
+            animate.recovery.get_metric_kernel("intersect", dim),
             node_set,
             intersected_metric.dat(op2.RW),
             Mtmp.dat(op2.READ),

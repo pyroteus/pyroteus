@@ -143,6 +143,7 @@ class TestBlockLogic(unittest.TestCase):
     """
     Unit tests for :meth:`MeshSeq._dependency` and :meth:`MeshSeq._output`.
     """
+
     @staticmethod
     def get_p0_spaces(mesh):
         return {"field": FunctionSpace(mesh, "DG", 0)}

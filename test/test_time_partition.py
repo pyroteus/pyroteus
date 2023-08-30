@@ -32,7 +32,9 @@ class TestSetup(unittest.TestCase):
         self.assertTrue(time_partition1 != time_partition2)
 
     def test_time_partition_ne_negative(self):
-        time_partition1 = TimePartition(1.0, 1, [1.0], "field", num_timesteps_per_export=1)
+        time_partition1 = TimePartition(
+            1.0, 1, [1.0], "field", num_timesteps_per_export=1
+        )
         time_partition2 = TimePartition(1.0, 1, [1.0], "field")
         self.assertFalse(time_partition1 != time_partition2)
 
