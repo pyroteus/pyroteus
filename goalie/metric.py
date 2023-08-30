@@ -29,48 +29,6 @@ class RiemannianMetric(animate.metric.RiemannianMetric):
     """
 
     @PETSc.Log.EventDecorator()
-    def compute_hessian(
-        self, f: firedrake.Function, method: str = "mixed_L2", **kwargs
-    ):
-        """
-        Recover the Hessian of a scalar field.
-
-        :arg f: the scalar field whose Hessian we seek to recover
-        :kwarg method: recovery method
-
-        All other keyword arguments are passed to the chosen recovery routine.
-
-        In the case of the `'L2'` method, the `target_space` keyword argument is used
-        for the gradient recovery. The target space for the Hessian recovery is
-        inherited from the metric itself.
-        """
-        if method == "L2":
-            g = recover_gradient_l2(f, target_space=kwargs.get("target_space"))
-            return self.assign(recover_gradient_l2(g))
-        elif method == "mixed_L2":
-            return super().compute_hessian(f, **kwargs)
-        elif method == "Clement":
-            return self.assign(recover_hessian_clement(f, **kwargs)[1])
-        elif method == "ZZ":
-            raise NotImplementedError(
-                "Zienkiewicz-Zhu recovery not yet implemented."
-            )  # TODO
-        else:
-            raise ValueError(f"Recovery method '{method}' not recognised.")
-
-    @PETSc.Log.EventDecorator()
-    def compute_boundary_hessian(
-        self, f: firedrake.Function, method: str = "mixed_L2", **kwargs
-    ):
-        """
-        Recover the Hessian of a scalar field on the domain boundary.
-
-        :arg f: field to recover over the domain boundary
-        :kwarg method: choose from 'mixed_L2' and 'Clement'
-        """
-        return self.assign(recover_boundary_hessian(f, method=method, **kwargs))
-
-    @PETSc.Log.EventDecorator()
     def compute_eigendecomposition(
         self, reorder: bool = False
     ) -> Tuple[firedrake.Function, firedrake.Function]:
