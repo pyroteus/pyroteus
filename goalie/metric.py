@@ -6,6 +6,8 @@ import animate.metric
 from .log import debug
 from .time_partition import TimePartition
 from animate.recovery import *
+import firedrake
+from firedrake.petsc import PETSc
 from pyop2 import op2
 from typing import List, Optional, Tuple, Union
 import ufl
