@@ -3,6 +3,7 @@ Test metric normalisation functionality.
 """
 from firedrake import *
 from goalie import *
+from animate.metric import *
 from sensors import *
 from utility import uniform_mesh
 import numpy as np

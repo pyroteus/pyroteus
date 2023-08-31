@@ -11,6 +11,7 @@
 # `goalie_adjoint` rather than `goalie`. ::
 
 from firedrake import *
+from animate.metric import RiemannianMetric
 from animate.adapt import adapt
 from goalie_adjoint import *
 import matplotlib.pyplot as plt

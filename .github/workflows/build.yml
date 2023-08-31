@@ -33,6 +33,7 @@ jobs:
           cd ..
           git clone https://github.com/pyroteus/animate.git
           cd animate
+          git checkout 3_riemannianmetric
           python -m pip install -e .
       - name: Install Goalie
         run: |

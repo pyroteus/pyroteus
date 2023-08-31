@@ -10,6 +10,7 @@
 # As before, we copy over what is now effectively boiler plate to set up our problem. ::
 
 from firedrake import *
+from animate.metric import RiemannianMetric
 from animate.adapt import adapt
 from goalie import *
 import matplotlib.pyplot as plt
