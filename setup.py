@@ -5,7 +5,7 @@ setup(
     name="pyroteus",
     description="Pyroteus Goal-Oriented Mesh Adaptation Toolkit",
     author="Joseph Wallwork",
-    author_email="j.wallwork16@imperial.ac.uk",
+    author_email="joe.wallwork@outlook.com",
     url="https://github.com/pyroteus/pyroteus",
     version="0.1",
     packages=["pyroteus", "pyroteus_adjoint"],
