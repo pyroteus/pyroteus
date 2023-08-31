@@ -15,6 +15,7 @@
 
 from firedrake import *
 from animate.adapt import adapt
+from animate.metric import RiemannianMetric
 from goalie import *
 
 
