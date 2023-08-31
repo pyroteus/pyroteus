@@ -84,7 +84,8 @@ def enforce_element_constraints(
                 raise ValueError(
                     f"Encountered negative non-positive hmin value: {_hmin}."
                 )
-            if hmax.vector().gather().min() < _hmin:
+            _hmax = hmax.vector().gather().min()
+            if _hmax < _hmin:
                 raise ValueError(
                     f"Encountered hmax value smaller than hmin: {_hmax} vs. {_hmin}."
                 )
