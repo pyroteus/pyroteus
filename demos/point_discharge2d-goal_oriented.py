@@ -12,6 +12,7 @@
 
 from firedrake import *
 from animate.adapt import adapt
+from animate.metric import RiemannianMetric
 from goalie_adjoint import *
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
