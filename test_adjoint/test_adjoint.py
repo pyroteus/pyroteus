@@ -44,21 +44,18 @@ class TestAdjointMeshSeqGeneric(unittest.TestCase):
 
     def test_qoi_convergence_lt_miniter(self):
         mesh_seq = AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="end_time")
-        mesh_seq.check_qoi_convergence()
-        self.assertFalse(mesh_seq.converged)
+        self.assertFalse(mesh_seq.check_qoi_convergence())
 
     def test_qoi_convergence_true(self):
         mesh_seq = AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="end_time")
         mesh_seq.qoi_values = np.ones((mesh_seq.params.miniter + 1, 1))
-        mesh_seq.check_qoi_convergence()
-        self.assertTrue(mesh_seq.converged)
+        self.assertTrue(mesh_seq.check_qoi_convergence())
 
     def test_qoi_convergence_false(self):
         mesh_seq = AdjointMeshSeq(self.time_interval, self.meshes, qoi_type="end_time")
         mesh_seq.qoi_values = np.ones((mesh_seq.params.miniter + 1, 1))
         mesh_seq.qoi_values[-1] = 2
-        mesh_seq.check_qoi_convergence()
-        self.assertFalse(mesh_seq.converged)
+        self.assertFalse(mesh_seq.check_qoi_convergence())
 
 
 # ---------------------------
