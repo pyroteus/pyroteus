@@ -213,9 +213,7 @@ def adaptor(mesh_seq, solutions, indicators):
 # again on a globally uniformly refined mesh. The latter is particularly expensive, so
 # we should expect the computation to take more time. ::
 
-solutions = mesh_seq.fixed_point_iteration(adaptor)
-qoi_iso = mesh_seq.qoi_values
-dofs_iso = mesh_seq.vertex_counts
+solutions, indicators = mesh_seq.fixed_point_iteration(adaptor)
 
 # This time, we find that the fixed point iteration converges in five iterations.
 # Convergence is reached because the relative change in QoI is found to be smaller than
@@ -346,9 +344,7 @@ mesh_seq = GoalOrientedMeshSeq(
     qoi_type="steady",
     parameters=params,
 )
-solutions = mesh_seq.fixed_point_iteration(adaptor)
-qoi_aniso = mesh_seq.qoi_values
-dofs_aniso = mesh_seq.vertex_counts
+solutions, indicators = mesh_seq.fixed_point_iteration(adaptor)
 
 # .. code-block:: console
 #
