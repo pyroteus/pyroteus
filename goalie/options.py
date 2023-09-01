@@ -23,6 +23,7 @@ class AdaptParameters(AttrDict):
         self["miniter"] = 3  # Minimum iteration count
         self["maxiter"] = 35  # Maximum iteration count
         self["element_rtol"] = 0.001  # Relative tolerance for element count
+        self["rigorous"] = False  # Mode for convergence checking
 
         if not isinstance(parameters, dict):
             raise TypeError(
@@ -38,6 +39,7 @@ class AdaptParameters(AttrDict):
         self._check_type("miniter", int)
         self._check_type("maxiter", int)
         self._check_type("element_rtol", (float, int))
+        self._check_type("rigorous", bool)
 
     def _check_type(self, key, expected):
         if not isinstance(self[key], expected):

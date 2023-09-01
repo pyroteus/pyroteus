@@ -11,7 +11,7 @@ class TestAdaptParameters(unittest.TestCase):
     """
 
     def setUp(self):
-        self.defaults = {"miniter": 3, "maxiter": 35, "element_rtol": 0.001}
+        self.defaults = {"miniter": 3, "maxiter": 35, "element_rtol": 0.001, "rigorous": False}
 
     def test_input(self):
         with self.assertRaises(TypeError) as cm:
@@ -38,6 +38,7 @@ class TestAdaptParameters(unittest.TestCase):
         self.assertEqual(ap.miniter, ap["miniter"])
         self.assertEqual(ap.maxiter, ap["maxiter"])
         self.assertEqual(ap.element_rtol, ap["element_rtol"])
+        self.assertEqual(ap.rigorous, ap["rigorous"])
 
     def test_str(self):
         ap = AdaptParameters()
@@ -45,7 +46,7 @@ class TestAdaptParameters(unittest.TestCase):
 
     def test_repr(self):
         ap = AdaptParameters()
-        expected = "AdaptParameters(miniter=3, maxiter=35, element_rtol=0.001)"
+        expected = "AdaptParameters(miniter=3, maxiter=35, element_rtol=0.001, rigorous=False)"
         self.assertEqual(repr(ap), expected)
 
     def test_miniter_type_error(self):
@@ -64,6 +65,12 @@ class TestAdaptParameters(unittest.TestCase):
         with self.assertRaises(TypeError) as cm:
             AdaptParameters({"element_rtol": "0.001"})
         msg = "Expected attribute 'element_rtol' to be of type 'float' or 'int', not 'str'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_rigorous_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            AdaptParameters({"rigorous": 0})
+        msg = "Expected attribute 'rigorous' to be of type 'bool', not 'int'."
         self.assertEqual(str(cm.exception), msg)
 
 
@@ -93,6 +100,7 @@ class TestMetricParameters(unittest.TestCase):
             "miniter": 3,
             "maxiter": 35,
             "element_rtol": 0.001,
+            "rigorous": False,
         }
 
     def test_defaults(self):
@@ -112,7 +120,8 @@ class TestMetricParameters(unittest.TestCase):
             " h_max=1e+30, a_max=100000.0, restrict_anisotropy_first=False,"
             " hausdorff_number=0.01, gradation_factor=1.3,"
             " no_insert=False, no_swap=False, no_move=False, no_surf=False,"
-            " num_parmmg_iterations=3, miniter=3, maxiter=35, element_rtol=0.001)"
+            " num_parmmg_iterations=3, miniter=3, maxiter=35, element_rtol=0.001,"
+            " rigorous=False)"
         )
         self.assertEqual(repr(ap), expected)
 
@@ -216,6 +225,7 @@ class TestGoalOrientedParameters(unittest.TestCase):
             "miniter": 3,
             "maxiter": 35,
             "element_rtol": 0.001,
+            "rigorous": False,
         }
 
     def test_defaults(self):
@@ -231,7 +241,7 @@ class TestGoalOrientedParameters(unittest.TestCase):
         ap = GoalOrientedParameters()
         expected = (
             "GoalOrientedParameters(qoi_rtol=0.001, estimator_rtol=0.001, miniter=3,"
-            " maxiter=35, element_rtol=0.001)"
+            " maxiter=35, element_rtol=0.001, rigorous=False)"
         )
         self.assertEqual(repr(ap), expected)
 
@@ -279,6 +289,7 @@ class TestGoalOrientedMetricParameters(unittest.TestCase):
             "miniter": 3,
             "maxiter": 35,
             "element_rtol": 0.001,
+            "rigorous": False,
         }
 
     def test_defaults(self):
@@ -299,7 +310,7 @@ class TestGoalOrientedMetricParameters(unittest.TestCase):
             " restrict_anisotropy_first=False, hausdorff_number=0.01,"
             " gradation_factor=1.3, no_insert=False, no_swap=False, no_move=False,"
             " no_surf=False, num_parmmg_iterations=3, miniter=3, maxiter=35,"
-            " element_rtol=0.001)"
+            " element_rtol=0.001, rigorous=False)"
         )
         self.assertEqual(repr(ap), expected)
 
