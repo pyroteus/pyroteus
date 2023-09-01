@@ -96,7 +96,7 @@ class TestMeshSeq(unittest.TestCase):
 
         def adaptor(mesh_seq, sols):
             mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
-            return [False]
+            return [False, False]
 
         mesh_seq.fixed_point_iteration(adaptor)
         expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
@@ -165,7 +165,7 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
 
         def adaptor(mesh_seq, sols, indicators):
             mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
-            return [False]
+            return [False, False]
 
         mesh_seq.fixed_point_iteration(adaptor)
         expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
