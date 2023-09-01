@@ -597,9 +597,13 @@ class MeshSeq:
         Check for convergence of the fixed point iteration due to the relative
         difference in element count being smaller than the specified tolerance.
 
-        The :attr:`MeshSeq.converged` attribute is set to ``True`` in the
-        appropriate entry if convergence is detected on a subinterval.
+        :return: Boolean array with ``True`` in the appropriate entry if convergence is
+            detected on a subinterval.
         """
+        if self.params.rigorous:
+            converged = np.array([False] * len(self), dtype=bool)
+        else:
+            converged = self.converged
         if len(self.element_counts) >= max(2, self.params.miniter + 1):
             for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:])):
                 if not self.check_convergence[i]:
@@ -609,7 +613,7 @@ class MeshSeq:
                     )
                     continue
                 if abs(ne - ne_) <= self.params.element_rtol * ne_:
-                    self.converged[i] = True
+                    converged[i] = True
                     if len(self) == 1:
                         pyrint(
                             f"Element count converged after {self.fp_iteration+1}"
@@ -622,7 +626,7 @@ class MeshSeq:
                             f" {self.fp_iteration+1} iterations under relative tolerance"
                             f" {self.params.element_rtol}."
                         )
-        return self.converged
+        return converged
 
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
@@ -656,14 +660,16 @@ class MeshSeq:
 
             # Adapt meshes, logging element and vertex counts
             continue_unconditionally = adaptor(self, sols)
-            self.check_convergence[:] = np.logical_not(
-                np.logical_or(continue_unconditionally, self.converged)
-            )
+            if not self.params.rigorous:
+                self.check_convergence[:] = np.logical_not(
+                    np.logical_or(continue_unconditionally, self.converged)
+                )
             self.element_counts.append(self.count_elements())
             self.vertex_counts.append(self.count_vertices())
 
             # Check for element count convergence
-            if self.check_element_count_convergence().all():
+            self.converged[:] = self.check_element_count_convergence()
+            if self.converged.all():
                 break
 
         for i, conv in enumerate(self.converged):
