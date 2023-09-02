@@ -626,6 +626,12 @@ class MeshSeq:
                             f" {self.fp_iteration+1} iterations under relative tolerance"
                             f" {self.params.element_rtol}."
                         )
+
+        # Check only early subintervals are marked as converged
+        if not converged.all():
+            first_not_converged = converged.argsort()[0]
+            converged[first_not_converged:] = False
+
         return converged
 
     @PETSc.Log.EventDecorator()
