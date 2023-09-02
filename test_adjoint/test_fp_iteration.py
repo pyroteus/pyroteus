@@ -104,6 +104,22 @@ class TestMeshSeq(unittest.TestCase):
         self.assertTrue(np.allclose(mesh_seq.converged, [True, False]))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, [False, True]))
 
+    def test_no_late_convergence(self):
+        mesh1 = UnitSquareMesh(1, 1)
+        mesh2 = UnitTriangleMesh()
+        time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
+        mesh_seq = self.mesh_seq(time_partition, mesh2)
+
+        def adaptor(mesh_seq, sols):
+            mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
+            return [False, False]
+
+        mesh_seq.fixed_point_iteration(adaptor)
+        expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
+        self.assertEqual(mesh_seq.element_counts, expected)
+        self.assertTrue(np.allclose(mesh_seq.converged, [False, False]))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, [True, True]))
+
 
 class TestGoalOrientedMeshSeq(unittest.TestCase):
     """
@@ -172,3 +188,19 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         self.assertEqual(mesh_seq.element_counts, expected)
         self.assertTrue(np.allclose(mesh_seq.converged, [True, False]))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, [False, True]))
+
+    def test_no_late_convergence(self):
+        mesh1 = UnitSquareMesh(1, 1)
+        mesh2 = UnitTriangleMesh()
+        time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
+        mesh_seq = self.mesh_seq(time_partition, mesh2, qoi_type="end_time")
+
+        def adaptor(mesh_seq, sols, indicators):
+            mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
+            return [False, False]
+
+        mesh_seq.fixed_point_iteration(adaptor)
+        expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
+        self.assertEqual(mesh_seq.element_counts, expected)
+        self.assertTrue(np.allclose(mesh_seq.converged, [False, False]))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, [True, True]))
