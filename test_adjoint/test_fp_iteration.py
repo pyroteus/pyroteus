@@ -95,14 +95,14 @@ class TestMeshSeq(unittest.TestCase):
         mesh_seq = self.mesh_seq(time_partition, mesh2)
 
         def adaptor(mesh_seq, sols):
-            mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
+            mesh_seq[1] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
             return [False, False]
 
         mesh_seq.fixed_point_iteration(adaptor)
-        expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
+        expected = [[1, 1], [1, 2], [1, 1], [1, 2], [1, 1], [1, 2]]
         self.assertEqual(mesh_seq.element_counts, expected)
-        self.assertTrue(np.allclose(mesh_seq.converged, [False, True]))
-        self.assertTrue(np.allclose(mesh_seq.check_convergence, [True, False]))
+        self.assertTrue(np.allclose(mesh_seq.converged, [True, False]))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, [False, True]))
 
 
 class TestGoalOrientedMeshSeq(unittest.TestCase):
@@ -164,11 +164,11 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         mesh_seq = self.mesh_seq(time_partition, mesh2, qoi_type="end_time")
 
         def adaptor(mesh_seq, sols, indicators):
-            mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
+            mesh_seq[1] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
             return [False, False]
 
         mesh_seq.fixed_point_iteration(adaptor)
-        expected = [[1, 1], [2, 1], [1, 1], [2, 1], [1, 1], [2, 1]]
+        expected = [[1, 1], [1, 2], [1, 1], [1, 2], [1, 1], [1, 2]]
         self.assertEqual(mesh_seq.element_counts, expected)
-        self.assertTrue(np.allclose(mesh_seq.converged, [False, True]))
-        self.assertTrue(np.allclose(mesh_seq.check_convergence, [True, False]))
+        self.assertTrue(np.allclose(mesh_seq.converged, [True, False]))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, [False, True]))
