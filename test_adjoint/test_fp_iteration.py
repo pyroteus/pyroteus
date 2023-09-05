@@ -1,5 +1,6 @@
 from firedrake import *
 from goalie_adjoint import *
+from parameterized import parameterized
 import unittest
 
 
@@ -51,7 +52,7 @@ class TestMeshSeq(unittest.TestCase):
             }
         )
 
-    def mesh_seq(self, time_partition, mesh):
+    def mesh_seq(self, time_partition, mesh, parameters=None):
         return MeshSeq(
             time_partition,
             mesh,
@@ -59,7 +60,7 @@ class TestMeshSeq(unittest.TestCase):
             get_form=get_form,
             get_bcs=get_bcs,
             get_solver=get_solver,
-            parameters=self.parameters,
+            parameters=parameters or self.parameters,
         )
 
     def test_convergence_noop(self):
@@ -88,11 +89,14 @@ class TestMeshSeq(unittest.TestCase):
         self.assertTrue(np.allclose(mesh_seq.converged, False))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
-    def test_dropout(self):
+    @parameterized.expand([[True], [False]])
+    def test_dropout(self, drop_out_converged):
         mesh1 = UnitSquareMesh(1, 1)
         mesh2 = UnitTriangleMesh()
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
-        mesh_seq = self.mesh_seq(time_partition, mesh2)
+        ap = AdaptParameters(self.parameters)
+        ap.update({"drop_out_converged": drop_out_converged})
+        mesh_seq = self.mesh_seq(time_partition, mesh2, parameters=ap)
 
         def adaptor(mesh_seq, sols):
             mesh_seq[1] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
@@ -102,7 +106,7 @@ class TestMeshSeq(unittest.TestCase):
         expected = [[1, 1], [1, 2], [1, 1], [1, 2], [1, 1], [1, 2]]
         self.assertEqual(mesh_seq.element_counts, expected)
         self.assertTrue(np.allclose(mesh_seq.converged, [True, False]))
-        self.assertTrue(np.allclose(mesh_seq.check_convergence, [False, True]))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, [not drop_out_converged, True]))
 
     def test_no_late_convergence(self):
         mesh1 = UnitSquareMesh(1, 1)
@@ -134,7 +138,7 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
             }
         )
 
-    def mesh_seq(self, time_partition, mesh, qoi_type="steady"):
+    def mesh_seq(self, time_partition, mesh, parameters=None, qoi_type="steady"):
         return GoalOrientedMeshSeq(
             time_partition,
             mesh,
@@ -143,7 +147,7 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
             get_bcs=get_bcs,
             get_solver=get_solver,
             get_qoi=get_qoi,
-            parameters=self.parameters,
+            parameters=parameters or self.parameters,
             qoi_type=qoi_type,
         )
 
@@ -173,11 +177,14 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         self.assertTrue(np.allclose(mesh_seq.converged, False))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
 
-    def test_dropout(self):
+    @parameterized.expand([[True], [False]])
+    def test_dropout(self, drop_out_converged):
         mesh1 = UnitSquareMesh(1, 1)
         mesh2 = UnitTriangleMesh()
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
-        mesh_seq = self.mesh_seq(time_partition, mesh2, qoi_type="end_time")
+        ap = GoalOrientedParameters(self.parameters)
+        ap.update({"drop_out_converged": drop_out_converged})
+        mesh_seq = self.mesh_seq(time_partition, mesh2, parameters=ap, qoi_type="end_time")
 
         def adaptor(mesh_seq, sols, indicators):
             mesh_seq[1] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
@@ -187,7 +194,7 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         expected = [[1, 1], [1, 2], [1, 1], [1, 2], [1, 1], [1, 2]]
         self.assertEqual(mesh_seq.element_counts, expected)
         self.assertTrue(np.allclose(mesh_seq.converged, [True, False]))
-        self.assertTrue(np.allclose(mesh_seq.check_convergence, [False, True]))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, [not drop_out_converged, True]))
 
     def test_no_late_convergence(self):
         mesh1 = UnitSquareMesh(1, 1)
