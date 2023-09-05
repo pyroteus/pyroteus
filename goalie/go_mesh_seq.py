@@ -271,6 +271,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self.vertex_counts = [self.count_vertices()]
         self.qoi_values = []
         self.estimator_values = []
+        converged = False
         self.converged[:] = False
         self.check_convergence[:] = True
 
@@ -319,14 +320,22 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 break
 
             # Convergence check for 'all' mode
-            if qoi_converged and ee_converged and elem_converged:
+            converged = qoi_converged and ee_converged and elem_converged
+            if converged:
                 break
 
-        for i, conv in enumerate(self.converged):
-            if not conv:
+        if self.params.convergence_criteria == "all":
+            if not converged:
+                self.converged[:] = False
                 pyrint(
-                    f"Failed to converge on subinterval {i} in {self.params.maxiter}"
-                    " iterations."
+                    f"Failed to converge in {self.params.maxiter} iterations."
                 )
+        else:
+            for i, conv in enumerate(self.converged):
+                if not conv:
+                    pyrint(
+                        f"Failed to converge on subinterval {i} in {self.params.maxiter}"
+                        " iterations."
+                    )
 
         return sols
