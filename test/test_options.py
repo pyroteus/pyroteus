@@ -91,6 +91,12 @@ class TestAdaptParameters(unittest.TestCase):
         msg = "Expected attribute 'drop_out_converged' to be of type 'bool', not 'int'."
         self.assertEqual(str(cm.exception), msg)
 
+    def test_convergence_criteria_value_error(self):
+        with self.assertRaises(ValueError) as cm:
+            AdaptParameters({"convergence_criteria": "both"})
+        msg = "Unsupported value 'both' for 'convergence_criteria'. Choose from ['all', 'any']."
+        self.assertEqual(str(cm.exception), msg)
+
 
 class TestMetricParameters(unittest.TestCase):
     """
