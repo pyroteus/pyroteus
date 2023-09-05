@@ -600,7 +600,7 @@ class MeshSeq:
         :return: Boolean array with ``True`` in the appropriate entry if convergence is
             detected on a subinterval.
         """
-        if self.params.rigorous:
+        if self.params.convergence_criteria == "all":
             converged = np.array([False] * len(self), dtype=bool)
         else:
             converged = self.converged
@@ -666,7 +666,7 @@ class MeshSeq:
 
             # Adapt meshes, logging element and vertex counts
             continue_unconditionally = adaptor(self, sols)
-            if not self.params.rigorous:
+            if self.params.drop_out_converged:
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)
                 )

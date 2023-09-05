@@ -291,7 +291,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             #       can avoid unnecessary extra solves
             self.qoi_values.append(self.J)
             qoi_converged = self.check_qoi_convergence()
-            if not self.params.rigorous and qoi_converged:
+            if self.params.convergence_criteria == "any" and qoi_converged:
                 self.converged[:] = True
                 break
 
@@ -299,13 +299,13 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             ee = indicators2estimator(indicators, self.time_partition)
             self.estimator_values.append(ee)
             ee_converged = self.check_estimator_convergence()
-            if not self.params.rigorous and ee_converged:
+            if self.params.convergence_criteria == "any" and ee_converged:
                 self.converged[:] = True
                 break
 
             # Adapt meshes and log element counts
             continue_unconditionally = adaptor(self, sols, indicators)
-            if not self.params.rigorous:
+            if self.params.drop_out_converged:
                 self.check_convergence[:] = np.logical_not(
                     np.logical_or(continue_unconditionally, self.converged)
                 )
@@ -315,10 +315,10 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             # Check for element count convergence
             self.converged[:] = self.check_element_count_convergence()
             elem_converged = self.converged.all()
-            if not self.params.rigorous and elem_converged:
+            if self.params.convergence_criteria == "any" and elem_converged:
                 break
 
-            # Convergence check for rigorous mode
+            # Convergence check for 'all' mode
             if qoi_converged and ee_converged and elem_converged:
                 break
 
