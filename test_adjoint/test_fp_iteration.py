@@ -211,3 +211,18 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         self.assertEqual(mesh_seq.element_counts, expected)
         self.assertTrue(np.allclose(mesh_seq.converged, [False, False]))
         self.assertTrue(np.allclose(mesh_seq.check_convergence, [True, True]))
+
+    def test_convergence_criteria_all(self):
+        mesh = UnitSquareMesh(1, 1)
+        time_partition = TimePartition(1.0, 1, 0.5, [])
+        ap = GoalOrientedParameters(self.parameters)
+        ap.update({"convergence_criteria": "all"})
+        mesh_seq = self.mesh_seq(time_partition, mesh, parameters=ap, qoi_type="end_time")
+
+        def adaptor(mesh_seq, sols, indicators):
+            return [False]
+
+        mesh_seq.fixed_point_iteration(adaptor)
+        self.assertTrue(np.allclose(mesh_seq.element_counts, 2))
+        self.assertTrue(np.allclose(mesh_seq.converged, False))
+        self.assertTrue(np.allclose(mesh_seq.check_convergence, True))
