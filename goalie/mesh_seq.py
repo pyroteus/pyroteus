@@ -600,10 +600,10 @@ class MeshSeq:
         :return: Boolean array with ``True`` in the appropriate entry if convergence is
             detected on a subinterval.
         """
-        if self.params.convergence_criteria == "all":
-            converged = np.array([False] * len(self), dtype=bool)
-        else:
+        if self.params.drop_out_converged:
             converged = self.converged
+        else:
+            converged = np.array([False] * len(self), dtype=bool)
         if len(self.element_counts) >= max(2, self.params.miniter + 1):
             for i, (ne_, ne) in enumerate(zip(*self.element_counts[-2:])):
                 if not self.check_convergence[i]:
@@ -628,7 +628,7 @@ class MeshSeq:
                         )
 
         # Check only early subintervals are marked as converged
-        if not converged.all():
+        if self.params.drop_out_converged and not converged.all():
             first_not_converged = converged.argsort()[0]
             converged[first_not_converged:] = False
 
