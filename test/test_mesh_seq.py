@@ -1,6 +1,7 @@
 """
 Testing for the mesh sequence objects.
 """
+from goalie.options import AdaptParameters
 from goalie.mesh_seq import MeshSeq
 from goalie.time_partition import TimePartition, TimeInterval
 from firedrake import *
@@ -58,18 +59,21 @@ class TestGeneric(unittest.TestCase):
         self.assertEqual(str(cm.exception), msg)
 
     def test_element_convergence_lt_miniter(self):
-        mesh_seq = MeshSeq(self.time_interval, [UnitTriangleMesh()])
+        ap = AdaptParameters({"drop_out_converged": True})
+        mesh_seq = MeshSeq(self.time_interval, [UnitTriangleMesh()], parameters=ap)
         mesh_seq.check_element_count_convergence()
         self.assertFalse(mesh_seq.converged)
 
     def test_element_convergence_true(self):
-        mesh_seq = MeshSeq(self.time_interval, [UnitTriangleMesh()])
+        ap = AdaptParameters({"drop_out_converged": True})
+        mesh_seq = MeshSeq(self.time_interval, [UnitTriangleMesh()], parameters=ap)
         mesh_seq.element_counts = np.ones((mesh_seq.params.miniter + 1, 1))
         mesh_seq.check_element_count_convergence()
         self.assertTrue(mesh_seq.converged)
 
     def test_element_convergence_false(self):
-        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)])
+        ap = AdaptParameters({"drop_out_converged": True})
+        mesh_seq = MeshSeq(self.time_interval, [UnitSquareMesh(1, 1)], parameters=ap)
         mesh_seq.element_counts = np.ones((mesh_seq.params.miniter + 1, 1))
         mesh_seq.element_counts[-1] = 2
         mesh_seq.check_element_count_convergence()

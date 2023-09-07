@@ -16,7 +16,7 @@ class TestAdaptParameters(unittest.TestCase):
             "maxiter": 35,
             "element_rtol": 0.001,
             "convergence_criteria": "any",
-            "drop_out_converged": True,
+            "drop_out_converged": False,
         }
 
     def test_input(self):
@@ -55,7 +55,7 @@ class TestAdaptParameters(unittest.TestCase):
         ap = AdaptParameters()
         expected = (
             "AdaptParameters(miniter=3, maxiter=35, element_rtol=0.001,"
-            " convergence_criteria=any, drop_out_converged=True)"
+            " convergence_criteria=any, drop_out_converged=False)"
         )
         self.assertEqual(repr(ap), expected)
 
@@ -125,7 +125,7 @@ class TestMetricParameters(unittest.TestCase):
             "maxiter": 35,
             "element_rtol": 0.001,
             "convergence_criteria": "any",
-            "drop_out_converged": True,
+            "drop_out_converged": False,
         }
 
     def test_defaults(self):
@@ -146,7 +146,7 @@ class TestMetricParameters(unittest.TestCase):
             " hausdorff_number=0.01, gradation_factor=1.3,"
             " no_insert=False, no_swap=False, no_move=False, no_surf=False,"
             " num_parmmg_iterations=3, miniter=3, maxiter=35, element_rtol=0.001,"
-            " convergence_criteria=any, drop_out_converged=True)"
+            " convergence_criteria=any, drop_out_converged=False)"
         )
         self.assertEqual(repr(ap), expected)
 
@@ -251,7 +251,7 @@ class TestGoalOrientedParameters(unittest.TestCase):
             "maxiter": 35,
             "element_rtol": 0.001,
             "convergence_criteria": "any",
-            "drop_out_converged": True,
+            "drop_out_converged": False,
         }
 
     def test_defaults(self):
@@ -268,7 +268,7 @@ class TestGoalOrientedParameters(unittest.TestCase):
         expected = (
             "GoalOrientedParameters(qoi_rtol=0.001, estimator_rtol=0.001, miniter=3,"
             " maxiter=35, element_rtol=0.001, convergence_criteria=any,"
-            " drop_out_converged=True)"
+            " drop_out_converged=False)"
         )
         self.assertEqual(repr(ap), expected)
 
@@ -317,7 +317,7 @@ class TestGoalOrientedMetricParameters(unittest.TestCase):
             "maxiter": 35,
             "element_rtol": 0.001,
             "convergence_criteria": "any",
-            "drop_out_converged": True,
+            "drop_out_converged": False,
         }
 
     def test_defaults(self):
@@ -338,7 +338,7 @@ class TestGoalOrientedMetricParameters(unittest.TestCase):
             " restrict_anisotropy_first=False, hausdorff_number=0.01,"
             " gradation_factor=1.3, no_insert=False, no_swap=False, no_move=False,"
             " no_surf=False, num_parmmg_iterations=3, miniter=3, maxiter=35,"
-            " element_rtol=0.001, convergence_criteria=any, drop_out_converged=True)"
+            " element_rtol=0.001, convergence_criteria=any, drop_out_converged=False)"
         )
         self.assertEqual(repr(ap), expected)
 

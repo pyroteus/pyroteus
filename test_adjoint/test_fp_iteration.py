@@ -112,7 +112,9 @@ class TestMeshSeq(unittest.TestCase):
         mesh1 = UnitSquareMesh(1, 1)
         mesh2 = UnitTriangleMesh()
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
-        mesh_seq = self.mesh_seq(time_partition, mesh2)
+        ap = AdaptParameters(self.parameters)
+        ap.update({"drop_out_converged": True})
+        mesh_seq = self.mesh_seq(time_partition, mesh2, parameters=ap)
 
         def adaptor(mesh_seq, sols):
             mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
@@ -200,7 +202,9 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         mesh1 = UnitSquareMesh(1, 1)
         mesh2 = UnitTriangleMesh()
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
-        mesh_seq = self.mesh_seq(time_partition, mesh2, qoi_type="end_time")
+        ap = GoalOrientedParameters(self.parameters)
+        ap.update({"drop_out_converged": True})
+        mesh_seq = self.mesh_seq(time_partition, mesh2, parameters=ap, qoi_type="end_time")
 
         def adaptor(mesh_seq, sols, indicators):
             mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2

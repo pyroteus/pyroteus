@@ -24,7 +24,7 @@ class AdaptParameters(AttrDict):
         self["maxiter"] = 35  # Maximum iteration count
         self["element_rtol"] = 0.001  # Relative tolerance for element count
         self["convergence_criteria"] = "any"  # Mode for convergence checking
-        self["drop_out_converged"] = True  # Drop out converged subintervals?
+        self["drop_out_converged"] = False  # Drop out converged subintervals?
 
         if not isinstance(parameters, dict):
             raise TypeError(
