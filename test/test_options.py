@@ -11,7 +11,12 @@ class TestAdaptParameters(unittest.TestCase):
     """
 
     def setUp(self):
-        self.defaults = {"miniter": 3, "maxiter": 35, "element_rtol": 0.001}
+        self.defaults = {
+            "miniter": 3,
+            "maxiter": 35,
+            "element_rtol": 0.001,
+            "drop_out_converged": False,
+        }
 
     def test_input(self):
         with self.assertRaises(TypeError) as cm:
@@ -38,6 +43,7 @@ class TestAdaptParameters(unittest.TestCase):
         self.assertEqual(ap.miniter, ap["miniter"])
         self.assertEqual(ap.maxiter, ap["maxiter"])
         self.assertEqual(ap.element_rtol, ap["element_rtol"])
+        self.assertEqual(ap.drop_out_converged, ap["drop_out_converged"])
 
     def test_str(self):
         ap = AdaptParameters()
@@ -45,7 +51,10 @@ class TestAdaptParameters(unittest.TestCase):
 
     def test_repr(self):
         ap = AdaptParameters()
-        expected = "AdaptParameters(miniter=3, maxiter=35, element_rtol=0.001)"
+        expected = (
+            "AdaptParameters(miniter=3, maxiter=35, element_rtol=0.001,"
+            " drop_out_converged=False)"
+        )
         self.assertEqual(repr(ap), expected)
 
     def test_miniter_type_error(self):
@@ -64,6 +73,12 @@ class TestAdaptParameters(unittest.TestCase):
         with self.assertRaises(TypeError) as cm:
             AdaptParameters({"element_rtol": "0.001"})
         msg = "Expected attribute 'element_rtol' to be of type 'float' or 'int', not 'str'."
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_drop_out_converged_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            AdaptParameters({"drop_out_converged": 0})
+        msg = "Expected attribute 'drop_out_converged' to be of type 'bool', not 'int'."
         self.assertEqual(str(cm.exception), msg)
 
 
@@ -93,6 +108,7 @@ class TestMetricParameters(unittest.TestCase):
             "miniter": 3,
             "maxiter": 35,
             "element_rtol": 0.001,
+            "drop_out_converged": False,
         }
 
     def test_defaults(self):
@@ -112,7 +128,8 @@ class TestMetricParameters(unittest.TestCase):
             " h_max=1e+30, a_max=100000.0, restrict_anisotropy_first=False,"
             " hausdorff_number=0.01, gradation_factor=1.3,"
             " no_insert=False, no_swap=False, no_move=False, no_surf=False,"
-            " num_parmmg_iterations=3, miniter=3, maxiter=35, element_rtol=0.001)"
+            " num_parmmg_iterations=3, miniter=3, maxiter=35, element_rtol=0.001,"
+            " drop_out_converged=False)"
         )
         self.assertEqual(repr(ap), expected)
 
@@ -213,9 +230,11 @@ class TestGoalOrientedParameters(unittest.TestCase):
         self.defaults = {
             "qoi_rtol": 0.001,
             "estimator_rtol": 0.001,
+            "convergence_criteria": "any",
             "miniter": 3,
             "maxiter": 35,
             "element_rtol": 0.001,
+            "drop_out_converged": False,
         }
 
     def test_defaults(self):
@@ -230,10 +249,25 @@ class TestGoalOrientedParameters(unittest.TestCase):
     def test_repr(self):
         ap = GoalOrientedParameters()
         expected = (
-            "GoalOrientedParameters(qoi_rtol=0.001, estimator_rtol=0.001, miniter=3,"
-            " maxiter=35, element_rtol=0.001)"
+            "GoalOrientedParameters(qoi_rtol=0.001, estimator_rtol=0.001,"
+            " convergence_criteria=any, miniter=3, maxiter=35, element_rtol=0.001,"
+            " drop_out_converged=False)"
         )
         self.assertEqual(repr(ap), expected)
+
+    def test_convergence_criteria_type_error(self):
+        with self.assertRaises(TypeError) as cm:
+            GoalOrientedParameters({"convergence_criteria": 0})
+        msg = (
+            "Expected attribute 'convergence_criteria' to be of type 'str', not 'int'."
+        )
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_convergence_criteria_value_error(self):
+        with self.assertRaises(ValueError) as cm:
+            GoalOrientedParameters({"convergence_criteria": "both"})
+        msg = "Unsupported value 'both' for 'convergence_criteria'. Choose from ['all', 'any']."
+        self.assertEqual(str(cm.exception), msg)
 
     def test_qoi_rtol_type_error(self):
         with self.assertRaises(TypeError) as cm:
@@ -260,6 +294,7 @@ class TestGoalOrientedMetricParameters(unittest.TestCase):
         self.defaults = {
             "qoi_rtol": 0.001,
             "estimator_rtol": 0.001,
+            "convergence_criteria": "any",
             "num_ramp_iterations": 3,
             "verbosity": -1,
             "p": 1.0,
@@ -279,6 +314,7 @@ class TestGoalOrientedMetricParameters(unittest.TestCase):
             "miniter": 3,
             "maxiter": 35,
             "element_rtol": 0.001,
+            "drop_out_converged": False,
         }
 
     def test_defaults(self):
@@ -294,12 +330,12 @@ class TestGoalOrientedMetricParameters(unittest.TestCase):
         ap = GoalOrientedMetricParameters()
         expected = (
             "GoalOrientedMetricParameters(qoi_rtol=0.001, estimator_rtol=0.001,"
-            " num_ramp_iterations=3, verbosity=-1, p=1.0, base_complexity=200.0,"
-            " target_complexity=4000.0, h_min=1e-30, h_max=1e+30, a_max=100000.0,"
-            " restrict_anisotropy_first=False, hausdorff_number=0.01,"
-            " gradation_factor=1.3, no_insert=False, no_swap=False, no_move=False,"
-            " no_surf=False, num_parmmg_iterations=3, miniter=3, maxiter=35,"
-            " element_rtol=0.001)"
+            " convergence_criteria=any, num_ramp_iterations=3, verbosity=-1, p=1.0,"
+            " base_complexity=200.0, target_complexity=4000.0, h_min=1e-30,"
+            " h_max=1e+30, a_max=100000.0, restrict_anisotropy_first=False,"
+            " hausdorff_number=0.01, gradation_factor=1.3, no_insert=False,"
+            " no_swap=False, no_move=False, no_surf=False, num_parmmg_iterations=3,"
+            " miniter=3, maxiter=35, element_rtol=0.001, drop_out_converged=False)"
         )
         self.assertEqual(repr(ap), expected)
 

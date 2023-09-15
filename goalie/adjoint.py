@@ -447,21 +447,20 @@ class AdjointMeshSeq(MeshSeq):
         Check for convergence of the fixed point iteration due to the relative
         difference in QoI value being smaller than the specified tolerance.
 
-        The :attr:`AdjointMeshSeq.converged` attribute is set to ``True`` across all
-        entries if convergence is detected.
+        :return: ``True`` if QoI convergence is detected, else ``False``
         """
         if not self.check_convergence.any():
             self.info(
                 "Skipping QoI convergence check because check_convergence contains"
                 f" False values for indices {self._subintervals_not_checked}."
             )
-            return self.converged
+            return False
         if len(self.qoi_values) >= max(2, self.params.miniter + 1):
             qoi_, qoi = self.qoi_values[-2:]
             if abs(qoi - qoi_) < self.params.qoi_rtol * abs(qoi_):
-                self.converged[:] = True
                 pyrint(
                     f"QoI converged after {self.fp_iteration+1} iterations"
                     f" under relative tolerance {self.params.qoi_rtol}."
                 )
-        return self.converged
+                return True
+        return False

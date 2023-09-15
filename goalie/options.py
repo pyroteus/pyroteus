@@ -23,6 +23,7 @@ class AdaptParameters(AttrDict):
         self["miniter"] = 3  # Minimum iteration count
         self["maxiter"] = 35  # Maximum iteration count
         self["element_rtol"] = 0.001  # Relative tolerance for element count
+        self["drop_out_converged"] = False  # Drop out converged subintervals?
 
         if not isinstance(parameters, dict):
             raise TypeError(
@@ -38,6 +39,7 @@ class AdaptParameters(AttrDict):
         self._check_type("miniter", int)
         self._check_type("maxiter", int)
         self._check_type("element_rtol", (float, int))
+        self._check_type("drop_out_converged", bool)
 
     def _check_type(self, key, expected):
         if not isinstance(self[key], expected):
@@ -48,6 +50,13 @@ class AdaptParameters(AttrDict):
             raise TypeError(
                 f"Expected attribute '{key}' to be of type '{name}', not"
                 f" '{type(self[key]).__name__}'."
+            )
+
+    def _check_value(self, key, possibilities):
+        value = self[key]
+        if value not in possibilities:
+            raise ValueError(
+                f"Unsupported value '{value}' for '{key}'. Choose from {possibilities}."
             )
 
     def __str__(self) -> str:
@@ -154,11 +163,14 @@ class GoalOrientedParameters(AdaptParameters):
     def __init__(self, parameters: dict = {}):
         self["qoi_rtol"] = 0.001  # Relative tolerance for QoI
         self["estimator_rtol"] = 0.001  # Relative tolerance for estimator
+        self["convergence_criteria"] = "any"  # Mode for convergence checking
 
         super().__init__(parameters=parameters)
 
         self._check_type("qoi_rtol", (float, int))
         self._check_type("estimator_rtol", (float, int))
+        self._check_type("convergence_criteria", str)
+        self._check_value("convergence_criteria", ["all", "any"])
 
 
 class GoalOrientedMetricParameters(GoalOrientedParameters, MetricParameters):

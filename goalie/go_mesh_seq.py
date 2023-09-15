@@ -222,24 +222,23 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         Check for convergence of the fixed point iteration due to the relative
         difference in error estimator value being smaller than the specified tolerance.
 
-        The :attr:`GoalOrientedMeshSeq.converged` attribute is set to ``True`` across
-        all entries if convergence is detected.
+        :return: ``True`` if estimator convergence is detected, else ``False``
         """
         if not self.check_convergence.any():
             self.info(
                 "Skipping estimator convergence check because check_convergence"
                 f" contains False values for indices {self._subintervals_not_checked}."
             )
-            return self.converged
+            return False
         if len(self.estimator_values) >= max(2, self.params.miniter + 1):
             ee_, ee = self.estimator_values[-2:]
             if abs(ee - ee_) < self.params.estimator_rtol * abs(ee_):
-                self.converged[:] = True
                 pyrint(
                     f"Error estimator converged after {self.fp_iteration+1} iterations"
                     f" under relative tolerance {self.params.estimator_rtol}."
                 )
-        return self.converged
+                return True
+        return False
 
     @PETSc.Log.EventDecorator()
     def fixed_point_iteration(
@@ -272,6 +271,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self.vertex_counts = [self.count_vertices()]
         self.qoi_values = []
         self.estimator_values = []
+        converged = False
         self.converged[:] = False
         self.check_convergence[:] = True
 
@@ -291,32 +291,51 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             #       an optional return condition so that we
             #       can avoid unnecessary extra solves
             self.qoi_values.append(self.J)
-            if self.check_qoi_convergence().all():
+            qoi_converged = self.check_qoi_convergence()
+            if self.params.convergence_criteria == "any" and qoi_converged:
+                self.converged[:] = True
                 break
 
             # Check for error estimator convergence
             ee = indicators2estimator(indicators, self.time_partition)
             self.estimator_values.append(ee)
-            if self.check_estimator_convergence().all():
+            ee_converged = self.check_estimator_convergence()
+            if self.params.convergence_criteria == "any" and ee_converged:
+                self.converged[:] = True
                 break
 
             # Adapt meshes and log element counts
             continue_unconditionally = adaptor(self, sols, indicators)
-            self.check_convergence[:] = np.logical_not(
-                np.logical_or(continue_unconditionally, self.converged)
-            )
+            if self.params.drop_out_converged:
+                self.check_convergence[:] = np.logical_not(
+                    np.logical_or(continue_unconditionally, self.converged)
+                )
             self.element_counts.append(self.count_elements())
             self.vertex_counts.append(self.count_vertices())
 
             # Check for element count convergence
-            if self.check_element_count_convergence().all():
+            self.converged[:] = self.check_element_count_convergence()
+            elem_converged = self.converged.all()
+            if self.params.convergence_criteria == "any" and elem_converged:
                 break
 
-        for i, conv in enumerate(self.converged):
-            if not conv:
+            # Convergence check for 'all' mode
+            converged = qoi_converged and ee_converged and elem_converged
+            if converged:
+                break
+
+        if self.params.convergence_criteria == "all":
+            if not converged:
+                self.converged[:] = False
                 pyrint(
-                    f"Failed to converge on subinterval {i} in {self.params.maxiter}"
-                    " iterations."
+                    f"Failed to converge in {self.params.maxiter} iterations."
                 )
+        else:
+            for i, conv in enumerate(self.converged):
+                if not conv:
+                    pyrint(
+                        f"Failed to converge on subinterval {i} in {self.params.maxiter}"
+                        " iterations."
+                    )
 
         return sols
