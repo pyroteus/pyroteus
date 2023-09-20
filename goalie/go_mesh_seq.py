@@ -338,4 +338,4 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                         " iterations."
                     )
 
-        return sols
+        return sols, indicators
