@@ -63,10 +63,7 @@ class MeshSeq:
         }
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
-        self.meshes = initial_meshes
-        if not isinstance(self.meshes, Iterable):
-            self.meshes = [Mesh(initial_meshes) for subinterval in self.subintervals]
-        self.set_meshes(self.meshes)
+        self.set_meshes(initial_meshes)
         self._fs = None
         self._get_function_spaces = kwargs.get("get_function_spaces")
         self._get_initial_condition = kwargs.get("get_initial_condition")
@@ -124,6 +121,8 @@ class MeshSeq:
         """
         Validate the current meshes and update the associated attributes.
         """
+        if not isinstance(meshes, Iterable):
+            meshes = [Mesh(initial_meshes) for subinterval in self.subintervals]
         dim = np.array([mesh.topological_dimension() for mesh in meshes])
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension.")
@@ -141,6 +140,8 @@ class MeshSeq:
                     f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}"
                 )
             debug(100 * "-")
+
+        self.meshes = meshes
 
     def plot(
         self, **kwargs
