@@ -141,7 +141,7 @@ class MeshSeq:
                 )
             debug(100 * "-")
 
-        self.meshes = meshes
+        return self.meshes = meshes
 
     def plot(
         self, **kwargs
