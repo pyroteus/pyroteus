@@ -271,7 +271,6 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         self.vertex_counts = [self.count_vertices()]
         self.qoi_values = []
         self.estimator_values = []
-        converged = False
         self.converged[:] = False
         self.check_convergence[:] = True
 
