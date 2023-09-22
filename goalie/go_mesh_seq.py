@@ -320,20 +320,18 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
                 break
 
             # Convergence check for 'all' mode
-            converged = qoi_converged and ee_converged and elem_converged
-            if converged:
+            if qoi_converged and ee_converged and elem_converged:
                 break
-
-        if self.params.convergence_criteria == "all":
-            if not converged:
-                self.converged[:] = False
-                pyrint(f"Failed to converge in {self.params.maxiter} iterations.")
         else:
-            for i, conv in enumerate(self.converged):
-                if not conv:
-                    pyrint(
-                        f"Failed to converge on subinterval {i} in {self.params.maxiter}"
-                        " iterations."
-                    )
+            if self.params.convergence_criteria == "all":
+                pyrint(f"Failed to converge in {self.params.maxiter} iterations.")
+                self.converged[:] = False
+            else:
+                for i, conv in enumerate(self.converged):
+                    if not conv:
+                        pyrint(
+                            f"Failed to converge on subinterval {i} in"
+                            f" {self.params.maxiter} iterations."
+                        )
 
         return sols, indicators

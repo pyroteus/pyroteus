@@ -678,12 +678,12 @@ class MeshSeq:
             self.converged[:] = self.check_element_count_convergence()
             if self.converged.all():
                 break
-
-        for i, conv in enumerate(self.converged):
-            if not conv:
-                pyrint(
-                    f"Failed to converge on subinterval {i} in {self.params.maxiter}"
-                    " iterations."
-                )
+        else:
+            for i, conv in enumerate(self.converged):
+                if not conv:
+                    pyrint(
+                        f"Failed to converge on subinterval {i} in"
+                        f" {self.params.maxiter} iterations."
+                    )
 
         return sols
