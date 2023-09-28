@@ -159,7 +159,7 @@ class TestBlockLogic(unittest.TestCase):
             self.time_interval, self.mesh, get_function_spaces=self.get_p0_spaces
         )
 
-    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_not_function(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(1)
@@ -169,7 +169,7 @@ class TestBlockLogic(unittest.TestCase):
         msg = "Solve block for field 'field' on subinterval 0 has no outputs."
         self.assertEqual(str(cm.exception), msg)
 
-    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_wrong_function_space(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
@@ -179,7 +179,7 @@ class TestBlockLogic(unittest.TestCase):
         msg = "Solve block for field 'field' on subinterval 0 has no outputs."
         self.assertEqual(str(cm.exception), msg)
 
-    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_wrong_name(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "DG", 0)
@@ -190,7 +190,7 @@ class TestBlockLogic(unittest.TestCase):
         msg = "Solve block for field 'field' on subinterval 0 has no outputs."
         self.assertEqual(str(cm.exception), msg)
 
-    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_valid(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "DG", 0)
@@ -198,7 +198,7 @@ class TestBlockLogic(unittest.TestCase):
         solve_block._outputs = [block_variable]
         self.assertIsNotNone(self.mesh_seq._output("field", 0, solve_block))
 
-    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_output_multiple_valid_error(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "DG", 0)
@@ -212,7 +212,7 @@ class TestBlockLogic(unittest.TestCase):
         )
         self.assertEqual(str(cm.exception), msg)
 
-    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_not_function(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(1)
@@ -222,7 +222,7 @@ class TestBlockLogic(unittest.TestCase):
         msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
         self.assertEqual(str(cm.exception), msg)
 
-    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_wrong_function_space(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         block_variable = BlockVariable(Function(FunctionSpace(self.mesh, "CG", 1)))
@@ -232,7 +232,7 @@ class TestBlockLogic(unittest.TestCase):
         msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
         self.assertEqual(str(cm.exception), msg)
 
-    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_wrong_name(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "DG", 0)
@@ -243,7 +243,7 @@ class TestBlockLogic(unittest.TestCase):
         msg = "Solve block for field 'field' on subinterval 0 has no dependencies."
         self.assertEqual(str(cm.exception), msg)
 
-    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_valid(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "DG", 0)
@@ -251,7 +251,7 @@ class TestBlockLogic(unittest.TestCase):
         solve_block._dependencies = [block_variable]
         self.assertIsNotNone(self.mesh_seq._dependency("field", 0, solve_block))
 
-    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_multiple_valid_error(self, MockSolveBlock):
         solve_block = MockSolveBlock()
         function_space = FunctionSpace(self.mesh, "DG", 0)
@@ -265,7 +265,7 @@ class TestBlockLogic(unittest.TestCase):
         )
         self.assertEqual(str(cm.exception), msg)
 
-    @patch("dolfin_adjoint_common.blocks.solving.GenericSolveBlock")
+    @patch("firedrake.adjoint_utils.blocks.solving.GenericSolveBlock")
     def test_dependency_steady(self, MockSolveBlock):
         time_interval = TimeInterval(1.0, 0.5, "field", field_types="steady")
         mesh_seq = MeshSeq(
