@@ -3,7 +3,7 @@ Sequences of meshes corresponding to a :class:`~.TimePartition`.
 """
 import firedrake
 from firedrake.petsc import PETSc
-from firedrake.adjoint.solving import get_solve_blocks
+from firedrake.adjoint_utils.solving import get_solve_blocks
 from pyadjoint import get_working_tape, Block
 from .interpolation import project
 from .log import pyrint, debug, warning, info, logger, DEBUG
