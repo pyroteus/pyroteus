@@ -3,6 +3,7 @@ Test adjoint drivers.
 """
 from firedrake import *
 from goalie_adjoint import *
+import pyadjoint
 import pytest
 import importlib
 import os
@@ -96,9 +97,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         or as a time integral?
     :kwarg debug: toggle debugging mode
     """
-    from firedrake_adjoint import pyadjoint
-
-    # Debugging
     if debug:
         set_log_level(DEBUG)
 
