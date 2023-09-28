@@ -276,8 +276,12 @@ class AdjointMeshSeq(MeshSeq):
             return solver(subinterval, init, **kwargs)
 
         # Clear tape
-        tape = pyadjoint.get_working_tape()
-        tape.clear_tape()
+        if pyadjoint.annotate_tape():
+            tape = pyadjoint.get_working_tape()
+            if tape is not None:
+                tape.clear_tape()
+        else:
+            pyadjoint.continue_annotation()
 
         # Loop over subintervals in reverse
         seeds = {}
@@ -308,6 +312,7 @@ class AdjointMeshSeq(MeshSeq):
                     block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
+            tape = pyadjoint.get_working_tape()
             with PETSc.Log.Event("goalie.AdjointMeshSeq.solve_adjoint.evaluate_adj"):
                 m = pyadjoint.enlisting.Enlist(self.controls)
                 with pyadjoint.stop_annotating():
@@ -441,6 +446,9 @@ class AdjointMeshSeq(MeshSeq):
                     "QoI values computed during checkpointing and annotated"
                     f" run do not match ({J_chk} vs. {self.J})"
                 )
+
+        if pyadjoint.annotate_tape():
+            pyadjoint.pause_annotation()
         return solutions
 
     @staticmethod
