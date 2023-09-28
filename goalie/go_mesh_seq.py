@@ -327,9 +327,7 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
         if self.params.convergence_criteria == "all":
             if not converged:
                 self.converged[:] = False
-                pyrint(
-                    f"Failed to converge in {self.params.maxiter} iterations."
-                )
+                pyrint(f"Failed to converge in {self.params.maxiter} iterations.")
         else:
             for i, conv in enumerate(self.converged):
                 if not conv:

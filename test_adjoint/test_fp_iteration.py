@@ -106,7 +106,9 @@ class TestMeshSeq(unittest.TestCase):
         expected = [[1, 1], [1, 2], [1, 1], [1, 2], [1, 1], [1, 2]]
         self.assertEqual(mesh_seq.element_counts, expected)
         self.assertTrue(np.allclose(mesh_seq.converged, [True, False]))
-        self.assertTrue(np.allclose(mesh_seq.check_convergence, [not drop_out_converged, True]))
+        self.assertTrue(
+            np.allclose(mesh_seq.check_convergence, [not drop_out_converged, True])
+        )
 
     def test_no_late_convergence(self):
         mesh1 = UnitSquareMesh(1, 1)
@@ -186,7 +188,9 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
         ap = GoalOrientedParameters(self.parameters)
         ap.update({"drop_out_converged": drop_out_converged})
-        mesh_seq = self.mesh_seq(time_partition, mesh2, parameters=ap, qoi_type="end_time")
+        mesh_seq = self.mesh_seq(
+            time_partition, mesh2, parameters=ap, qoi_type="end_time"
+        )
 
         def adaptor(mesh_seq, sols, indicators):
             mesh_seq[1] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
@@ -196,7 +200,9 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         expected = [[1, 1], [1, 2], [1, 1], [1, 2], [1, 1], [1, 2]]
         self.assertEqual(mesh_seq.element_counts, expected)
         self.assertTrue(np.allclose(mesh_seq.converged, [True, False]))
-        self.assertTrue(np.allclose(mesh_seq.check_convergence, [not drop_out_converged, True]))
+        self.assertTrue(
+            np.allclose(mesh_seq.check_convergence, [not drop_out_converged, True])
+        )
 
     def test_no_late_convergence(self):
         mesh1 = UnitSquareMesh(1, 1)
@@ -204,7 +210,9 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], [])
         ap = GoalOrientedParameters(self.parameters)
         ap.update({"drop_out_converged": True})
-        mesh_seq = self.mesh_seq(time_partition, mesh2, parameters=ap, qoi_type="end_time")
+        mesh_seq = self.mesh_seq(
+            time_partition, mesh2, parameters=ap, qoi_type="end_time"
+        )
 
         def adaptor(mesh_seq, sols, indicators):
             mesh_seq[0] = mesh1 if mesh_seq.fp_iteration % 2 == 0 else mesh2
@@ -221,7 +229,9 @@ class TestGoalOrientedMeshSeq(unittest.TestCase):
         time_partition = TimePartition(1.0, 1, 0.5, [])
         ap = GoalOrientedParameters(self.parameters)
         ap.update({"convergence_criteria": "all"})
-        mesh_seq = self.mesh_seq(time_partition, mesh, parameters=ap, qoi_type="end_time")
+        mesh_seq = self.mesh_seq(
+            time_partition, mesh, parameters=ap, qoi_type="end_time"
+        )
 
         def adaptor(mesh_seq, sols, indicators):
             return [False]
