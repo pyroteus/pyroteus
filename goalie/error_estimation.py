@@ -33,6 +33,7 @@ def form2indicator(F: ufl.form.Form) -> Function:
     P0 = FunctionSpace(mesh, "DG", 0)
     p0test = firedrake.TestFunction(P0)
     indicator = Function(P0)
+    # TODO: Use firedrake.Cofunction(P0.dual())
 
     # Contributions from surface integrals
     flux_terms = 0
@@ -59,7 +60,10 @@ def form2indicator(F: ufl.form.Form) -> Function:
         dx = firedrake.dx(integral.subdomain_id())
         cell_terms += p0test * integral.integrand() * dx
     if cell_terms != 0:
-        indicator += firedrake.assemble(cell_terms)
+        # TODO: Avoid using .dat.data_with_halos
+        indicator.dat.data_with_halos[:] += firedrake.assemble(
+            cell_terms
+        ).dat.data_with_halos
 
     return indicator
 

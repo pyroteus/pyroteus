@@ -149,14 +149,22 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
     J_expected = float(J)
 
     # Get expected adjoint solutions and values
-    adj_sols_expected = {}
-    adj_values_expected = {}
-    for field, fs in mesh_seq._fs.items():
-        solve_blocks = mesh_seq.get_solve_blocks(field, 0)
-        adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
+    adj_sols_expected = {f: Function(fs[0]) for f, fs in mesh_seq._fs.items()}
+    adj_values_expected = {f: Function(fs[0]) for f, fs in mesh_seq._fs.items()}
+    for (f, adj_sol), adj_value in zip(
+        adj_sols_expected.items(), adj_values_expected.values()
+    ):
+        solve_blocks = mesh_seq.get_solve_blocks(f, 0)
+        adj_sol.assign(solve_blocks[0].adj_sol)
         if not steady:
-            dep = mesh_seq._dependency(field, 0, solve_blocks[0])
-            adj_values_expected[field] = Function(fs[0], val=dep.adj_value)
+            av = mesh_seq._dependency(f, 0, solve_blocks[0]).adj_value
+            if av is None:
+                continue
+            if isinstance(av, float):
+                adj_value.assign(av)
+            else:
+                adj_value.dat.data_with_halos[:] = av.dat.data_with_halos
+    tape.clear_tape()
 
     # Loop over having one or two subintervals
     for N in range(1, 2 if steady else 3):

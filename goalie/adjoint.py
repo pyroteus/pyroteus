@@ -280,7 +280,7 @@ class AdjointMeshSeq(MeshSeq):
         tape.clear_tape()
 
         # Loop over subintervals in reverse
-        seeds = None
+        seeds = {}
         for i in reversed(range(num_subintervals)):
             stride = P.num_timesteps_per_export[i]
             num_exports = P.num_exports_per_subinterval[i]
@@ -361,9 +361,15 @@ class AdjointMeshSeq(MeshSeq):
                     if dep is not None:
                         sols.forward_old[i][j].assign(dep.saved_output)
 
-                    # Adjoint action also comes from dependencies
-                    if get_adj_values and dep is not None:
-                        sols.adj_value[i][j].assign(dep.adj_value.function)
+                        # Adjoint action also comes from dependencies
+                        if get_adj_values:
+                            adj_value = sols.adj_value[i][j]
+                            for i in range(len(adj_value.dat.dim)):
+                                arr = adj_value.dat.data_with_halos
+                                if len(adj_value.dat.dim) == 1:
+                                    arr[:] = dep.adj_value.dat.data_with_halos
+                                else:
+                                    arr[i][:] = dep.adj_value.dat.data_with_halos[i]
 
                     # The adjoint solution at the 'next' timestep is determined from the
                     # adj_sol attribute of the next solve block
@@ -401,18 +407,29 @@ class AdjointMeshSeq(MeshSeq):
                     )
 
             # Get adjoint action on each subinterval
-            seeds = {
-                field: firedrake.Function(
-                    function_spaces[field][i], val=control.block_variable.adj_value
-                )
-                for field, control in zip(self.fields, self.controls)
-            }
-            for field, seed in seeds.items():
-                if not self.steady and np.isclose(firedrake.norm(seed), 0.0):
-                    self.warning(
-                        f"Adjoint action for field '{field}' on {self.th(i)}"
-                        " subinterval is zero."
-                    )
+            with pyadjoint.stop_annotating():
+                seeds = {
+                    f: firedrake.Function(function_spaces[f][i]) for f in self.fields
+                }
+                # TODO: Use firedrake.Cofunction(function_spaces[f][i].dual())
+                for (field, seed), control in zip(seeds.items(), self.controls):
+                    adj_value = control.block_variable.adj_value
+                    for i in range(len(seed.dat.dim)):
+                        av = (
+                            0.0
+                            if adj_value is None
+                            else adj_value.dat.data_with_halos[i]
+                        )
+                        if len(seed.dat.dim) == 1:
+                            seed.dat.data_with_halos[:] = av
+                        else:
+                            seed.dat.data_with_halos[i][:] = av
+                    # TODO: Avoid accessing .dat.data_with_halos
+                    if not self.steady and np.isclose(firedrake.norm(seed), 0.0):
+                        self.warning(
+                            f"Adjoint action for field '{field}' on {self.th(i)}"
+                            " subinterval is zero."
+                        )
 
             # Clear the tape to reduce the memory footprint
             tape.clear_tape()
