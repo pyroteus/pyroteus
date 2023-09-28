@@ -1,5 +1,5 @@
 from .utility import AttrDict
-from firedrake.meshadapt import RiemannianMetric
+from animate.adapt import RiemannianMetric
 
 
 __all__ = [

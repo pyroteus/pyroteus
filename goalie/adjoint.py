@@ -3,7 +3,7 @@ Drivers for solving adjoint problems on sequences of meshes.
 """
 import firedrake
 from firedrake.petsc import PETSc
-from firedrake_adjoint import pyadjoint
+from firedrake.adjoint import pyadjoint
 from .interpolation import project
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters

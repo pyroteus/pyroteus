@@ -1,5 +1,5 @@
 from firedrake import TensorFunctionSpace
-from firedrake.meshadapt import RiemannianMetric
+from animate.adapt import RiemannianMetric
 from goalie.options import *
 from utility import uniform_mesh
 import unittest
