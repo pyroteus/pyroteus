@@ -6,10 +6,9 @@ from goalie_adjoint import *
 from goalie.log import *
 from goalie.mesh_seq import MeshSeq
 from goalie.time_partition import TimeInterval
-import pyadjoint
 import logging
-import pytest
 import unittest
+from setup_adjoint_tests import *
 
 
 class TestGetSolveBlocks(unittest.TestCase):
