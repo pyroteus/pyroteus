@@ -4,7 +4,7 @@ Sequences of meshes corresponding to a :class:`~.TimePartition`.
 import firedrake
 from firedrake.petsc import PETSc
 from firedrake.adjoint_utils.solving import get_solve_blocks
-import pyadjoint
+from firedrake.adjoint import pyadjoint
 from .interpolation import project
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
@@ -525,9 +525,13 @@ class MeshSeq:
             }
         )
 
-        # Clear tape
-        tape = pyadjoint.get_working_tape()
-        tape.clear_tape()
+        # Start annotating
+        if pyadjoint.annotate_tape():
+            tape = pyadjoint.get_working_tape()
+            if tape is not None:
+                tape.clear_tape()
+        else:
+            pyadjoint.continue_annotation()
 
         # Loop over the subintervals
         checkpoint = self.initial_condition
@@ -585,7 +589,7 @@ class MeshSeq:
                 )
 
             # Clear the tape to reduce the memory footprint
-            tape.clear_tape()
+            pyadjoint.get_working_tape().clear_tape()
 
         return solutions
 
