@@ -33,10 +33,11 @@ class BurgersMeshSeq(AdjointMeshSeq):
         def form(index, solutions):
             u, u_ = solutions["u"]
             P = self.time_partition
-            dt = Constant(P.timesteps[index])
 
-            # Specify viscosity coefficient
-            nu = Constant(0.0001)
+            # Define constants
+            R = FunctionSpace(mesh_seq[index], "R", 0)
+            dt = Function(R).assign(P.timesteps[index])
+            nu = Function(R).assign(0.0001)
 
             # Setup variational problem
             v = TestFunction(u.function_space())
@@ -84,7 +85,8 @@ class BurgersMeshSeq(AdjointMeshSeq):
 
     @annotate_qoi
     def get_qoi(self, solutions, i):
-        dt = Constant(self.time_partition[i].timestep)
+        R = FunctionSpace(self[i], "R", 0)
+        dt = Function(R).assign(self.time_partition[i].timestep)
 
         def end_time_qoi():
             u = solutions["u"]

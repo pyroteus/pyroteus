@@ -21,8 +21,10 @@ class TestAdjointUtils(unittest.TestCase):
     def test_annotate_qoi_0args(self):
         @annotate_qoi
         def get_qoi(mesh_seq, solution_map, i):
+            R = FunctionSpace(mesh_seq[i], "R", 0)
+
             def qoi():
-                return Constant(1.0, domain=mesh_seq[i]) * dx
+                return Function(R).assign(1) * dx
 
             return qoi
 
@@ -31,8 +33,10 @@ class TestAdjointUtils(unittest.TestCase):
     def test_annotate_qoi_1arg(self):
         @annotate_qoi
         def get_qoi(mesh_seq, solution_map, i):
+            R = FunctionSpace(mesh_seq[i], "R", 0)
+
             def qoi(t):
-                return Constant(1.0, domain=mesh_seq[i]) * dx
+                return Function(R).assign(1) * dx
 
             return qoi
 
@@ -41,8 +45,10 @@ class TestAdjointUtils(unittest.TestCase):
     def test_annotate_qoi_0args_error(self):
         @annotate_qoi
         def get_qoi(mesh_seq, solution_map, i):
+            R = FunctionSpace(mesh_seq[i], "R", 0)
+
             def qoi():
-                return Constant(1.0, domain=mesh_seq[i]) * dx
+                return Function(R).assign(1) * dx
 
             return qoi
 
@@ -54,8 +60,10 @@ class TestAdjointUtils(unittest.TestCase):
     def test_annotate_qoi_1arg_error(self):
         @annotate_qoi
         def get_qoi(mesh_seq, solution_map, i):
+            R = FunctionSpace(mesh_seq[i], "R", 0)
+
             def qoi(t):
-                return Constant(1.0, domain=mesh_seq[i]) * dx
+                return Function(R).assign(1) * dx
 
             return qoi
 
@@ -67,8 +75,10 @@ class TestAdjointUtils(unittest.TestCase):
     def test_annotate_qoi_2args_error(self):
         @annotate_qoi
         def get_qoi(mesh_seq, solution_map, i):
+            R = FunctionSpace(mesh_seq[i], "R", 0)
+
             def qoi(t, r):
-                return Constant(1.0, domain=mesh_seq[i]) * dx
+                return Function(R).assign(1) * dx
 
             return qoi
 

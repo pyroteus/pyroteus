@@ -30,11 +30,10 @@ def get_solver(mesh_seq):
 
 
 def get_qoi(mesh_seq, solutions, index):
+    R = FunctionSpace(mesh_seq[index], "R", 0)
+
     def qoi():
-        if mesh_seq.fp_iteration % 2 == 0:
-            return Constant(1, domain=mesh_seq[index]) * dx
-        else:
-            return Constant(2, domain=mesh_seq[index]) * dx
+        return Function(R).assign(1 if mesh_seq.fp_iteration % 2 == 0 else 2) * dx
 
     return qoi
 

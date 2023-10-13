@@ -52,15 +52,17 @@ def source(mesh):
 
 def get_form(self):
     """
-    Advection-diffusion with SUPG
-    stabilisation.
+    Advection-diffusion with SUPG stabilisation.
     """
 
     def form(i, sols):
         c, c_ = sols["tracer_2d"]
         fs = self.function_spaces["tracer_2d"][i]
-        D = Constant(0.1)
-        u = Constant(as_vector([1.0, 0.0]))
+        R = FunctionSpace(self[i], "R", 0)
+        D = Function(R).assign(0.1)
+        u_x = Function(R).assign(1.0)
+        u_y = Function(R).assign(0.0)
+        u = as_vector([u_x, u_y])
         h = CellSize(self[i])
         S = source(self[i])
 
@@ -151,8 +153,9 @@ def analytical_solution(mesh):
     a given mesh. See [Riadh et al. 2014].
     """
     x, y = SpatialCoordinate(mesh)
-    u = Constant(1.0)
-    D = Constant(0.1)
+    R = FunctionSpace(mesh, "R", 0)
+    u = Function(R).assign(1.0)
+    D = Function(R).assign(0.1)
     Pe = 0.5 * u / D
     r = max_value(sqrt((x - src_x) ** 2 + (y - src_y) ** 2), src_r)
     return 0.5 / (pi * D) * exp(Pe * (x - src_x)) * bessk0(Pe * r)

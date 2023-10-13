@@ -43,10 +43,11 @@ def get_form(mesh_seq):
     def form(index, solutions):
         u, u_ = solutions["u"]
         P = mesh_seq.time_partition
-        dt = Constant(P.timesteps[index])
 
-        # Specify viscosity coefficient
-        nu = Constant(0.0001)
+        # Define constants
+        R = FunctionSpace(mesh_seq[index], "R", 0)
+        dt = Function(R).assign(P.timesteps[index])
+        nu = Function(R).assign(0.0001)
 
         # Setup variational problem
         v = TestFunction(u.function_space())

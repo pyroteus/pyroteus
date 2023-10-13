@@ -57,11 +57,12 @@ def get_form(mesh_seq):
         psi_b = TestFunction(mesh_seq.function_spaces["b"][index])
 
         # Define constants
-        dt = Constant(mesh_seq.time_partition[index].timestep)
-        D_a = Constant(8.0e-05)
-        D_b = Constant(4.0e-05)
-        gamma = Constant(0.024)
-        kappa = Constant(0.06)
+        R = FunctionSpace(mesh_seq[index], "R", 0)
+        dt = Function(R).assign(mesh_seq.time_partition[index].timestep)
+        D_a = Function(R).assign(8.0e-05)
+        D_b = Function(R).assign(4.0e-05)
+        gamma = Function(R).assign(0.024)
+        kappa = Function(R).assign(0.06)
 
         # Write the two equations in variational form
         F_a = (
