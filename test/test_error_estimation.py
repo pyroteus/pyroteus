@@ -129,7 +129,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         time_instant = TimeInstant("field", time=1.0)
         indicator = form2indicator(self.one * dx)
         estimator = indicators2estimator({"field": [[indicator]]}, time_instant)
-        self.assertAlmostEqual(estimator, 1.0)
+        self.assertAlmostEqual(estimator, 2.0)  # 1 * (1 + 1)
 
     @parameterized.expand([[False], [True]])
     def test_unit_time_instant_abs(self, absolute_value):
@@ -138,19 +138,21 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         estimator = indicators2estimator(
             {"field": [[indicator]]}, time_instant, absolute_value=absolute_value
         )
-        self.assertAlmostEqual(estimator, 1.0 if absolute_value else -1.0)
+        self.assertAlmostEqual(
+            estimator, 2.0 if absolute_value else -2.0
+        )  # (-)1 * (1 + 1)
 
     def test_half_time_instant(self):
         time_instant = TimeInstant("field", time=0.5)
         indicator = form2indicator(self.one * dx)
         estimator = indicators2estimator({"field": [[indicator]]}, time_instant)
-        self.assertAlmostEqual(estimator, 0.5)
+        self.assertAlmostEqual(estimator, 1.0)  # 0.5 * (1 + 1)
 
     def test_time_partition_same_timestep(self):
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], ["field"])
         indicator = form2indicator(self.one * dx)
         estimator = indicators2estimator({"field": [2 * [indicator]]}, time_partition)
-        self.assertAlmostEqual(estimator, 1.0)
+        self.assertAlmostEqual(estimator, 2.0)  # 0.5 * (1 + 1) + 0.5 * (1 + 1)
 
     def test_time_partition_different_timesteps(self):
         time_partition = TimePartition(1.0, 2, [0.5, 0.25], ["field"])
@@ -158,7 +160,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         estimator = indicators2estimator(
             {"field": [[indicator], 2 * [indicator]]}, time_partition
         )
-        self.assertAlmostEqual(estimator, 1.0)
+        self.assertAlmostEqual(estimator, 2.0)  # 0.5 * (1 + 1) + 0.25 * 2 * (1 + 1)
 
     def test_time_instant_multiple_fields(self):
         time_instant = TimeInstant(["field1", "field2"], time=1.0)
@@ -166,7 +168,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         estimator = indicators2estimator(
             {"field1": [[indicator]], "field2": [[indicator]]}, time_instant
         )
-        self.assertAlmostEqual(estimator, 2.0)
+        self.assertAlmostEqual(estimator, 4.0)  # 2 * (1 * (1 + 1))
 
 
 class TestGetDWRIndicator(ErrorEstimationTestCase):
@@ -245,32 +247,32 @@ class TestGetDWRIndicator(ErrorEstimationTestCase):
         adjoint_error = {"field": self.two}
         test_space = {"field": self.one.function_space()}
         indicator = get_dwr_indicator(self.F, adjoint_error, test_space=test_space)
-        self.assertAlmostEqual(indicator.dat.data[0], 1)
-        self.assertAlmostEqual(indicator.dat.data[1], 1)
+        self.assertAlmostEqual(indicator.dat.data[0], 2)
+        self.assertAlmostEqual(indicator.dat.data[1], 2)
 
     def test_convert_both(self):
         test_space = self.one.function_space()
         indicator = get_dwr_indicator(self.F, self.two, test_space=test_space)
-        self.assertAlmostEqual(indicator.dat.data[0], 1)
-        self.assertAlmostEqual(indicator.dat.data[1], 1)
+        self.assertAlmostEqual(indicator.dat.data[0], 2)
+        self.assertAlmostEqual(indicator.dat.data[1], 2)
 
     def test_convert_test_space(self):
         adjoint_error = {"field": self.two}
         test_space = self.one.function_space()
         indicator = get_dwr_indicator(self.F, adjoint_error, test_space=test_space)
-        self.assertAlmostEqual(indicator.dat.data[0], 1)
-        self.assertAlmostEqual(indicator.dat.data[1], 1)
+        self.assertAlmostEqual(indicator.dat.data[0], 2)
+        self.assertAlmostEqual(indicator.dat.data[1], 2)
 
     def test_convert_adjoint_error(self):
         test_space = {"Dos": self.one.function_space()}
         indicator = get_dwr_indicator(self.F, self.two, test_space=test_space)
-        self.assertAlmostEqual(indicator.dat.data[0], 1)
-        self.assertAlmostEqual(indicator.dat.data[1], 1)
+        self.assertAlmostEqual(indicator.dat.data[0], 2)
+        self.assertAlmostEqual(indicator.dat.data[1], 2)
 
     def test_convert_adjoint_error_no_test_space(self):
         indicator = get_dwr_indicator(self.F, self.two)
-        self.assertAlmostEqual(indicator.dat.data[0], 1)
-        self.assertAlmostEqual(indicator.dat.data[1], 1)
+        self.assertAlmostEqual(indicator.dat.data[0], 2)
+        self.assertAlmostEqual(indicator.dat.data[1], 2)
 
     def test_convert_adjoint_error_mismatch(self):
         test_space = {"field": self.one.function_space()}
