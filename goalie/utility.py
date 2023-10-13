@@ -184,14 +184,14 @@ def errornorm(u, uh: firedrake.Function, norm_type: str = "L2", **kwargs) -> flo
     :kwarg boundary: should the norm be computed over
         the domain boundary?
     """
-    if len(u.ufl_shape) != len(uh.ufl_shape):
-        raise RuntimeError("Mismatching rank between u and uh.")
-
     if not isinstance(uh, firedrake.Function):
-        raise TypeError(f"uh should be a Function, is a {type(uh).__name__}.")
+        raise TypeError(f"uh should be a Function, is a '{type(uh)}'.")
     if norm_type[0] == "l":
         if not isinstance(u, firedrake.Function):
-            raise TypeError(f"u should be a Function, is a {type(u).__name__}.")
+            raise TypeError(f"u should be a Function, is a '{type(u)}'.")
+
+    if len(u.ufl_shape) != len(uh.ufl_shape):
+        raise RuntimeError("Mismatching rank between u and uh.")
 
     if isinstance(u, firedrake.Function):
         degree_u = u.function_space().ufl_element().degree()
