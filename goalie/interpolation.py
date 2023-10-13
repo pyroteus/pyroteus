@@ -1,7 +1,7 @@
 """
 Driver functions for mesh-to-mesh data transfer.
 """
-from .utility import assemble_mass_matrix
+from .utility import assemble_mass_matrix, cofunction2function, function2cofunction
 import firedrake
 from firedrake.petsc import PETSc
 from petsc4py import PETSc as petsc4py
@@ -29,8 +29,13 @@ def project(
         seek to project into
     :kwarg adjoint: apply the transposed projection operator?
     """
-    if not isinstance(source, firedrake.Function):
-        raise NotImplementedError("Can only currently project Functions.")  # TODO
+    if not isinstance(source, (firedrake.Function, firedrake.Cofunction)):
+        raise NotImplementedError(
+            "Can only currently project Functions and Cofunctions."
+        )  # TODO
+    adj_value = isinstance(source, firedrake.Cofunction)
+    if adj_value:
+        source = cofunction2function(source)
     Vs = source.function_space()
     if isinstance(target_space, firedrake.Function):
         target = target_space
@@ -66,7 +71,10 @@ def project(
         )
 
     # Apply projector
-    return (_project_adjoint if adjoint else _project)(source, target, **kwargs)
+    target = (_project_adjoint if adjoint else _project)(source, target, **kwargs)
+    if adj_value:
+        target = function2cofunction(target)
+    return target
 
 
 @PETSc.Log.EventDecorator("goalie.interpolation.project")
