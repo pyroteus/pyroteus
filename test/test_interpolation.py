@@ -23,10 +23,9 @@ class TestProject(unittest.TestCase):
     def test_notimplemented_error(self):
         Vs = FunctionSpace(self.source_mesh, "CG", 1)
         Vt = FunctionSpace(self.target_mesh, "CG", 1)
-        source = Function(Vs)
         with self.assertRaises(NotImplementedError) as cm:
-            project(2 * source, Vt)
-        msg = "Can only currently project Functions."
+            project(2 * Function(Vs), Vt)
+        msg = "Can only currently project Functions and Cofunctions."
         self.assertEqual(str(cm.exception), msg)
 
     @parameterized.expand([[False], [True]])
