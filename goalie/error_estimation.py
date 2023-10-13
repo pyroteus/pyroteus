@@ -33,6 +33,7 @@ def form2indicator(F: ufl.form.Form) -> Function:
     P0 = FunctionSpace(mesh, "DG", 0)
     p0test = firedrake.TestFunction(P0)
     indicator = Function(P0)
+    mass_term = firedrake.TrialFunction(P0) * p0test * firedrake.dx
 
     # Contributions from surface integrals
     flux_terms = 0
@@ -44,8 +45,6 @@ def form2indicator(F: ufl.form.Form) -> Function:
         flux_terms += p0test("+") * integral.integrand() * dS
         flux_terms += p0test("-") * integral.integrand() * dS
     if flux_terms != 0:
-        dx = firedrake.dx
-        mass_term = firedrake.TrialFunction(P0) * p0test * dx
         sp = {
             "snes_type": "ksponly",
             "ksp_type": "preonly",
@@ -59,7 +58,15 @@ def form2indicator(F: ufl.form.Form) -> Function:
         dx = firedrake.dx(integral.subdomain_id())
         cell_terms += p0test * integral.integrand() * dx
     if cell_terms != 0:
-        indicator += firedrake.assemble(cell_terms)
+        cell_contrib = Function(P0)
+        sp = {
+            "snes_type": "ksponly",
+            "ksp_type": "preonly",
+            "pc_type": "lu",
+            "pc_factor_mat_solver_type": "mumps",
+        }
+        firedrake.solve(mass_term == cell_terms, cell_contrib, solver_parameters=sp)
+        indicator += cell_contrib
 
     return indicator
 

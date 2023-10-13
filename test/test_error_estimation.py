@@ -51,7 +51,7 @@ class TestForm2Indicator(ErrorEstimationTestCase):
         F = conditional(x + y < 1, 1, 0) * dx
         indicator = form2indicator(F)
         self.assertAlmostEqual(indicator.dat.data[0], 0)
-        self.assertAlmostEqual(indicator.dat.data[1], 0.5)
+        self.assertAlmostEqual(indicator.dat.data[1], 1)
 
 
 class TestIndicators2Estimator(ErrorEstimationTestCase):
