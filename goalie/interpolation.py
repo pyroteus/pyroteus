@@ -13,10 +13,10 @@ import ufl
 __all__ = ["project"]
 
 
-def project(source, target_space, adjoint=False, **kwargs):
+def project(source, target_space, **kwargs):
     """
     Overload :func:`firedrake.projection.project` to account for the case of two mixed
-    function spaces defined on different meshes and for the adjoint projection operator.
+    function spaces defined on different meshes and for the adjoint projection operator when applied to :class:`firedrake.cofunction.Cofunction`\s.
 
     Extra keyword arguments are passed to :func:`firedrake.projection.project`.
 
@@ -25,7 +25,6 @@ def project(source, target_space, adjoint=False, **kwargs):
     :arg target_space: the :class:`firedrake.functionspaceimpl.FunctionSpace` which we
         seek to project into, or the :class:`firedrake.function.Function` or
         :class:`firedrake.cofunction.Cofunction` to use as the target
-    :kwarg adjoint: apply the transposed projection operator?
     """
     if not isinstance(source, (firedrake.Function, firedrake.Cofunction)):
         raise NotImplementedError(
@@ -34,13 +33,12 @@ def project(source, target_space, adjoint=False, **kwargs):
 
     # If the input is a Cofunction then record this, map to a Function for the
     # projection and then map back to a Cofunction afterwards
-    adj_value = isinstance(source, firedrake.Cofunction)
-    if adj_value:
+    adjoint = isinstance(source, firedrake.Cofunction)
+    if adjoint:
         source = cofunction2function(source)
-    Vs = source.function_space()
 
     # Account for cases where target_space is not a FunctionSpace
-    if isinstance(target_space, firedrake.WithGeometry):
+    if isinstance(target_space, WithGeometry):
         target = firedrake.Function(target_space)
     elif isinstance(target_space, firedrake.Function):
         target = target_space
@@ -50,37 +48,17 @@ def project(source, target_space, adjoint=False, **kwargs):
         raise TypeError(
             "Second argument must be a FunctionSpace, Function, or Cofunction."
         )
-    Vt = target.function_space()
 
-    # Account for the case where the meshes match
-    source_mesh = ufl.domain.extract_unique_domain(source)
-    target_mesh = ufl.domain.extract_unique_domain(target)
-    if source_mesh == target_mesh:
-        if Vs == Vt:
-            target.assign(source)
-        elif not adjoint:
-            target.project(source, **kwargs)
+    # Choose appropriate transfer method
+    if source.function_space() == target.function_space():
+        target.assign(source)
+    elif adjoint:
+        target = _project_adjoint(source, target, **kwargs)
     else:
-        space1, space2 = ("target", "source") if adjoint else ("source", "target")
-        if hasattr(Vs, "num_sub_spaces"):
-            if not hasattr(Vt, "num_sub_spaces"):
-                raise ValueError(
-                    f"{space1.capitalize()} space has multiple components but {space2}"
-                    " space does not."
-                )
-            if Vs.num_sub_spaces() != Vt.num_sub_spaces():
-                raise ValueError(
-                    f"Inconsistent numbers of components in {space1} and {space2}"
-                    f" spaces: {Vs.num_sub_spaces()} vs. {Vt.num_sub_spaces()}."
-                )
-        elif hasattr(Vt, "num_sub_spaces"):
-            raise ValueError(
-                f"{space2.capitalize()} space has multiple components but {space1}"
-                " space does not."
-            )
-        target = (_project_adjoint if adjoint else _project)(source, target, **kwargs)
+        target = _project(source, target, **kwargs)
 
-    if adj_value:
+    # Map back to Cofunction in the adjoint case
+    if adjoint:
         target = function2cofunction(target)
     return target
 
@@ -102,9 +80,24 @@ def _project(
     :arg source: the `Function` to be projected
     :arg target: the `Function` which we seek to project onto
     """
+    Vs = source.function_space()
+    Vt = target.function_space()
+    if hasattr(Vs, "num_sub_spaces"):
+        if not hasattr(Vt, "num_sub_spaces"):
+            raise ValueError(
+                "Source space has multiple components but target space does not."
+            )
+        if Vs.num_sub_spaces() != Vt.num_sub_spaces():
+            raise ValueError(
+                "Inconsistent numbers of components in source and target spaces:"
+                f" {Vs.num_sub_spaces()} vs. {Vt.num_sub_spaces()}."
+            )
+    elif hasattr(Vt, "num_sub_spaces"):
+        raise ValueError(
+            "Target space has multiple components but source space does not."
+        )
     assert isinstance(target, firedrake.Function)
-    if hasattr(target.function_space(), "num_sub_spaces"):
-        assert hasattr(source.function_space(), "num_sub_spaces")
+    if hasattr(Vt, "num_sub_spaces"):
         for s, t in zip(source.subfunctions, target.subfunctions):
             t.project(s, **kwargs)
     else:
@@ -137,6 +130,20 @@ def _project_adjoint(
     Vt = target_b.function_space()
     assert isinstance(source_b, firedrake.Function)
     Vs = source_b.function_space()
+    if hasattr(Vs, "num_sub_spaces"):
+        if not hasattr(Vt, "num_sub_spaces"):
+            raise ValueError(
+                "Source space has multiple components but target space does not."
+            )
+        if Vs.num_sub_spaces() != Vt.num_sub_spaces():
+            raise ValueError(
+                "Inconsistent numbers of components in target and source spaces:"
+                f" {Vs.num_sub_spaces()} vs. {Vt.num_sub_spaces()}."
+            )
+    elif hasattr(Vt, "num_sub_spaces"):
+        raise ValueError(
+            "Target space has multiple components but source space does not."
+        )
 
     # Get subspaces
     if hasattr(Vs, "num_sub_spaces"):
