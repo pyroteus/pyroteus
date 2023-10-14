@@ -6,15 +6,13 @@ import firedrake
 from firedrake.functionspaceimpl import WithGeometry
 from firedrake.petsc import PETSc
 from petsc4py import PETSc as petsc4py
-from typing import Union
-import ufl
 
 
 __all__ = ["project"]
 
 
 def project(source, target_space, **kwargs):
-    """
+    r"""
     Overload :func:`firedrake.projection.project` to account for the case of two mixed
     function spaces defined on different meshes and for the adjoint projection operator when applied to :class:`firedrake.cofunction.Cofunction`\s.
 

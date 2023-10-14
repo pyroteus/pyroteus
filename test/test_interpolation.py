@@ -4,7 +4,6 @@ Test interpolation schemes.
 from firedrake import *
 from goalie import *
 from goalie.utility import function2cofunction
-from parameterized import parameterized
 import unittest
 
 
