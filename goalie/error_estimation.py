@@ -32,42 +32,32 @@ def form2indicator(F: ufl.form.Form) -> Function:
     mesh = F.ufl_domain()
     P0 = FunctionSpace(mesh, "DG", 0)
     p0test = firedrake.TestFunction(P0)
-    indicator = Function(P0)
-    mass_term = firedrake.TrialFunction(P0) * p0test * firedrake.dx
+    f = ufl.FacetArea(mesh)
+    h = ufl.CellVolume(mesh)
 
-    # Contributions from surface integrals
-    flux_terms = 0
+    rhs = 0
     for integral in F.integrals_by_type("exterior_facet"):
         ds = firedrake.ds(integral.subdomain_id())
-        flux_terms += p0test * integral.integrand() * ds
+        rhs += p0test * integral.integrand() * ds
     for integral in F.integrals_by_type("interior_facet"):
         dS = firedrake.dS(integral.subdomain_id())
-        flux_terms += p0test("+") * integral.integrand() * dS
-        flux_terms += p0test("-") * integral.integrand() * dS
-    if flux_terms != 0:
-        sp = {
+        rhs += p0test("+") * integral.integrand() * dS
+        rhs += p0test("-") * integral.integrand() * dS
+    for integral in F.integrals_by_type("cell"):
+        dx = firedrake.dx(integral.subdomain_id())
+        rhs += p0test * integral.integrand() * dx
+
+    assert rhs != 0
+    indicator = Function(P0)
+    firedrake.solve(
+        firedrake.TrialFunction(P0) * p0test * firedrake.dx == rhs,
+        indicator,
+        solver_parameters={
             "snes_type": "ksponly",
             "ksp_type": "preonly",
             "pc_type": "jacobi",
-        }
-        firedrake.solve(mass_term == flux_terms, indicator, solver_parameters=sp)
-
-    # Contributions from volume integrals
-    cell_terms = 0
-    for integral in F.integrals_by_type("cell"):
-        dx = firedrake.dx(integral.subdomain_id())
-        cell_terms += p0test * integral.integrand() * dx
-    if cell_terms != 0:
-        cell_contrib = Function(P0)
-        sp = {
-            "snes_type": "ksponly",
-            "ksp_type": "preonly",
-            "pc_type": "lu",
-            "pc_factor_mat_solver_type": "mumps",
-        }
-        firedrake.solve(mass_term == cell_terms, cell_contrib, solver_parameters=sp)
-        indicator += cell_contrib
-
+        },
+    )
     return indicator
 
 
