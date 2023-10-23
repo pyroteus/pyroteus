@@ -14,7 +14,8 @@ __all__ = ["project"]
 def project(source, target_space, **kwargs):
     r"""
     Overload :func:`firedrake.projection.project` to account for the case of two mixed
-    function spaces defined on different meshes and for the adjoint projection operator when applied to :class:`firedrake.cofunction.Cofunction`\s.
+    function spaces defined on different meshes and for the adjoint projection operator
+    when applied to :class:`firedrake.cofunction.Cofunction`\s.
 
     Extra keyword arguments are passed to :func:`firedrake.projection.project`.
 
@@ -28,43 +29,24 @@ def project(source, target_space, **kwargs):
         raise NotImplementedError(
             "Can only currently project Functions and Cofunctions."
         )
-
-    # If the input is a Cofunction then record this, map to a Function for the
-    # projection and then map back to a Cofunction afterwards
-    adjoint = isinstance(source, firedrake.Cofunction)
-    if adjoint:
-        source = cofunction2function(source)
-
-    # Account for cases where target_space is not a FunctionSpace
     if isinstance(target_space, WithGeometry):
         target = firedrake.Function(target_space)
-    elif isinstance(target_space, firedrake.Function):
+    elif isinstance(target_space, (firedrake.Cofunction, firedrake.Function)):
         target = target_space
-    elif isinstance(target_space, firedrake.Cofunction):
-        target = cofunction2function(target_space)
     else:
         raise TypeError(
             "Second argument must be a FunctionSpace, Function, or Cofunction."
         )
-
-    # Choose appropriate transfer method
-    if source.function_space() == target.function_space():
-        target.assign(source)
-    elif adjoint:
-        target = _project_adjoint(source, target, **kwargs)
+    if isinstance(source, firedrake.Cofunction):
+        return _project_adjoint(source, target, **kwargs)
+    elif source.function_space() == target.function_space():
+        return target.assign(source)
     else:
-        target = _project(source, target, **kwargs)
-
-    # Map back to Cofunction in the adjoint case
-    if adjoint:
-        target = function2cofunction(target)
-    return target
+        return _project(source, target, **kwargs)
 
 
 @PETSc.Log.EventDecorator("goalie.interpolation.project")
-def _project(
-    source: firedrake.Function, target: firedrake.Function, **kwargs
-) -> firedrake.Function:
+def _project(source, target, **kwargs):
     """
     Apply a mesh-to-mesh conservative projection to some source
     :class:`firedrake.function.Function`, mapping to a target
@@ -104,13 +86,11 @@ def _project(
 
 
 @PETSc.Log.EventDecorator("goalie.interpolation.project_adjoint")
-def _project_adjoint(
-    target_b: firedrake.Function, source_b: firedrake.Function, **kwargs
-) -> firedrake.Function:
+def _project_adjoint(target_b, source_b, **kwargs):
     """
     Apply the adjoint of a mesh-to-mesh conservative projection to some seed
-    :class:`firedrake.function.Function`, mapping to an output
-    :class:`firedrake.function.Function`.
+    :class:`firedrake.cofunction.Cofunction`, mapping to an output
+    :class:`firedrake.cofunction.Cofunction`.
 
     The notation used here is in terms of the adjoint of standard projection.
     However, this function may also be interpreted as a projector in its own right,
@@ -118,15 +98,20 @@ def _project_adjoint(
 
     Extra keyword arguments are passed to :func:`firedrake.projection.project`.
 
-    :arg target_b: seed :class:`firedrake.function.Function` from the target space of
-        the forward projection
-    :arg source_b: the :class:`firedrake.function.Function` from the source space of
-        the forward projection
+    :arg target_b: seed :class:`firedrake.cofunction.Cofunction` from the target space
+        of the forward projection
+    :arg source_b: the :class:`firedrake.cofunction.Cofunction` from the source space
+        of the forward projection
     """
     from firedrake.supermeshing import assemble_mixed_mass_matrix
 
+    # Map to Functions to apply the adjoint projection
+    if not isinstance(target_b, firedrake.Function):
+        target_b = cofunction2function(target_b)
+    if not isinstance(source_b, firedrake.Function):
+        source_b = cofunction2function(source_b)
+
     Vt = target_b.function_space()
-    assert isinstance(source_b, firedrake.Function)
     Vs = source_b.function_space()
     if hasattr(Vs, "num_sub_spaces"):
         if not hasattr(Vt, "num_sub_spaces"):
@@ -138,28 +123,28 @@ def _project_adjoint(
                 "Inconsistent numbers of components in target and source spaces:"
                 f" {Vs.num_sub_spaces()} vs. {Vt.num_sub_spaces()}."
             )
+        target_b_split = target_b.subfunctions
+        source_b_split = source_b.subfunctions
     elif hasattr(Vt, "num_sub_spaces"):
         raise ValueError(
             "Target space has multiple components but source space does not."
         )
-
-    # Get subspaces
-    if hasattr(Vs, "num_sub_spaces"):
-        assert hasattr(Vt, "num_sub_spaces")
-        target_b_split = target_b.subfunctions
-        source_b_split = source_b.subfunctions
     else:
         target_b_split = [target_b]
         source_b_split = [source_b]
 
     # Apply adjoint projection operator to each component
-    for i, (t_b, s_b) in enumerate(zip(target_b_split, source_b_split)):
-        ksp = petsc4py.KSP().create()
-        ksp.setOperators(assemble_mass_matrix(t_b.function_space()))
-        mixed_mass = assemble_mixed_mass_matrix(Vt[i], Vs[i])
-        with t_b.dat.vec_ro as tb, s_b.dat.vec_wo as sb:
-            residual = tb.copy()
-            ksp.solveTranspose(tb, residual)
-            mixed_mass.mult(residual, sb)  # NOTE: mixed mass already transposed
+    if Vs == Vt:
+        source_b.assign(target_b)
+    else:
+        for i, (t_b, s_b) in enumerate(zip(target_b_split, source_b_split)):
+            ksp = petsc4py.KSP().create()
+            ksp.setOperators(assemble_mass_matrix(t_b.function_space()))
+            mixed_mass = assemble_mixed_mass_matrix(Vt[i], Vs[i])
+            with t_b.dat.vec_ro as tb, s_b.dat.vec_wo as sb:
+                residual = tb.copy()
+                ksp.solveTranspose(tb, residual)
+                mixed_mass.mult(residual, sb)  # NOTE: already transposed above
 
-    return source_b
+    # Map back to a Cofunction
+    return function2cofunction(source_b)
