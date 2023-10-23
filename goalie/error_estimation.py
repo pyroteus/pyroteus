@@ -32,20 +32,19 @@ def form2indicator(F: ufl.form.Form) -> Function:
     mesh = F.ufl_domain()
     P0 = FunctionSpace(mesh, "DG", 0)
     p0test = firedrake.TestFunction(P0)
-    f = ufl.FacetArea(mesh)
     h = ufl.CellVolume(mesh)
 
     rhs = 0
     for integral in F.integrals_by_type("exterior_facet"):
         ds = firedrake.ds(integral.subdomain_id())
-        rhs += p0test * integral.integrand() * ds
+        rhs += h * p0test * integral.integrand() * ds
     for integral in F.integrals_by_type("interior_facet"):
         dS = firedrake.dS(integral.subdomain_id())
-        rhs += p0test("+") * integral.integrand() * dS
-        rhs += p0test("-") * integral.integrand() * dS
+        rhs += h("+") * p0test("+") * integral.integrand() * dS
+        rhs += h("-") * p0test("-") * integral.integrand() * dS
     for integral in F.integrals_by_type("cell"):
         dx = firedrake.dx(integral.subdomain_id())
-        rhs += p0test * integral.integrand() * dx
+        rhs += h * p0test * integral.integrand() * dx
 
     assert rhs != 0
     indicator = Function(P0)
