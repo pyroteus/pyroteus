@@ -23,10 +23,11 @@ def get_form(mesh_seq):
     def form(index, solutions):
         u, u_ = solutions["u"]
         P = mesh_seq.time_partition
-        dt = Constant(P.timesteps[index])
 
-        # Specify viscosity coefficient
-        nu = Constant(0.0001)
+        # Define constants
+        R = FunctionSpace(mesh_seq[index], "R", 0)
+        dt = Function(R).assign(P.timesteps[index])
+        nu = Function(R).assign(0.0001)
 
         # Setup variational problem
         v = TestFunction(u.function_space())
@@ -93,12 +94,13 @@ def get_solver(mesh_seq):
 #    \;\mathrm dy\;\mathrm dt.
 #
 # Note that in this case we multiply by the timestep.
-# It is wrapped in a :class:`Constant` to avoid
+# It is wrapped in a :class:`Function` from `'R'` space to avoid
 # recompilation if the value is changed. ::
 
 
 def get_qoi(mesh_seq, solutions, i):
-    dt = Constant(mesh_seq.time_partition[i].timestep)
+    R = FunctionSpace(mesh_seq[i], "R", 0)
+    dt = Function(R).assign(mesh_seq.time_partition[i].timestep)
 
     def time_integrated_qoi(t):
         u = solutions["u"]

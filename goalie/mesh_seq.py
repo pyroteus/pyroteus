@@ -3,8 +3,8 @@ Sequences of meshes corresponding to a :class:`~.TimePartition`.
 """
 import firedrake
 from firedrake.petsc import PETSc
-from firedrake.adjoint.solving import get_solve_blocks
-from pyadjoint import get_working_tape, Block
+from firedrake.adjoint_utils.solving import get_solve_blocks
+from firedrake.adjoint import pyadjoint
 from .interpolation import project
 from .log import pyrint, debug, warning, info, logger, DEBUG
 from .options import AdaptParameters
@@ -328,9 +328,12 @@ class MeshSeq:
         :arg field: name of the prognostic solution field
         :arg subinterval: subinterval index
         """
+        tape = pyadjoint.get_working_tape()
+        if tape is None:
+            self.warning("Tape does not exist!")
+            return []
 
-        # Get all blocks
-        blocks = get_working_tape().get_blocks()
+        blocks = tape.get_blocks()
         if len(blocks) == 0:
             self.warning("Tape has no blocks!")
             return blocks
@@ -385,9 +388,7 @@ class MeshSeq:
             )
         return solve_blocks
 
-    def _output(
-        self, field: str, subinterval: int, solve_block: Block
-    ) -> firedrake.Function:
+    def _output(self, field, subinterval, solve_block):
         """
         For a given solve block and solution field, get the block's outputs which
         corresponds to the solution from the current timestep.
@@ -430,9 +431,7 @@ class MeshSeq:
                 " outputs."
             )
 
-    def _dependency(
-        self, field: str, subinterval: int, solve_block: Block
-    ) -> firedrake.Function:
+    def _dependency(self, field, subinterval, solve_block):
         """
         For a given solve block and solution field, get the block's dependency which
         corresponds to the solution from the previous timestep.
@@ -500,8 +499,6 @@ class MeshSeq:
         :return solution: an :class:`~.AttrDict` containing solution fields and their
             lagged versions.
         """
-        from firedrake_adjoint import pyadjoint
-
         num_subintervals = len(self)
         function_spaces = self.function_spaces
         P = self.time_partition
@@ -528,9 +525,13 @@ class MeshSeq:
             }
         )
 
-        # Clear tape
-        tape = pyadjoint.get_working_tape()
-        tape.clear_tape()
+        # Start annotating
+        if pyadjoint.annotate_tape():
+            tape = pyadjoint.get_working_tape()
+            if tape is not None:
+                tape.clear_tape()
+        else:
+            pyadjoint.continue_annotation()
 
         # Loop over the subintervals
         checkpoint = self.initial_condition
@@ -588,7 +589,7 @@ class MeshSeq:
                 )
 
             # Clear the tape to reduce the memory footprint
-            tape.clear_tape()
+            pyadjoint.get_working_tape().clear_tape()
 
         return solutions
 

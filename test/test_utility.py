@@ -194,14 +194,14 @@ class TestErrorNorm(unittest.TestCase):
 
     def test_not_function_error(self):
         with self.assertRaises(TypeError) as cm:
-            errornorm(self.f, Constant(1.0))
-        msg = "uh should be a Function, is a Constant."
+            errornorm(self.f, 1.0)
+        msg = "uh should be a Function, is a '<class 'float'>'."
         self.assertEqual(str(cm.exception), msg)
 
     def test_not_function_error_lp(self):
         with self.assertRaises(TypeError) as cm:
-            errornorm(Constant(1.0), self.f, norm_type="l1")
-        msg = "u should be a Function, is a Constant."
+            errornorm(1.0, self.f, norm_type="l1")
+        msg = "u should be a Function, is a '<class 'float'>'."
         self.assertEqual(str(cm.exception), msg)
 
     def test_mixed_space_invalid_norm_error(self):

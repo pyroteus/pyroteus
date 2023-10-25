@@ -3,6 +3,7 @@ Test adjoint drivers.
 """
 from firedrake import *
 from goalie_adjoint import *
+import pyadjoint
 import pytest
 import importlib
 import os
@@ -96,9 +97,6 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         or as a time integral?
     :kwarg debug: toggle debugging mode
     """
-    from firedrake_adjoint import pyadjoint
-
-    # Debugging
     if debug:
         set_log_level(DEBUG)
 
@@ -137,16 +135,20 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
 
     # Solve forward and adjoint without solve_adjoint
     pyrint("\n--- Adjoint solve on 1 subinterval using pyadjoint\n")
+    if not pyadjoint.annotate_tape():
+        pyadjoint.continue_annotation()
+    tape = pyadjoint.get_working_tape()
+    tape.clear_tape()
     ic = mesh_seq.initial_condition
     controls = [pyadjoint.Control(value) for key, value in ic.items()]
     sols = mesh_seq.solver(0, ic)
     qoi = mesh_seq.get_qoi(sols, 0)
     J = mesh_seq.J if qoi_type == "time_integrated" else qoi()
     m = pyadjoint.enlisting.Enlist(controls)
-    tape = pyadjoint.get_working_tape()
-    with pyadjoint.stop_annotating():
-        with tape.marked_nodes(m):
-            tape.evaluate_adj(markings=True)
+    assert pyadjoint.annotate_tape()
+    pyadjoint.pause_annotation()
+    with tape.marked_nodes(m):
+        tape.evaluate_adj(markings=True)
     # FIXME: Using mixed Functions as Controls not correct
     J_expected = float(J)
 
@@ -158,7 +160,8 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
         adj_sols_expected[field] = solve_blocks[0].adj_sol.copy(deepcopy=True)
         if not steady:
             dep = mesh_seq._dependency(field, 0, solve_blocks[0])
-            adj_values_expected[field] = Function(fs[0], val=dep.adj_value)
+            adj_values_expected[field] = Cofunction(fs[0].dual())
+            adj_values_expected[field].assign(dep.adj_value)
 
     # Loop over having one or two subintervals
     for N in range(1, 2 if steady else 3):
@@ -217,6 +220,9 @@ def test_adjoint_same_mesh(problem, qoi_type, debug=False):
                     raise ValueError(
                         f"Adjoint values do not match at t=0 (error {err:.4e}.)"
                     )
+
+    tape = pyadjoint.get_working_tape()
+    tape.clear_tape()
 
 
 def plot_solutions(problem, qoi_type, debug=True):

@@ -40,10 +40,15 @@ def get_form(mesh_seq):
     def form(index, sols):
         c, c_ = sols["c"]
         function_space = mesh_seq.function_spaces["c"][index]
-        D = Constant(0.1)
-        u = Constant(as_vector([1, 0]))
         h = CellSize(mesh_seq[index])
         S = source(mesh_seq[index])
+
+        # Define constants
+        R = FunctionSpace(mesh_seq[index], "R", 0)
+        D = Function(R).assign(0.1)
+        u_x = Function(R).assign(1.0)
+        u_y = Function(R).assign(0.0)
+        u = as_vector([u_x, u_y])
 
         # SUPG stabilisation parameter
         unorm = sqrt(dot(u, u))

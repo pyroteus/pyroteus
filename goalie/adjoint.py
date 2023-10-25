@@ -3,12 +3,12 @@ Drivers for solving adjoint problems on sequences of meshes.
 """
 import firedrake
 from firedrake.petsc import PETSc
-from firedrake_adjoint import pyadjoint
+from firedrake.adjoint import pyadjoint
 from .interpolation import project
 from .mesh_seq import MeshSeq
 from .options import GoalOrientedParameters
 from .time_partition import TimePartition
-from .utility import AttrDict
+from .utility import AttrDict, norm
 from .log import pyrint
 from collections.abc import Callable
 from functools import wraps
@@ -238,8 +238,6 @@ class AdjointMeshSeq(MeshSeq):
         labels = ("forward", "forward_old", "adjoint")
         if not self.steady:
             labels += ("adjoint_next",)
-        if get_adj_values:
-            labels += ("adj_value",)
         solutions = AttrDict(
             {
                 field: AttrDict(
@@ -257,6 +255,16 @@ class AdjointMeshSeq(MeshSeq):
                 for field in self.fields
             }
         )
+        if get_adj_values:
+            for field in self.fields:
+                solutions[field]["adj_value"] = []
+                for i, fs in enumerate(function_spaces[field]):
+                    solutions[field]["adj_value"].append(
+                        [
+                            firedrake.Cofunction(fs.dual(), name=f"{field}_adj_value")
+                            for j in range(P.num_exports_per_subinterval[i] - 1)
+                        ]
+                    )
 
         @PETSc.Log.EventDecorator("goalie.AdjointMeshSeq.solve_adjoint.evaluate_fwd")
         @wraps(solver)
@@ -275,32 +283,37 @@ class AdjointMeshSeq(MeshSeq):
             self.controls = [pyadjoint.Control(init[field]) for field in self.fields]
             return solver(subinterval, init, **kwargs)
 
-        # Clear tape
-        tape = pyadjoint.get_working_tape()
-        tape.clear_tape()
-
         # Loop over subintervals in reverse
-        seeds = None
+        seeds = {}
         for i in reversed(range(num_subintervals)):
             stride = P.num_timesteps_per_export[i]
             num_exports = P.num_exports_per_subinterval[i]
 
+            # Clear tape and start annotation
+            if not pyadjoint.annotate_tape():
+                pyadjoint.continue_annotation()
+            tape = pyadjoint.get_working_tape()
+            if tape is not None:
+                tape.clear_tape()
+
             # Annotate tape on current subinterval
             checkpoint = wrapped_solver(i, checkpoints[i], **solver_kwargs)
+            pyadjoint.pause_annotation()
 
             # Get seed vector for reverse propagation
             if i == num_subintervals - 1:
                 if self.qoi_type in ["end_time", "steady"]:
+                    pyadjoint.continue_annotation()
                     qoi = self.get_qoi(checkpoint, i)
                     self.J = qoi(**qoi_kwargs)
                     if np.isclose(float(self.J), 0.0):
                         self.warning("Zero QoI. Is it implemented as intended?")
+                    pyadjoint.pause_annotation()
             else:
-                with pyadjoint.stop_annotating():
-                    for field, fs in function_spaces.items():
-                        checkpoint[field].block_variable.adj_value = project(
-                            seeds[field], fs[i], adjoint=True
-                        )
+                for field, fs in function_spaces.items():
+                    checkpoint[field].block_variable.adj_value = project(
+                        seeds[field], fs[i], adjoint=True
+                    )
 
             # Update adjoint solver kwargs
             for field in self.fields:
@@ -308,6 +321,7 @@ class AdjointMeshSeq(MeshSeq):
                     block.adj_kwargs.update(adj_solver_kwargs)
 
             # Solve adjoint problem
+            tape = pyadjoint.get_working_tape()
             with PETSc.Log.Event("goalie.AdjointMeshSeq.solve_adjoint.evaluate_adj"):
                 m = pyadjoint.enlisting.Enlist(self.controls)
                 with pyadjoint.stop_annotating():
@@ -363,7 +377,7 @@ class AdjointMeshSeq(MeshSeq):
 
                     # Adjoint action also comes from dependencies
                     if get_adj_values and dep is not None:
-                        sols.adj_value[i][j].assign(dep.adj_value.function)
+                        sols.adj_value[i][j].assign(dep.adj_value)
 
                     # The adjoint solution at the 'next' timestep is determined from the
                     # adj_sol attribute of the next solve block
@@ -387,32 +401,30 @@ class AdjointMeshSeq(MeshSeq):
                             )
 
                 # Check non-zero adjoint solution/value
-                if np.isclose(firedrake.norm(solutions[field].adjoint[i][0]), 0.0):
+                if np.isclose(norm(solutions[field].adjoint[i][0]), 0.0):
                     self.warning(
                         f"Adjoint solution for field '{field}' on {self.th(i)}"
                         " subinterval is zero."
                     )
-                if get_adj_values and np.isclose(
-                    firedrake.norm(sols.adj_value[i][0]), 0.0
-                ):
+                if get_adj_values and np.isclose(norm(sols.adj_value[i][0]), 0.0):
                     self.warning(
                         f"Adjoint action for field '{field}' on {self.th(i)}"
                         " subinterval is zero."
                     )
 
             # Get adjoint action on each subinterval
-            seeds = {
-                field: firedrake.Function(
-                    function_spaces[field][i], val=control.block_variable.adj_value
-                )
-                for field, control in zip(self.fields, self.controls)
-            }
-            for field, seed in seeds.items():
-                if not self.steady and np.isclose(firedrake.norm(seed), 0.0):
-                    self.warning(
-                        f"Adjoint action for field '{field}' on {self.th(i)}"
-                        " subinterval is zero."
+            with pyadjoint.stop_annotating():
+                for field, control in zip(self.fields, self.controls):
+                    seeds[field] = firedrake.Cofunction(
+                        function_spaces[field][i].dual()
                     )
+                    if control.block_variable.adj_value is not None:
+                        seeds[field].assign(control.block_variable.adj_value)
+                    if not self.steady and np.isclose(norm(seeds[field]), 0.0):
+                        self.warning(
+                            f"Adjoint action for field '{field}' on {self.th(i)}"
+                            " subinterval is zero."
+                        )
 
             # Clear the tape to reduce the memory footprint
             tape.clear_tape()
@@ -424,6 +436,8 @@ class AdjointMeshSeq(MeshSeq):
                     "QoI values computed during checkpointing and annotated"
                     f" run do not match ({J_chk} vs. {self.J})"
                 )
+
+        tape.clear_tape()
         return solutions
 
     @staticmethod

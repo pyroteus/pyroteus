@@ -105,27 +105,50 @@ def assemble_mass_matrix(
     return firedrake.assemble(lhs).petscmat
 
 
-@PETSc.Log.EventDecorator("goalie.norm")
-def norm(v: firedrake.Function, norm_type: str = "L2", **kwargs) -> float:
-    r"""
-    Overload :func:`firedrake.norms.norm` to
-    allow for :math:`\ell^p` norms.
+def cofunction2function(c):
+    """
+    Map a :class:`Cofunction` to a :class:`Function`.
+    """
+    f = firedrake.Function(c.function_space().dual())
+    if isinstance(f.dat.data_with_halos, tuple):
+        for i, arr in enumerate(f.dat.data_with_halos):
+            arr[:] = c.dat.data_with_halos[i]
+    else:
+        f.dat.data_with_halos[:] = c.dat.data_with_halos
+    return f
 
-    Note that this version is case sensitive,
-    i.e. ``'l2'`` and ``'L2'`` will give
+
+def function2cofunction(f):
+    """
+    Map a :class:`Function` to a :class:`Cofunction`.
+    """
+    c = firedrake.Cofunction(f.function_space().dual())
+    if isinstance(c.dat.data_with_halos, tuple):
+        for i, arr in enumerate(c.dat.data_with_halos):
+            arr[:] = f.dat.data_with_halos[i]
+    else:
+        c.dat.data_with_halos[:] = f.dat.data_with_halos
+    return c
+
+
+@PETSc.Log.EventDecorator()
+def norm(v, norm_type="L2", **kwargs):
+    r"""
+    Overload :func:`firedrake.norms.norm` to allow for :math:`\ell^p` norms.
+
+    Note that this version is case sensitive, i.e. ``'l2'`` and ``'L2'`` will give
     different results in general.
 
-    :arg v: the :class:`firedrake.function.Function`
-        to take the norm of
-    :kwarg norm_type: choose from ``'l1'``, ``'l2'``,
-        ``'linf'``, ``'L2'``, ``'Linf'``, ``'H1'``,
-        ``'Hdiv'``, ``'Hcurl'``, or any ``'Lp'`` with
-        :math:`p >= 1`.
-    :kwarg condition: a UFL condition for specifying
-        a subdomain to compute the norm over
-    :kwarg boundary: should the norm be computed over
-        the domain boundary?
+    :arg v: the :class:`firedrake.function.Function` or
+        :class:`firedrake.cofunction.Cofunction` to take the norm of
+    :kwarg norm_type: choose from ``'l1'``, ``'l2'``, ``'linf'``, ``'L2'``, ``'Linf'``,
+        ``'H1'``, ``'Hdiv'``, ``'Hcurl'``, or any ``'Lp'`` with :math:`p >= 1`.
+    :kwarg condition: a UFL condition for specifying a subdomain to compute the norm
+        over
+    :kwarg boundary: should the norm be computed over the domain boundary?
     """
+    if isinstance(v, firedrake.Cofunction):
+        v = cofunction2function(v)
     boundary = kwargs.get("boundary", False)
     condition = kwargs.get("condition", firedrake.Constant(1.0))
     norm_codes = {"l1": 0, "l2": 2, "linf": 3}
@@ -165,33 +188,32 @@ def norm(v: firedrake.Function, norm_type: str = "L2", **kwargs) -> float:
         return firedrake.assemble(condition * integrand ** (p / 2) * dX) ** (1 / p)
 
 
-@PETSc.Log.EventDecorator("goalie.errornorm")
-def errornorm(u, uh: firedrake.Function, norm_type: str = "L2", **kwargs) -> float:
+@PETSc.Log.EventDecorator()
+def errornorm(u, uh, norm_type="L2", **kwargs):
     r"""
-    Overload :func:`firedrake.norms.errornorm`
-    to allow for :math:`\ell^p` norms.
+    Overload :func:`firedrake.norms.errornorm` to allow for :math:`\ell^p` norms.
 
-    Note that this version is case sensitive,
-    i.e. ``'l2'`` and ``'L2'`` will give
+    Note that this version is case sensitive, i.e. ``'l2'`` and ``'L2'`` will give
     different results in general.
 
     :arg u: the 'true' value
     :arg uh: the approximation of the 'truth'
-    :kwarg norm_type: choose from ``'l1'``, ``'l2'``,
-        ``'linf'``, ``'L2'``, ``'Linf'``, ``'H1'``,
-        ``'Hdiv'``, ``'Hcurl'``, or any ``'Lp'`` with
-        :math:`p >= 1`.
-    :kwarg boundary: should the norm be computed over
-        the domain boundary?
+    :kwarg norm_type: choose from ``'l1'``, ``'l2'``, ``'linf'``, ``'L2'``, ``'Linf'``,
+        ``'H1'``, ``'Hdiv'``, ``'Hcurl'``, or any ``'Lp'`` with :math:`p >= 1`.
+    :kwarg boundary: should the norm be computed over the domain boundary?
     """
-    if len(u.ufl_shape) != len(uh.ufl_shape):
-        raise RuntimeError("Mismatching rank between u and uh.")
-
+    if isinstance(u, firedrake.Cofunction):
+        u = cofunction2function(u)
+    if isinstance(uh, firedrake.Cofunction):
+        uh = cofunction2function(uh)
     if not isinstance(uh, firedrake.Function):
-        raise TypeError(f"uh should be a Function, is a {type(uh).__name__}.")
+        raise TypeError(f"uh should be a Function, is a '{type(uh)}'.")
     if norm_type[0] == "l":
         if not isinstance(u, firedrake.Function):
-            raise TypeError(f"u should be a Function, is a {type(u).__name__}.")
+            raise TypeError(f"u should be a Function, is a '{type(u)}'.")
+
+    if len(u.ufl_shape) != len(uh.ufl_shape):
+        raise RuntimeError("Mismatching rank between u and uh.")
 
     if isinstance(u, firedrake.Function):
         degree_u = u.function_space().ufl_element().degree()

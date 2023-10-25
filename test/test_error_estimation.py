@@ -37,14 +37,14 @@ class TestForm2Indicator(ErrorEstimationTestCase):
     def test_exterior_facet_integral(self):
         F = self.one * ds(1) - self.one * ds(2)
         indicator = form2indicator(F)
-        self.assertAlmostEqual(indicator.dat.data[0], -2)
-        self.assertAlmostEqual(indicator.dat.data[1], 2)
+        self.assertAlmostEqual(indicator.dat.data[0], -1)
+        self.assertAlmostEqual(indicator.dat.data[1], 1)
 
     def test_interior_facet_integral(self):
         F = avg(self.one) * dS
         indicator = form2indicator(F)
-        self.assertAlmostEqual(indicator.dat.data[0], 2 * sqrt(2))
-        self.assertAlmostEqual(indicator.dat.data[1], 2 * sqrt(2))
+        self.assertAlmostEqual(indicator.dat.data[0], sqrt(2))
+        self.assertAlmostEqual(indicator.dat.data[1], sqrt(2))
 
     def test_cell_integral(self):
         x, y = SpatialCoordinate(self.mesh)
@@ -129,7 +129,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         time_instant = TimeInstant("field", time=1.0)
         indicator = form2indicator(self.one * dx)
         estimator = indicators2estimator({"field": [[indicator]]}, time_instant)
-        self.assertAlmostEqual(estimator, 1.0)
+        self.assertAlmostEqual(estimator, 1)  # 1 * (0.5 + 0.5)
 
     @parameterized.expand([[False], [True]])
     def test_unit_time_instant_abs(self, absolute_value):
@@ -138,19 +138,21 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         estimator = indicators2estimator(
             {"field": [[indicator]]}, time_instant, absolute_value=absolute_value
         )
-        self.assertAlmostEqual(estimator, 1.0 if absolute_value else -1.0)
+        self.assertAlmostEqual(
+            estimator, 1 if absolute_value else -1
+        )  # (-)1 * (0.5 + 0.5)
 
     def test_half_time_instant(self):
         time_instant = TimeInstant("field", time=0.5)
         indicator = form2indicator(self.one * dx)
         estimator = indicators2estimator({"field": [[indicator]]}, time_instant)
-        self.assertAlmostEqual(estimator, 0.5)
+        self.assertAlmostEqual(estimator, 0.5)  # 0.5 * (0.5 + 0.5)
 
     def test_time_partition_same_timestep(self):
         time_partition = TimePartition(1.0, 2, [0.5, 0.5], ["field"])
         indicator = form2indicator(self.one * dx)
         estimator = indicators2estimator({"field": [2 * [indicator]]}, time_partition)
-        self.assertAlmostEqual(estimator, 1.0)
+        self.assertAlmostEqual(estimator, 1)  # 2 * 0.5 * (0.5 + 0.5)
 
     def test_time_partition_different_timesteps(self):
         time_partition = TimePartition(1.0, 2, [0.5, 0.25], ["field"])
@@ -158,7 +160,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         estimator = indicators2estimator(
             {"field": [[indicator], 2 * [indicator]]}, time_partition
         )
-        self.assertAlmostEqual(estimator, 1.0)
+        self.assertAlmostEqual(estimator, 1)  # 0.5 * (0.5 + 0.5) + 0.25 * 2 * (0.5 + 0.5)
 
     def test_time_instant_multiple_fields(self):
         time_instant = TimeInstant(["field1", "field2"], time=1.0)
@@ -166,7 +168,7 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         estimator = indicators2estimator(
             {"field1": [[indicator]], "field2": [[indicator]]}, time_instant
         )
-        self.assertAlmostEqual(estimator, 2.0)
+        self.assertAlmostEqual(estimator, 2)  # 2 * (1 * (0.5 + 0.5))
 
 
 class TestGetDWRIndicator(ErrorEstimationTestCase):

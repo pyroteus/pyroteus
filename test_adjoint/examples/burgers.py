@@ -39,8 +39,9 @@ def get_form(self):
         u, u_ = sols["uv_2d"]
         dt = self.time_partition[i].timestep
         fs = self.function_spaces["uv_2d"][i]
-        dtc = Constant(dt)
-        nu = Constant(0.0001)
+        R = FunctionSpace(self[i], "R", 0)
+        dtc = Function(R).assign(dt)
+        nu = Function(R).assign(0.0001)
         v = TestFunction(fs)
         F = (
             inner((u - u_) / dtc, v) * dx
@@ -104,7 +105,8 @@ def get_qoi(self, sol, i):
     norm over the right hand
     boundary.
     """
-    dtc = Constant(self.time_partition[i].timestep)
+    R = FunctionSpace(self[i], "R", 0)
+    dtc = Function(R).assign(self.time_partition[i].timestep)
 
     def time_integrated_qoi(t):
         u = sol["uv_2d"]

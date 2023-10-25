@@ -38,7 +38,8 @@ def get_form(self):
     def form(i, sols):
         up, up_ = sols["up"]
         W = self.function_spaces["up"][i]
-        nu = Constant(1.0)
+        R = FunctionSpace(self[i], "R", 0)
+        nu = Function(R).assign(1.0)
         u, p = split(up)
         v, q = TestFunctions(W)
         F = (
