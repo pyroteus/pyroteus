@@ -45,7 +45,7 @@ def Mesh(arg, **kwargs) -> firedrake.mesh.MeshGeometry:
         mesh.boundary_area = bnd_len
 
     # Cell size
-    if dim == 2 and mesh.coordinates.ufl_element().cell() == ufl.triangle:
+    if dim == 2 and mesh.coordinates.ufl_element().cell == ufl.triangle:
         mesh.delta_x = firedrake.interpolate(ufl.CellDiameter(mesh), P0)
 
     return mesh
