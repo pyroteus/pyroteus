@@ -120,9 +120,12 @@ class MeshSeq:
     def set_meshes(self, meshes):
         """
         Validate the current meshes and update the associated attributes.
+
+        :arg meshes: mesh or list of meshes to use in the sequence
         """
         if not isinstance(meshes, Iterable):
             meshes = [Mesh(meshes) for subinterval in self.subintervals]
+        self.meshes = meshes
         dim = np.array([mesh.topological_dimension() for mesh in meshes])
         if dim.min() != dim.max():
             raise ValueError("Meshes must all have the same topological dimension.")
@@ -140,7 +143,6 @@ class MeshSeq:
                     f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}"
                 )
             debug(100 * "-")
-        self.meshes = meshes
 
     def plot(
         self, **kwargs
