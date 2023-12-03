@@ -36,7 +36,7 @@ class BurgersMeshSeq(GoalOrientedMeshSeq):
             P = self.time_partition
 
             # Define constants
-            R = FunctionSpace(mesh_seq[index], "R", 0)
+            R = FunctionSpace(self[index], "R", 0)
             dt = Function(R).assign(P.timesteps[index])
             nu = Function(R).assign(0.0001)
 
