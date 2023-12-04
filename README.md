@@ -9,6 +9,7 @@ Goalie provides goal-oriented mesh adaptation pipelines for solving partial diff
 Goal-oriented mesh adaptation presents one of the clearest examples of the intersection between adjoint methods and mesh adaptation. It is an advanced topic, so it is highly recommended that users are familiar with adjoint methods, mesh adaptation and the goal-oriented framework before starting with Goalie.
 
 For more information on Firedrake, please see:  [Firedrake documentation](https://firedrakeproject.org/documentation.html).
+
 For more information on the implementation of the adjoint method, please see:  [dolfin-adjoint documentation](http://www.dolfin-adjoint.org/en/latest/documentation/maths/index.html) 
 
 ## Linux Installation
@@ -17,13 +18,13 @@ The following installation instructions assume a Linux or WSL operating system. 
 
 To use Goalie you will need a bespoke Firedrake installation.
 
-If Firedrake is already installed, please see instructions to install Goalie via `git clone`.
+If Firedrake is already installed, please see instructions "To install Goalie via `git clone`".
 
 Additionally, although the Animate anisotropic mesh adaptation package is not a technical dependency for Goalie, as any bespoke adaptation method can be applied, the associated demos and tests do rely on Animate. For detail on installing Animate see:  [Animate](https://github.com/pyroteus/animate)
 
-### To install Goalie with 'all-in-one' shell script
+### To install Firedrake via shell script
 
-The 'all-in-one' shell script will install Goalie and all its key dependencies, including Firedrake and PETSc.
+Firedrake, along with PETSc, is required by the Goalie package and is available for installation via a shell script.
 
 Instructions:
 - Download installation files either:
@@ -31,10 +32,11 @@ Instructions:
 		- install/install_firedrake_custom_mpi.sh
 		- /install/petsc_options.txt
 	- via curl:
-		- `curl -O https://raw.githubusercontent.com/pyroteus/goalie/main/install/install_firedrake_custom_mpi.sh`
-		- `curl -O https://raw.githubusercontent.com/pyroteus/goalie/main/install/petsc_options.txt`
+		- `curl -O https://raw.githubusercontent.com/pyroteus/animate/main/install/install_firedrake_custom_mpi.sh`
+		- `curl -O https://raw.githubusercontent.com/pyroteus/animate/main/install/petsc_options.txt`
 -  Install firedrake and associated dependencies to a local environment via `source install_firedrake_custom_mpi.sh`
--  The shell script should automatically run the associated tests for the Goalie package, so it is a good idea to confirm these have passed and the installation was successful before proceeding.
+-  Install firedrake and associated dependencies to a local environment via `source install_firedrake_custom_mpi.sh`
+- Continue to follow the instructions below in "To install Goalie via `git clone`" to complete the installation of Goalie.
 
 ### To install Firedrake via Docker image
 
