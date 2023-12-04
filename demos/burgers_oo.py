@@ -3,11 +3,12 @@
 
 # You may have noticed that the functions :func:`get_form`,
 # :func:`get_solver`, :func:`get_initial_condition` and
-# :func:`get_qoi` all take a :class:`MeshSeq` as input and return
-# a function. If this all feels a lot like writing methods for a
-# :class:`MeshSeq` subclass, that's because this is exactly what
-# we are doing. The constructors for :class:`MeshSeq` and
-# :class:`AdjointMeshSeq` simply take these functions and adopt
+# :func:`get_qoi` all take a :class:`MeshSeq`, :class:`AdjointMeshSeq`
+# or :class:`GoalOrientedMeshSeq` as input and return a function.
+# If this all feels a lot like writing methods for a
+# subclass, that's because this is exactly what we are doing.
+# The constructors for :class:`MeshSeq`, :class:`AdjointMeshSeq` and
+# :class:`GoalOrientedMeshSeq` simply take these functions and adopt
 # them as methods. A more natural way to write the subclass yourself.
 #
 # In the following, we mostly copy the contents from the previous
@@ -24,7 +25,7 @@ from goalie_adjoint import *
 set_log_level(DEBUG)
 
 
-class BurgersMeshSeq(AdjointMeshSeq):
+class BurgersMeshSeq(GoalOrientedMeshSeq):
     @staticmethod
     def get_function_spaces(mesh):
         return {"u": VectorFunctionSpace(mesh, "CG", 2)}
@@ -35,7 +36,7 @@ class BurgersMeshSeq(AdjointMeshSeq):
             P = self.time_partition
 
             # Define constants
-            R = FunctionSpace(mesh_seq[index], "R", 0)
+            R = FunctionSpace(self[index], "R", 0)
             dt = Function(R).assign(P.timesteps[index])
             nu = Function(R).assign(0.0001)
 
@@ -114,20 +115,27 @@ meshes = [UnitSquareMesh(n, n, diagonal="left"), UnitSquareMesh(n, n, diagonal="
 end_time = 0.5
 dt = 1 / n
 num_subintervals = len(meshes)
-P = TimePartition(
+time_partition = TimePartition(
     end_time, num_subintervals, dt, ["u"], num_timesteps_per_export=2
 )
-mesh_seq = BurgersMeshSeq(P, meshes, qoi_type="end_time")
-solutions = mesh_seq.solve_adjoint()
-
-# Plotting this, we find that the results are identical to those generated previously. ::
-
-fig, axes, tcs = plot_snapshots(
-    solutions, P, "u", "adjoint", levels=np.linspace(0, 0.8, 9)
+mesh_seq = BurgersMeshSeq(time_partition, meshes, qoi_type="time_integrated")
+solutions, indicators = mesh_seq.indicate_errors(
+    enrichment_kwargs={"enrichment_method": "h"}
 )
-fig.savefig("burgers-oo.jpg")
 
-# .. figure:: burgers-oo.jpg
+# Plotting this, we find that the results are consistent with those generated previously. ::
+
+fig, axes, tcs = plot_indicator_snapshots(indicators, time_partition, "u", levels=50)
+fig.savefig("burgers-oo_ee.jpg")
+
+# .. figure:: burgers-oo_ee.jpg
+#    :figwidth: 90%
+#    :align: center
+
+fig, axes, tcs = plot_snapshots(solutions, time_partition, "u", "adjoint")
+fig.savefig("burgers-oo-time_integrated.jpg")
+
+# .. figure:: burgers-oo-time_integrated.jpg
 #    :figwidth: 90%
 #    :align: center
 

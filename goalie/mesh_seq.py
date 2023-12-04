@@ -63,26 +63,7 @@ class MeshSeq:
         }
         self.subintervals = time_partition.subintervals
         self.num_subintervals = time_partition.num_subintervals
-        self.meshes = initial_meshes
-        if not isinstance(self.meshes, Iterable):
-            self.meshes = [Mesh(initial_meshes) for subinterval in self.subintervals]
-        self.element_counts = [self.count_elements()]
-        self.vertex_counts = [self.count_vertices()]
-        dim = np.array([mesh.topological_dimension() for mesh in self.meshes])
-        if dim.min() != dim.max():
-            raise ValueError("Meshes must all have the same topological dimension.")
-        self.dim = dim.min()
-        if logger.level == DEBUG:
-            for i, mesh in enumerate(self.meshes):
-                nc = mesh.num_cells()
-                nv = mesh.num_vertices()
-                qm = QualityMeasure(mesh)
-                ar = qm("aspect_ratio")
-                mar = ar.vector().gather().max()
-                self.debug(
-                    f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}"
-                )
-            debug(100 * "-")
+        self.set_meshes(initial_meshes)
         self._fs = None
         self._get_function_spaces = kwargs.get("get_function_spaces")
         self._get_initial_condition = kwargs.get("get_initial_condition")
@@ -135,6 +116,34 @@ class MeshSeq:
 
     def count_vertices(self) -> list:
         return [mesh.num_vertices() for mesh in self]  # TODO: make parallel safe
+
+    def set_meshes(self, meshes):
+        """
+        Update the meshes associated with the :class:`MeshSeq`, as well as the
+        associated attributes.
+
+        :arg meshes: mesh or list of meshes to use in the sequence
+        """
+        if not isinstance(meshes, Iterable):
+            meshes = [Mesh(meshes) for subinterval in self.subintervals]
+        self.meshes = meshes
+        dim = np.array([mesh.topological_dimension() for mesh in meshes])
+        if dim.min() != dim.max():
+            raise ValueError("Meshes must all have the same topological dimension.")
+        self.dim = dim.min()
+        self.element_counts = [self.count_elements()]
+        self.vertex_counts = [self.count_vertices()]
+        if logger.level == DEBUG:
+            for i, mesh in enumerate(meshes):
+                nc = mesh.num_cells()
+                nv = mesh.num_vertices()
+                qm = QualityMeasure(mesh)
+                ar = qm("aspect_ratio")
+                mar = ar.vector().gather().max()
+                self.debug(
+                    f"{i}: {nc:7d} cells, {nv:7d} vertices,   max aspect ratio {mar:.2f}"
+                )
+            debug(100 * "-")
 
     def plot(
         self, **kwargs
