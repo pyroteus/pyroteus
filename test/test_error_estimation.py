@@ -160,7 +160,9 @@ class TestIndicators2Estimator(ErrorEstimationTestCase):
         estimator = indicators2estimator(
             {"field": [[indicator], 2 * [indicator]]}, time_partition
         )
-        self.assertAlmostEqual(estimator, 1)  # 0.5 * (0.5 + 0.5) + 0.25 * 2 * (0.5 + 0.5)
+        self.assertAlmostEqual(
+            estimator, 1
+        )  # 0.5 * (0.5 + 0.5) + 0.25 * 2 * (0.5 + 0.5)
 
     def test_time_instant_multiple_fields(self):
         time_instant = TimeInstant(["field1", "field2"], time=1.0)

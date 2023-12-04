@@ -70,8 +70,12 @@ class GoalOrientedMeshSeq(AdjointMeshSeq):
             for label, fs in mesh_seq_e.function_spaces.items():
                 for n, _space in enumerate(fs):
                     element = _space.ufl_element()
-                    element = element.reconstruct(degree=element.degree() + num_enrichments)
-                    mesh_seq_e._fs[label][n] = FunctionSpace(mesh_seq_e.meshes[n], element)
+                    element = element.reconstruct(
+                        degree=element.degree() + num_enrichments
+                    )
+                    mesh_seq_e._fs[label][n] = FunctionSpace(
+                        mesh_seq_e.meshes[n], element
+                    )
 
         return mesh_seq_e
 
